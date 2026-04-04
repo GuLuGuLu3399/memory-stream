@@ -1,0 +1,8 @@
+[package]
+name = "ast-renderer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ast-core = { path = "../ast-core" }
+regex = "1"

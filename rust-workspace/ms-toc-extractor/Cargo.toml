@@ -1,0 +1,12 @@
+[package]
+name = "ms-toc-extractor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ast-core = { path = "../ast-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+md-parser = { path = "../md-parser" }

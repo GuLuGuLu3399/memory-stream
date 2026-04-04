@@ -1,0 +1,16 @@
+[package]
+name = "ms-local-draft"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+chrono = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { workspace = true, features = ["rt", "macros"] }

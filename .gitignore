@@ -1,0 +1,16 @@
+# Rust
+target/
+**/*.rs.bk
+
+# Node/前端
+node_modules/
+dist/
+.env
+
+# Go
+go-server/bin/
+go-server/nul
+
+# IDE
+.idea/
+.vscode/

@@ -1,0 +1,14 @@
+{
+  "name": "memory-stream-frontend",
+  "private": true,
+  "scripts": {
+    "dev:admin": "pnpm --filter admin-tauri dev",
+    "dev:web": "pnpm --filter web-reader dev",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "jsdom": "^29.0.1",
+    "vitest": "^4.1.2"
+  }
+}

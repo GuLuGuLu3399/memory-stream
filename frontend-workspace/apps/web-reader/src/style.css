@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── 极客工业风 Markdown 排版引擎 ── */
+/* ── 深炭灰基底 · 霓虹青点缀 · Fira Code 代码 ── */
+
+@layer components {
+
+  /* ── 字体层级规范 ──
+   * H1: text-2xl (24px) / font-weight 700 / gray-100
+   * H2: text-xl  (20px) / font-weight 600 / gray-100
+   * H3: text-lg  (18px) / font-weight 500 / gray-200
+   * 正文: base   (16px) / font-weight 400 / gray-300
+   * 辅助: text-sm (14px) / font-weight 400 / gray-500
+   */
+  .prose h1 {
+    @apply text-2xl font-bold text-gray-100 mb-3 tracking-tight;
+  }
+
+  .prose h2 {
+    @apply text-xl font-semibold text-gray-100 mb-2 mt-6 border-b border-ms-border pb-2 tracking-tight;
+  }
+
+  .prose h3 {
+    @apply text-lg font-medium text-gray-200 mb-2 tracking-normal;
+  }
+
+  .prose h4 {
+    @apply text-base font-medium text-gray-200 mb-2 tracking-normal;
+  }
+
+  .prose p {
+    @apply mb-4 leading-relaxed text-gray-300 text-base font-normal;
+  }
+
+  /* ── 内联代码：霓虹青着色 ── */
+  .prose code {
+    font-family: "Fira Code", Consolas, monospace;
+    font-size: 0.875em;
+    background: rgba(0, 229, 255, 0.06);
+    padding: 0.15em 0.4em;
+    border-radius: 2px;
+    color: #00e5ff;
+  }
+
+  /* ── 代码块：深炭灰底 + 微弱边框 ── */
+  .prose pre {
+    font-family: "Fira Code", Consolas, monospace;
+    background: #0d0d0d;
+    border: 1px solid #333;
+    border-radius: 2px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+  }
+
+  .prose pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+  }
+
+  .prose ul {
+    @apply list-disc list-inside mb-4 space-y-1 text-gray-300;
+  }
+
+  .prose ol {
+    @apply list-decimal list-inside mb-4 space-y-1 text-gray-300;
+  }
+
+  /* ── 块引用：霓虹青左侧高亮边框 ── */
+  .prose blockquote {
+    border-left: 3px solid #00e5ff;
+    padding-left: 1rem;
+    margin: 1rem 0;
+    background: rgba(0, 229, 255, 0.03);
+    color: #94a3b8;
+  }
+
+  .prose a {
+    @apply text-neon hover:underline;
+  }
+
+  .prose strong {
+    @apply text-gray-100 font-semibold;
+  }
+
+  /* ── 表格：深色工业风 ── */
+  .prose table {
+    @apply w-full border-collapse mb-4;
+  }
+
+  .prose th {
+    @apply text-left text-xs font-mono text-gray-400 uppercase tracking-wider;
+    background: #1a1a1a;
+    padding: 8px 12px;
+    border-bottom: 2px solid #333;
+  }
+
+  .prose td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #222;
+    color: #d4d4d8;
+  }
+
+  .prose tr:hover td {
+    background: rgba(0, 229, 255, 0.03);
+  }
+
+  /* ── 分割线 ── */
+  .prose hr {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 2rem 0;
+  }
+
+  /* ── 图片 ── */
+  .prose img {
+    border-radius: 2px;
+    border: 1px solid #333;
+    margin: 1rem 0;
+  }
+  
+  
+  
+  /* 霓虹发光 hover 效果 */
+  .neon-glow-hover {
+      transition: box-shadow 0.2s ease;
+  }
+  .neon-glow-hover:hover {
+      box-shadow: 0 0 8px rgba(0, 229, 255, 0.3), 0 0 20px rgba(0, 229, 255, 0.1);
+  }
+  
+  
+  
+  .terminal-input {
+      @apply border-0 border-b border-ms-border bg-transparent rounded-none outline-none focus:border-neon/50;
+  }
+}
+
+/* ── 全局基础样式 ── */
+body {
+  background: #0d0d0d;
+  color: #d4d4d8;
+  font-family: "JetBrains Mono", "Fira Code", Consolas, Monaco, monospace;
+}
+
+/* ── 选中文本高亮 ── */
+::selection {
+  background: rgba(0, 229, 255, 0.2);
+  color: #00e5ff;
+}
+
+/* ── 全局滚动条（shadcn/ui 风格） ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color 0.2s;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}

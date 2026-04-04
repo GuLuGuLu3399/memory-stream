@@ -1,0 +1,63 @@
+[package]
+authors = ["you"]
+description = "A Tauri App"
+edition = "2021"
+name = "admin-tauri"
+version = "0.1.0"
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+name = "admin_tauri_lib"
+
+[build-dependencies]
+tauri-build = {version = "2", features = [] }
+
+[dependencies]
+log = "0.4"
+serde = {version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = {version = "2", features = ["tray-icon"] }
+tauri-plugin-deep-link = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-window-state = "2"
+tauri-plugin-store = "2"
+
+ast-renderer = {path = "../../../../rust-workspace/ast-renderer"}
+md-parser = {path = "../../../../rust-workspace/md-parser"}
+ms-kb-exporter = {path = "../../../../rust-workspace/ms-kb-exporter"}
+ms-local-draft = {path = "../../../../rust-workspace/ms-local-draft"}
+ms-storage = {path = "../../../../rust-workspace/ms-storage"}
+ms-toc-extractor = {path = "../../../../rust-workspace/ms-toc-extractor"}
+
+base64 = "0.22"
+dotenv = "0.15"
+image = {version = "0.25", default-features = false, features = ["webp", "jpeg", "png"] }
+
+rusqlite = {version = "0.32", features = ["bundled"] }
+
+notify = "7"
+
+pulldown-cmark = "0.12"
+reqwest = {version = "0.12", features = ["json", "blocking"] }
+tempfile = "3"
+
+futures-util = "0.3"
+tokio = {version = "1", features = ["sync", "rt-multi-thread", "macros"] }
+tokio-tungstenite = {version = "0.26", features = ["native-tls"] }
+keyring = "3"
+
+# Import parsing
+gray_matter = "0.3"
+zip = "8"
+encoding_rs = "0.8"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+panic = "abort"
+strip = true

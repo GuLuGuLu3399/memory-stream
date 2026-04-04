@@ -1,0 +1,19 @@
+{
+  "name": "@memory-stream/ui-shared",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "shiki": "^1.6.0",
+    "katex": "^0.16.10",
+    "mermaid": "^10.9.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "vue": "^3.4.0",
+    "typescript": "^5.0.0",
+    "@types/katex": "^0.16.7"
+  }
+}

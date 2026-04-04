@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "outDir": "./dist"
+  },
+  "include": ["**/*.ts", "**/*.vue", "types/**/*.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

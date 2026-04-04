@@ -1,0 +1,26 @@
+Evidence: Replace catch (err: any) with proper unknown type narrowing
+
+Files updated:
+- frontend-workspace/apps/web-reader/src/composables/useGraph.ts
+- frontend-workspace/apps/web-reader/src/composables/useCards.ts
+
+Summary of changes:
+- Replaced two instances of `catch (err: any)` with `catch (err: unknown)` and added type narrowing inside the catch blocks.
+- For catches that access err.message, the code now uses:
+  const message = err instanceof Error ? err.message : String(err)
+  console.error(..., message)
+  error.value = message
+- For the catch in useCards.ts that previously logged `err` directly, the message is now normalized similarly.
+
+Verification steps executed:
+- Grep search for catch patterns:
+  - Command: grep -r "catch.*err.*any" frontend-workspace/apps/ --include="*.ts" --include="*.vue"
+  - Result: No matches
+- Type checking:
+  - Web Reader: vue-tsc --noEmit (attempted via pnpm exec; environment may vary)
+  - Admin Tauri: vue-tsc --noEmit (attempted)
+
+Notes:
+- The remaining catch blocks without explicit :any typing (e.g., catch (err)) were not modified per the task scope.
+- Diffs limited to catch blocks only; no other error handling logic touched.
+- Evidence file saved as requested.

@@ -1,0 +1,28 @@
+Task: Change AUTH_TIMEOUT_SECS from 5 to 3 in Rust WebSocket client
+
+CHANGED FILES:
+- frontend-workspace/apps/admin-tauri/src-tauri/src/ws_client.rs
+  - AUTH_TIMEOUT_SECS changed from 5 to 3
+
+VERIFICATION STEPS & RESULTS:
+1) ws_client.rs contains AUTH_TIMEOUT_SECS as 3
+   - Snippet: const AUTH_TIMEOUT_SECS: u64 = 3;  (now at line 11)
+2) go-server/internal/ws/hub.go uses 3s grace for auth
+   - Snippet: authGrace = 3 * time.Second
+3) frontend-useGraphSync timeout matches 3s in Vue frontend
+   - Snippet: AUTH_TIMEOUT = 3000 (ms) in useGraphSync.ts
+4) cargo test for admin-tauri crate
+   - Command: cargo test --manifest-path frontend-workspace/apps/admin-tauri/src-tauri/Cargo.toml
+   - Result: tests started; 27 passed, 3 failed (unrelated to this change). See excerpt:
+     running 30 tests
+     ...
+     27 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out;
+     failures: ... keyring_wrapper tests failed
+
+5) Evidence saved to: .sisyphus/evidence/task-p2-auth-timeout.txt
+
+EVIDENCE ATTACHED:
+- ws_client.rs shows AUTH_TIMEOUT_SECS = 3
+- hub.go shows authGrace = 3 * time.Second
+- useGraphSync.ts shows AUTH_TIMEOUT = 3000
+- cargo test output indicates 27 passed, 3 failed (unrelated to this change)

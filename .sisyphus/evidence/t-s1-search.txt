@@ -1,0 +1,145 @@
+# Task S1 - PostgreSQL Full-Text Search Implementation
+
+# Date: 2026-04-03
+# Status: COMPLETED ✓
+
+## Summary
+Successfully implemented full-text search using PostgreSQL tsvector with GIN index for the Memory Stream Go backend.
+
+## Deliverables
+
+### 1. Database Migration
+- File: `go-server/migration/sql/010_search_vector.sql`
+- Added `search_vector` tsvector generated stored column to cards table
+- Created GIN index `idx_cards_search_vector` for fast full-text search
+- Uses 'simple' config for CJK support
+
+- Column definition:
+  ```sql
+  search_vector tsvector
+    GENERATED ALWAYS AS (
+      setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
+      setweight(to_tsvector('simple', coalesce(raw_md, '')), 'B')
+    ) STORED
+  ```
+- Index creation
+  ```sql
+  CREATE INDEX idx_cards_search_vector ON cards USING GIN(search_vector);
+  ```
+
+### 2. Service Layer
+- File: `go-server/internal/services/search.go`
+- `SearchService` struct with database connection
+- `SearchCards(query string, limit, offset int)` method
+- Returns `SearchResult` slice with ID, title, excerpt, and rank
+- Input validation: empty query returns error
+- Pagination: limit defaults to 20, capped at 100
+- Uses `plainto_tsquery('simple', ?)` for safe user input handling
+- Uses `ts_rank()` for relevance ordering
+- Returns total count and results
+
+### 3. Handler Layer
+- File: `go-server/internal/handlers/search.go`
+- `SearchHandler` struct
+- `Search(c *gin.Context)` method
+- Endpoint: `GET /api/v1/search?q=keyword&limit=20&offset=0`
+- Query params:
+  - `q` (required): search query string
+  - `limit` (optional): max results per page (default: 20, max: 100)
+  - `offset` (optional): pagination offset (default: 0)
+- Response format:
+  ```json
+  {
+    "results": [...],
+    "total": 10,
+    "query": "search term"
+  }
+  ```
+- Validation:
+  - Empty query → 400 Bad Request
+  - Limit > 100 → 400 Bad Request
+  - Offset < 0 → 400 Bad Request
+- No authentication required (public endpoint)
+
+### 4. Route Registration
+- File: `go-server/cmd/api/main.go`
+- Added `searchSvc := services.NewSearchService(db)` (line 32)
+- Added `searchHandler := handlers.NewSearchHandler(searchSvc)` (line 47)
+- Added `v1.GET("/search", searchHandler.Search)` (line 58)
+- Route is public (no auth middleware)
+
+### 5. Tests
+- File: `go-server/internal/services/search_test.go`
+- All tests passing:
+- Test coverage:
+  - Basic search returns matching cards
+  - Multi-word search
+  - CJK (Chinese) search works
+  - Empty query returns error
+  - Special characters handled safely
+  - Pagination works correctly
+  - No results handling
+  - Limit validation (> 100 capped to 100)
+  - Offset validation (< 0 normalized to 0)
+
+## Technical Details
+
+- **tsvector Configuration**: `simple`
+  - Reason: Project contains Chinese content
+  - `simple` config tokenizes text without stemming
+  - Better CJK support compared to `english` config
+
+- **Generated Stored Column**
+  - `search_vector` is auto-computed by PostgreSQL
+  - Combines weighted title (weight 'A') and content (weight 'B')
+  - No triggers needed - PostgreSQL handles updates automatically
+  - Column formula:
+    ```sql
+    setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
+    setweight(to_tsvector('simple', coalesce(raw_md, '')), 'B')
+    ```
+
+- **Search Query**
+  - Uses `plainto_tsquery('simple', ?)` for safe user input
+  - Uses `ts_rank()` for relevance scoring
+  - Results ordered by rank descending
+  - Separate count query for total matching cards
+
+- **API Design**
+  - Public endpoint (no auth required)
+  - Follows existing handler patterns
+  - Consistent error handling using `appErr` package
+  - JSON response with results, total, and original query
+
+## How to Run
+
+1. **Apply Database Migration**
+   ```bash
+   psql -h localhost -U root -d devdb -f migration/sql/010_search_vector.sql
+   ```
+
+2. **Test the Search Endpoint**
+   ```bash
+   # Basic search
+   curl "http://localhost:8080/api/v1/search?q=test"
+   
+   # Chinese search
+   curl "http://localhost:8080/api/v1/search?q=知识图谱"
+   
+   # With pagination
+   curl "http://localhost:8080/api/v1/search?q=test&limit=10&offset=0"
+   ```
+
+3. **Run Tests**
+   ```bash
+   cd go-server
+   go test ./internal/services -run TestSearchCards -v
+   ```
+
+## Notes
+- All existing card endpoints remain unchanged
+- No changes to card listing or retrieval logic
+- Search is read-only (no mutations)
+- Follows existing codebase patterns exactly
+- All tests passing
+- Build successful

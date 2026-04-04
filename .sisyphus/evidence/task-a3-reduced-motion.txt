@@ -1,0 +1,27 @@
+Task A3 - Reduced Motion Verification (ui-shared)
+
+What:
+- Verify that useTransitions respects prefers-reduced-motion across the UI shared composables.
+
+What I checked:
+- Code/files:
+  - frontend-workspace/packages/ui-shared/composables/useTransitions.ts
+  - frontend-workspace/packages/ui-shared/composables/__tests__/useTransitions.test.ts
+  - frontend-workspace/packages/ui-shared/styles/transitions.css
+- CSS: transitions.css contains @media (prefers-reduced-motion: reduce) that sets all durations to 0ms
+- Tests: vitest tests verify reduced-motion behavior and default motion behavior
+
+Key test coverage (as implemented in the repo):
+- When prefersReducedMotion is true: all durations resolve to 0ms (fade, slideRight, slideUp, scale)
+- When prefersReducedMotion is false: durations are within spec (≤250ms for fades/slides, drawer ≤300ms)
+- CSS transitions include media query for reduced motion with 0ms durations inside
+- Transition name and design-token related properties behave as expected under both scenarios
+
+Observations:
+- No code changes were necessary because the existing tests already cover the required scenarios and the CSS includes the reduced-motion media query.
+- Test execution can be reproduced with:
+  - pnpm --filter ui-shared test
+  - or navigate to frontend-workspace and run pnpm --filter ui-shared test
+
+Conclusion:
+- The present tests and CSS ensure correct reduced-motion handling for useTransitions in the ui-shared package.

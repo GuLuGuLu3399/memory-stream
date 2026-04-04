@@ -1,0 +1,12 @@
+[package]
+edition = "2021"
+name = "ast-gen"
+version = "0.1.0"
+
+[[bin]]
+name = "ast-gen"
+path = "src/main.rs"
+
+[dependencies]
+md-parser = {path = "../md-parser"}
+serde_json = {workspace = true}

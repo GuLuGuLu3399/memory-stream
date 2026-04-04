@@ -1,0 +1,426 @@
+=== RUN   TestHub_ConcurrentBroadcast
+{"level":"info","ts":1775195820.7741797,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 3 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 4 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 5 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 6 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 7 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 8 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 9 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 10 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 11 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 12 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 13 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 14 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 15 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 16 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 17 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 18 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 19 | authed: false"}
+{"level":"info","ts":1775195820.7746956,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 20 | authed: false"}
+    hub_test.go:94: Remaining clients after broadcasts: 0 (started with 20)
+--- PASS: TestHub_ConcurrentBroadcast (0.15s)
+=== RUN   TestHub_ConcurrentBroadcastWithRegisterUnregister
+{"level":"info","ts":1775195820.926465,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9272554,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9272554,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9277964,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9283178,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9283178,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9288929,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9288929,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9294207,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9299366,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9299366,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9304504,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9309723,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9309723,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9314964,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9320183,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9320183,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9325483,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.933063,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.933063,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.933578,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9341,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9346118,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9346118,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.935122,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.935122,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.935643,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9361618,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9361618,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9366808,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9372022,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9372022,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9377267,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9382443,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9382443,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9387655,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.939286,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.939286,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9398003,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.940318,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.940318,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9408362,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9413514,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9418695,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9423814,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9428997,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9428997,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9434114,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9439268,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9439268,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9445195,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9450417,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9455578,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9455578,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9460812,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9460812,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.946603,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.946603,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9471202,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9476416,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9476416,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.948166,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.948704,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.948704,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9492326,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9497705,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.950297,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.950297,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9508147,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.951335,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.951335,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.951845,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.952355,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.952355,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9528637,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9534245,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9534245,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9539495,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9539495,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.954485,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.954485,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9550028,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9550028,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9555213,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9555213,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9560301,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9560301,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9565504,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9565504,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9570744,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9570744,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.957583,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.957583,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9581046,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9581046,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9586313,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9586313,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9591455,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9591455,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9597213,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9597213,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.960234,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.960234,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9607651,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9607651,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9612906,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9612906,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9618106,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9618106,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9623308,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9623308,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.962851,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.962851,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9633715,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9633715,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9638898,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9638898,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9644048,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9644048,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9649277,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9649277,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9654398,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9654398,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9659579,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9659579,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.966474,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.966474,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9669933,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9669933,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.967509,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.967509,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.968025,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.968025,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.968542,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.968542,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9690607,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9690607,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9695852,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9695852,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.970112,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.970112,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.970635,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.970635,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9711528,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9711528,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9716713,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9716713,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9721873,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9721873,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9727087,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9727087,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.973227,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.973227,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9737492,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9737492,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9742675,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9742675,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.974882,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.974882,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.975406,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.975406,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9759204,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9759204,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.976444,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.976444,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.976966,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.976966,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9774847,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9774847,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9780047,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9780047,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9785228,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9785228,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9790406,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9790406,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9795597,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9795597,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9800756,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9800756,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.980594,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.980594,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9811118,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9811118,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9816306,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9816306,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9821486,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9821486,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9826665,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9826665,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.983183,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.983183,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9837,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9837,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9842157,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9842157,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9847357,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9847357,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9852521,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9852521,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.985768,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.985768,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.986279,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.986279,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9868605,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9868605,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9873838,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9873838,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9879093,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9879093,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.988439,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.988439,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9889617,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9889617,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9894922,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9894922,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.990099,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.990099,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9906266,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9906266,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9911478,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9911478,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.991661,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.991661,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.992178,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.992178,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9927008,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9927008,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9932244,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9932244,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9937415,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9937415,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9942586,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9942586,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9947789,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9947789,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.995296,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.995296,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9958112,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9958112,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.996328,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.996328,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9968371,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9968371,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9973547,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9973547,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9978712,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9978712,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9983892,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9983892,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.998909,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.998909,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195820.9994292,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195820.9994292,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195820.9999466,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195820.9999466,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.0004683,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0004683,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0009887,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0009887,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.001508,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.001508,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.0020244,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0020244,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0025444,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0025444,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.003056,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.003056,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.0035806,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0035806,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0041132,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0041132,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0046394,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0046394,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.005245,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.005245,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0057752,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0057752,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.0063028,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0063028,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0068247,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0068247,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.0073376,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0073376,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0078585,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0078585,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.008378,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.008378,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0089011,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0089011,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.00942,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.00942,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0099382,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0099382,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.010463,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.010463,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0109875,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0109875,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.011509,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.011509,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0120285,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0120285,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.012547,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.012547,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0130656,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0130656,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0135846,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0135846,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.0141034,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0141034,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+{"level":"info","ts":1775195821.0146146,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0146146,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.015134,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.015134,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0156555,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0161743,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0161743,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0166955,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0172186,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0172186,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0177312,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0182505,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0182505,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0187702,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0192914,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0198112,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0203917,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.020941,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.020941,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.021473,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0220008,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0220008,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0225275,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0225275,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0230403,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.023555,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.023555,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0240686,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.02459,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.02459,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0251093,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0256212,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0256212,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.026142,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.026661,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.026661,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.02718,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0277057,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0277057,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0282223,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.028757,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.028757,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0292866,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0292866,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.029815,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0303352,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0308614,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0308614,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0313845,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.031903,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0324275,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0324275,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0329497,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.033472,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.033472,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0339928,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0345147,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0345147,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0350373,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 0"}
+{"level":"info","ts":1775195821.0356278,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0356278,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0366807,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0366807,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0377438,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0377438,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0382946,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0382946,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.039334,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.039334,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0398643,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0398643,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.040896,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.040896,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0419536,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0419536,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0424814,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0424814,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.043505,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.043505,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0440361,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 2 | authed: false"}
+{"level":"info","ts":1775195821.0440361,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0445554,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0507915,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0523643,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0549943,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0581002,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0611892,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.0622146,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.062738,"caller":"ws/hub.go:65","msg":"[WS Hub] disconnected | total: 1"}
+{"level":"info","ts":1775195821.1199412,"caller":"ws/hub.go:57","msg":"[WS Hub] connected | total: 1 | authed: false"}
+--- PASS: TestHub_ConcurrentBroadcastWithRegisterUnregister (0.20s)
+PASS
+ok  	github.com/GuLuGuLu3399/memory-stream-server/internal/ws	(cached)
