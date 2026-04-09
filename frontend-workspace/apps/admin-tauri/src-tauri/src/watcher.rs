@@ -12,9 +12,11 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver};
 use std::time::Duration;
+use ts_rs::TS;
 
 /// 文件变更事件（传递给前端）
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, TS)]
+#[ts(export_to = ".")]
 pub struct FileChangeEvent {
     pub path: String,
     pub kind: String,

@@ -5,6 +5,7 @@
 
 use ms_kb_exporter::{ExportOptions, KbCard, KbImage, export_to_zip};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// 前端传来的卡片导出数据（包含可选的 Base64 图片）
 #[derive(Deserialize)]
@@ -25,10 +26,12 @@ pub struct ExportImageInput {
 }
 
 /// 导出结果摘要
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export_to = ".")]
 pub struct ExportSummaryDto {
     total_cards: usize,
     total_images: usize,
+    #[ts(type = "number")]
     zip_size_bytes: u64,
 }
 

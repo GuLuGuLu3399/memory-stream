@@ -8,13 +8,15 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use ts_rs::TS;
 
 // ============================================================================
 // Core Data Types
 // ============================================================================
 
 /// Result of previewing a merge operation
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export_to = ".")]
 pub struct MergePreview {
     /// Number of files that will be modified
     pub files_to_modify: usize,
@@ -25,7 +27,8 @@ pub struct MergePreview {
 }
 
 /// Impact on a single file
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export_to = ".")]
 pub struct FileImpact {
     /// File path
     pub path: String,

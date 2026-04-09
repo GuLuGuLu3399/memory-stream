@@ -5,11 +5,13 @@
 
 use ms_toc_extractor::TocNode;
 use serde::Serialize;
+use ts_rs::TS;
 
 /// 目录树节点（直接复用 crate 的结构，增加 Serialize）
 ///
 /// 前端可用于渲染侧边栏目录导航。
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export_to = ".")]
 pub struct TocNodeDto {
     pub level: u8,
     pub text: String,

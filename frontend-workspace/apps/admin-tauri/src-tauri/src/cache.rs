@@ -9,9 +9,11 @@
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use ts_rs::TS;
 
 /// 卡片布局缓存记录（与 Go 后端 CardLayout + CardMetrics 对齐）
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export_to = ".")]
 pub struct CachedLayout {
     pub card_id: String,
     pub x: f64,
@@ -23,7 +25,8 @@ pub struct CachedLayout {
 }
 
 /// 卡片边关系缓存（与 Go 后端 CardEdge 对齐）
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export_to = ".")]
 pub struct CachedEdge {
     pub source_id: String,
     pub target_id: String,

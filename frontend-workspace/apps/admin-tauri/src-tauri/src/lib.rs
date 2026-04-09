@@ -62,7 +62,8 @@ pub struct ReloadableState {
 // ============================================================================
 
 /// Markdown 渲染结果，返回给前端
-#[derive(Serialize)]
+#[derive(Serialize, ts_rs::TS)]
+#[ts(export_to = ".")]
 struct RenderResult {
     /// 渲染后的 HTML 字符串
     html: String,
@@ -75,19 +76,23 @@ struct RenderResult {
 }
 
 /// 本地布局缓存查询结果
-#[derive(Serialize)]
+#[derive(Serialize, ts_rs::TS)]
+#[ts(export_to = ".")]
 struct LayoutCacheResult {
     layouts: Vec<cache::CachedLayout>,
     edges: Vec<cache::CachedEdge>,
+    #[ts(type = "number")]
     count: i64,
     last_sync: Option<String>,
 }
 
 /// 服务端同步操作结果
-#[derive(Serialize)]
+#[derive(Serialize, ts_rs::TS)]
+#[ts(export_to = ".")]
 struct SyncResult {
     success: bool,
     message: String,
+    #[ts(type = "number")]
     synced_count: i64,
 }
 
@@ -969,5 +974,39 @@ async fn check_for_update(app: &tauri::AppHandle) {
         Err(e) => {
             log::warn!("Updater not available: {}", e);
         }
+    }
+}
+
+// ============================================================================
+// ts-rs 类型导出测试
+// ============================================================================
+
+#[cfg(test)]
+mod export_ts_types {
+    use ts_rs::TS;
+
+    /// 导出所有 IPC 类型到 bindings/ 目录
+    #[test]
+    fn export_all_ipc_types() {
+        // lib.rs 内部类型
+        super::RenderResult::export().unwrap();
+        super::LayoutCacheResult::export().unwrap();
+        super::SyncResult::export().unwrap();
+
+        // 子模块类型
+        super::auth::LoginResult::export().unwrap();
+        super::draft::DraftDto::export().unwrap();
+        super::export::ExportSummaryDto::export().unwrap();
+        super::image::ImageUploadResult::export().unwrap();
+        super::toc::TocNodeDto::export().unwrap();
+        super::cache::CachedLayout::export().unwrap();
+        super::cache::CachedEdge::export().unwrap();
+        super::watcher::FileChangeEvent::export().unwrap();
+        super::config::SysConfig::export().unwrap();
+        super::vault_scanner::IssueSeverity::export().unwrap();
+        super::vault_scanner::ConfigIssue::export().unwrap();
+        super::vault_scanner::ScanResult::export().unwrap();
+        super::wikilink_replacer::MergePreview::export().unwrap();
+        super::wikilink_replacer::FileImpact::export().unwrap();
     }
 }

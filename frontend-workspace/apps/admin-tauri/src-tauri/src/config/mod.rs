@@ -2,8 +2,10 @@ pub mod keyring_wrapper;
 
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export_to = ".")]
 pub struct SysConfig {
     pub api_base_url: String,
     pub ws_url: String,

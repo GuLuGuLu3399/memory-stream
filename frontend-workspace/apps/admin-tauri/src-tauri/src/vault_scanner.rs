@@ -4,13 +4,15 @@
 //! Returns a list of config issues with severity levels for the frontend to display.
 
 use serde::Serialize;
+use ts_rs::TS;
 
 // ============================================================================
 // Types
 // ============================================================================
 
 /// Severity level for configuration issues
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, TS)]
+#[ts(export_to = ".")]
 pub enum IssueSeverity {
     /// App cannot function without this config
     Critical,
@@ -21,7 +23,8 @@ pub enum IssueSeverity {
 }
 
 /// A single configuration issue detected by the scanner
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export_to = ".")]
 pub struct ConfigIssue {
     /// e.g., "S3_ACCESS_KEY", "WS_URL"
     pub field: String,
@@ -34,7 +37,8 @@ pub struct ConfigIssue {
 }
 
 /// Result of scanning configuration
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export_to = ".")]
 pub struct ScanResult {
     /// List of detected issues
     pub issues: Vec<ConfigIssue>,

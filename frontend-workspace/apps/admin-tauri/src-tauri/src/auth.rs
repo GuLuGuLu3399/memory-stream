@@ -413,7 +413,8 @@ struct UserResponse {
 }
 
 /// 前端拿到的登录结果
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ts_rs::TS)]
+#[ts(export_to = ".")]
 pub struct LoginResult {
     pub user_id: String,
     pub username: String,

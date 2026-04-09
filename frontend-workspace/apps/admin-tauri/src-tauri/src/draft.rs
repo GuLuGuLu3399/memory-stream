@@ -7,6 +7,7 @@ use ms_local_draft::DraftDb;
 use serde::Serialize;
 use std::sync::Arc;
 use tauri::State;
+use ts_rs::TS;
 
 /// 草稿管理器，封装在 `Arc` 中以支持跨线程共享
 pub struct DraftManager {
@@ -33,11 +34,13 @@ impl DraftManager {
 }
 
 /// 草稿数据传输对象（返回给前端）
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export_to = ".")]
 pub struct DraftDto {
     pub card_id: String,
     pub raw_md: String,
     pub ast_data: Option<String>,
+    #[ts(type = "number")]
     pub updated_at: i64,
 }
 

@@ -8,6 +8,7 @@ use ms_storage::{StorageConfig, S3Backend, StorageProvider};
 use serde::Serialize;
 use std::io::Cursor;
 use tauri::Manager;
+use ts_rs::TS;
 
 /// 最大允许的图片文件大小（20 MB）
 const MAX_IMAGE_SIZE: u64 = 20 * 1024 * 1024;
@@ -16,15 +17,18 @@ const MAX_IMAGE_SIZE: u64 = 20 * 1024 * 1024;
 const S3_UPLOAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// 上传结果，返回给前端
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export_to = ".")]
 pub struct ImageUploadResult {
     /// S3 对象 key（相对路径）
     pub key: String,
     /// CDN 公开访问 URL
     pub url: String,
     /// 压缩后的文件大小（字节）
+    #[ts(type = "number")]
     pub size_bytes: u64,
     /// 原始文件大小（字节）
+    #[ts(type = "number")]
     pub original_size_bytes: u64,
 }
 
