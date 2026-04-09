@@ -12,7 +12,6 @@ import (
 	"github.com/GuLuGuLu3399/memory-stream-server/internal/pkg/logger"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type CursorPage struct {
@@ -48,15 +47,12 @@ func (s *CardService) FindOrCreateByTitle(title string) (*models.Card, error) {
 		return &result, nil
 	}
 
-	ghost := models.Card{
-		Title:   title,
-		AstData: models.JSONB("{}"),
-		TocData: models.JSONB("{}"),
-	}
-	s.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "title"}},
-		DoNothing: true,
-	}).Create(&ghost)
+	// Use raw SQL to match the partial unique index:
+	//   idx_cards_title_unique ON cards (title) WHERE title IS NOT NULL AND title != ''
+	// GORM's clause.OnConflict cannot express the WHERE clause needed for partial indexes.
+	s.db.Exec(`INSERT INTO cards (title, raw_md, excerpt, ast_data, toc_data)
+		VALUES (?, '', '', '{}', '{}')
+		ON CONFLICT (title) WHERE title IS NOT NULL AND title != '' DO NOTHING`, title)
 
 	if err := s.db.Where("title = ?", title).First(&result).Error; err != nil {
 		return nil, err
@@ -200,8 +196,9 @@ func (s *CardService) GetDiscover(sort string, page OffsetPage) (*PaginatedResul
 
 	switch sort {
 	case "hot":
-		query = query.Joins("LEFT JOIN card_metrics ON card_metrics.card_id = cards.id").
-			Order("card_metrics.hot_score DESC NULLS LAST")
+		query = query.Select("DISTINCT cards.id, cards.title, cards.excerpt, cards.category_id, cards.created_at, cards.updated_at, COALESCE(card_metrics.hot_score, 0) as hot_score").
+			Joins("LEFT JOIN card_metrics ON card_metrics.card_id = cards.id").
+			Order("COALESCE(card_metrics.hot_score, 0) DESC NULLS LAST")
 	default:
 		query = query.Order("cards.updated_at DESC")
 	}
