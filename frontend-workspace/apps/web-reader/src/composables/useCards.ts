@@ -5,7 +5,7 @@
  * 详情阶段：抽屉打开时按需加载单个卡片并 WASM 渲染
  */
 
-import { ref } from "vue";
+import { ref, shallowRef } from "vue";
 import { api, type CardWithRelations, type GraphResult } from "../api";
 import {
   CardListResponseSchema,
@@ -119,7 +119,7 @@ function extractExcerpt(raw: string, maxLen = 80): string {
  * @returns 卡片索引列表、加载状态、错误信息、加载方法
  */
 export function useCards() {
-  const cardIndex = ref<CardIndex[]>([]);
+  const cardIndex = shallowRef<CardIndex[]>([]);
   const loading = ref(false);
   const error = ref("");
 

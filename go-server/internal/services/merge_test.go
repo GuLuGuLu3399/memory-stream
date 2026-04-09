@@ -47,8 +47,10 @@ func TestMergeCards_ValidationError_SurvivorInVictims(t *testing.T) {
 func TestMergeCards_CardNotFound(t *testing.T) {
 	db, mock := setupMergeTestDB(t)
 
+	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "cards" WHERE id IN`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	mock.ExpectRollback()
 
 	req := MergeRequest{
 		SurvivorID: "card-1",
@@ -65,8 +67,10 @@ func TestMergeCards_CardNotFound(t *testing.T) {
 func TestMergeCards_CountDBError(t *testing.T) {
 	db, mock := setupMergeTestDB(t)
 
+	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "cards" WHERE id IN`).
 		WillReturnError(gorm.ErrInvalidDB)
+	mock.ExpectRollback()
 
 	req := MergeRequest{
 		SurvivorID: "card-1",
@@ -82,10 +86,10 @@ func TestMergeCards_CountDBError(t *testing.T) {
 func TestMergeCards_Success_NoExistingEdges(t *testing.T) {
 	db, mock := setupMergeTestDB(t)
 
+	mock.ExpectBegin()
+
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "cards" WHERE id IN`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
-
-	mock.ExpectBegin()
 
 	mock.ExpectQuery(`SELECT source_id, target_id, relation_type, created_at FROM "card_edges" WHERE target_id IN`).
 		WillReturnRows(sqlmock.NewRows([]string{"source_id", "target_id", "relation_type", "created_at"}))
@@ -127,10 +131,10 @@ func TestMergeCards_Success_WithIncomingEdges(t *testing.T) {
 
 	now := time.Now()
 
+	mock.ExpectBegin()
+
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "cards" WHERE id IN`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
-
-	mock.ExpectBegin()
 
 	incomingRows := sqlmock.NewRows([]string{"source_id", "target_id", "relation_type", "created_at"}).
 		AddRow("external-1", "victim-1", "reference", now)
@@ -178,10 +182,10 @@ func TestMergeCards_SelfLoopWarning_IncomingEdge(t *testing.T) {
 
 	now := time.Now()
 
+	mock.ExpectBegin()
+
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "cards" WHERE id IN`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
-
-	mock.ExpectBegin()
 
 	incomingRows := sqlmock.NewRows([]string{"source_id", "target_id", "relation_type", "created_at"}).
 		AddRow("survivor-1", "victim-1", "reference", now)
@@ -224,10 +228,10 @@ func TestMergeCards_SelfLoopWarning_IncomingEdge(t *testing.T) {
 func TestMergeCards_TransactionError_OnIncomingQuery(t *testing.T) {
 	db, mock := setupMergeTestDB(t)
 
+	mock.ExpectBegin()
+
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "cards" WHERE id IN`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
-
-	mock.ExpectBegin()
 
 	mock.ExpectQuery(`SELECT source_id, target_id, relation_type, created_at FROM "card_edges" WHERE target_id IN`).
 		WillReturnError(gorm.ErrInvalidDB)

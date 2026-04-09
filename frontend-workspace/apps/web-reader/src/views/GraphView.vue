@@ -31,7 +31,7 @@ import CardNode from "../components/ui/CardNode.vue";
 import { useGraph } from "../composables/useGraph";
 import { useGraphSync, type MinimalNode, type MinimalEdge } from "../composables/useGraphSync";
 import { useGraphStore } from "../store/useGraphStore";
-import { layoutMultiComponent, getSpotlightNeighbors } from "../utils/graphLayout";
+import { layoutMultiComponentAsync, getSpotlightNeighbors } from "../utils/graphLayout";
 
 // Vue Flow 样式
 import "@vue-flow/core/dist/style.css";
@@ -170,7 +170,7 @@ onUnmounted(() => {
 
 // 🌟 关键：等节点真正渲染后，执行多连通分量布局
 onNodesInitialized(async () => {
-    const layouted = layoutMultiComponent(getNodes.value as Node[], getEdges.value as Edge[]) as Node[];
+    const layouted = await layoutMultiComponentAsync(getNodes.value as Node[], getEdges.value as Edge[]) as Node[];
     nodes.value = layouted.map((n) => ({ ...n, style: { visibility: "visible" } }));
     await nextTick();
     edges.value = enforceEdgePositions(getEdges.value as Edge[]) as Edge[];
@@ -210,7 +210,7 @@ const layout = async () => {
     const edgesOff = currentEdges.map((e) => ({ ...e, animated: false }));
     setEdges(edgesOff);
 
-    const layoutedNodes = layoutMultiComponent(currentNodes, currentEdges);
+    const layoutedNodes = await layoutMultiComponentAsync(currentNodes, currentEdges);
     setNodes(layoutedNodes);
 
     layoutTimer = setTimeout(() => {

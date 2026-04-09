@@ -68,7 +68,7 @@ func TestResolveIdentifier_Root_NoOrphan_FallsBackToEarliest(t *testing.T) {
 
 	// Fallback query: earliest card
 	rows := sqlmock.NewRows([]string{"id"}).AddRow("earliest-card-id")
-	mock.ExpectQuery(`SELECT id FROM cards ORDER BY created_at ASC LIMIT 1`).
+	mock.ExpectQuery(`SELECT id FROM cards ORDER BY created_at LIMIT 1`).
 		WillReturnRows(rows)
 
 	id, err := svc.resolveIdentifier("root")
@@ -86,7 +86,7 @@ func TestResolveIdentifier_Root_EmptyDatabase(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
 
 	// Fallback query also returns empty
-	mock.ExpectQuery(`SELECT id FROM cards ORDER BY created_at ASC LIMIT 1`).
+	mock.ExpectQuery(`SELECT id FROM cards ORDER BY created_at LIMIT 1`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
 
 	id, err := svc.resolveIdentifier("root")
