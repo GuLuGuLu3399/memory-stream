@@ -44,15 +44,15 @@ func MergeCards(db *gorm.DB, req MergeRequest) (*MergeResult, error) {
 	}
 
 	err := db.Transaction(func(tx *gorm.DB) error {
-		// Row-level lock: lock all involved cards to prevent concurrent merge
-		var lockedCount int64
-		if err := tx.Model(&models.Card{}).
+		// Row-level lock: lock all involved cards to prevent concurrent merge.
+		// Use SELECT ... FOR UPDATE (not COUNT(*)) since PG forbids FOR UPDATE with aggregates.
+		var lockedCards []models.Card
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("id IN ?", allIDs).
-			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Count(&lockedCount).Error; err != nil {
+			Find(&lockedCards).Error; err != nil {
 			return err
 		}
-		if int(lockedCount) != len(allIDs) {
+		if len(lockedCards) != len(allIDs) {
 			return errors.New("one or more card IDs not found")
 		}
 		// Step 1: Collect all edges to migrate
@@ -87,7 +87,18 @@ func MergeCards(db *gorm.DB, req MergeRequest) (*MergeResult, error) {
 			return err
 		}
 
-		// Step 3: Build deduplicated edge set
+		// Step 3: Collect existing survivor edges to avoid PK conflicts on INSERT
+		var existingSurvivorEdges []models.CardEdge
+		if err := tx.Where("source_id = ? OR target_id = ?", req.SurvivorID, req.SurvivorID).
+			Find(&existingSurvivorEdges).Error; err != nil {
+			return err
+		}
+		existingEdgeKeys := make(map[string]bool)
+		for _, e := range existingSurvivorEdges {
+			existingEdgeKeys[e.SourceID+":"+e.TargetID] = true
+		}
+
+		// Step 4: Build deduplicated edge set
 		edgeMap := make(map[string]EdgeInfo) // key: "source:target:type"
 
 		// Process incoming edges (redirect target to survivor)
@@ -95,6 +106,12 @@ func MergeCards(db *gorm.DB, req MergeRequest) (*MergeResult, error) {
 			// Skip self-loops that would be created
 			if e.SourceID == req.SurvivorID {
 				result.Warnings = append(result.Warnings, "skipped incoming self-loop edge")
+				continue
+			}
+			// Skip if survivor already has this edge (avoid PK conflict)
+			pkKey := e.SourceID + ":" + req.SurvivorID
+			if existingEdgeKeys[pkKey] {
+				result.Warnings = append(result.Warnings, "skipped duplicate edge (survivor already connected)")
 				continue
 			}
 			key := e.SourceID + ":" + req.SurvivorID + ":" + e.RelationType
@@ -120,6 +137,12 @@ func MergeCards(db *gorm.DB, req MergeRequest) (*MergeResult, error) {
 				}
 				continue
 			}
+			// Skip if survivor already has this edge (avoid PK conflict)
+			pkKey := req.SurvivorID + ":" + e.TargetID
+			if existingEdgeKeys[pkKey] {
+				result.Warnings = append(result.Warnings, "skipped duplicate edge (survivor already connected)")
+				continue
+			}
 			key := req.SurvivorID + ":" + e.TargetID + ":" + e.RelationType
 			if existing, ok := edgeMap[key]; !ok || e.CreatedAt.Before(existing.CreatedAt) {
 				edgeMap[key] = EdgeInfo{
@@ -131,7 +154,7 @@ func MergeCards(db *gorm.DB, req MergeRequest) (*MergeResult, error) {
 			}
 		}
 
-		// Step 4: Insert deduplicated edges
+		// Step 5: Insert deduplicated edges
 		if len(edgeMap) > 0 {
 			newEdges := make([]models.CardEdge, 0, len(edgeMap))
 			for _, e := range edgeMap {
@@ -148,17 +171,17 @@ func MergeCards(db *gorm.DB, req MergeRequest) (*MergeResult, error) {
 			result.EdgesMigrated = len(newEdges)
 		}
 
-		// Step 5: Optional deduplication of edges (keep earliest CreatedAt)
+		// Step 6: Optional deduplication of edges (keep earliest CreatedAt)
 		if err := deduplicateEdges(tx, req.SurvivorID); err != nil {
 			return err
 		}
 
-		// Step 6: Remove any sequence self-loops on survivor (cleanup)
+		// Step 7: Remove any sequence self-loops on survivor (cleanup)
 		if err := removeSequenceSelfLoops(tx, req.SurvivorID); err != nil {
 			return err
 		}
 
-		// Step 7: Delete victim cards
+		// Step 8: Delete victim cards
 		if err := tx.Where("id IN ?", req.VictimIDs).Delete(&models.Card{}).Error; err != nil {
 			return err
 		}
