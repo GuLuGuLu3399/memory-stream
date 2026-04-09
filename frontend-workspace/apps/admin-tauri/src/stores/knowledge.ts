@@ -22,6 +22,7 @@
 import { defineStore, storeToRefs } from "pinia";
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import type { RenderResult, TocNodeDto, DraftDto } from "@memory-stream/types/ipc";
 import { useConfirmDialog } from "../composables/useConfirmDialog";
 
 // Sub-stores
@@ -203,12 +204,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
     try {
       const card = activeCard.value;
 
-      const renderResult = await invoke<{
-        html: string;
-        ast_json: string;
-        excerpt: string;
-        extracted_links: string[];
-      }>("process_markdown", { content: card.content });
+      const renderResult = await invoke<RenderResult>("process_markdown", { content: card.content });
 
       // Step 2: 从 AST 提取 TOC 目录树
       let tocData: unknown = null;
@@ -317,12 +313,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
   /** 从本地草稿库恢复指定卡片内容 */
   async function loadDraft(cardId: string): Promise<string | null> {
     try {
-      const draft = await invoke<{
-        card_id: string;
-        raw_md: string;
-        ast_data: string | null;
-        updated_at: number;
-      } | null>("load_draft", { cardId });
+      const draft = await invoke<DraftDto | null>("load_draft", { cardId });
       return draft?.raw_md ?? null;
     } catch (e) {
       console.error("[Store] loadDraft failed:", e);
@@ -331,9 +322,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
   }
 
   /** 列出所有未同步的本地草稿 */
-  async function listDrafts(): Promise<
-    { card_id: string; raw_md: string; updated_at: number }[]
-  > {
+  async function listDrafts(): Promise<DraftDto[]> {
     try {
       return await invoke("list_drafts");
     } catch (e) {
@@ -407,9 +396,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
   /** 从 AST JSON 提取层级目录树 */
   async function extractToc(
     astJson: string,
-  ): Promise<
-    { level: number; text: string; slug: string; children: unknown[] }[]
-  > {
+  ): Promise<TocNodeDto[]> {
     try {
       return await invoke("extract_toc", { astJson });
     } catch (e) {

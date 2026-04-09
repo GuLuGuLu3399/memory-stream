@@ -1,18 +1,9 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import type { SysConfig } from "@memory-stream/types/ipc";
 
-export interface SysConfig {
-  api_base_url: string
-  ws_url: string
-  s3_endpoint: string
-  s3_region: string
-  s3_bucket: string
-  s3_access_key: string
-  s3_secret_key: string
-  s3_public_url_base: string
-  s3_use_path_style: boolean
-}
+export type { SysConfig };
 
 export type ConnectionStatus = 'idle' | 'testing' | 'ok' | 'failed'
 

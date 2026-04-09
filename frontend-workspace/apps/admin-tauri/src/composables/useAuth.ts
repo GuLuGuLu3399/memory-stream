@@ -6,6 +6,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { ref } from "vue";
+import type { LoginResult } from "@memory-stream/types/ipc";
 
 /** 登录完成后设为 true，控制子组件渲染时机 */
 const isReady = ref(false);
@@ -30,7 +31,7 @@ export function useAuth() {
     authError.value = "";
 
     try {
-      await invoke("login", {
+      await invoke<LoginResult>("login", {
         username: "admin",
         password: "admin123",
       });
@@ -49,7 +50,7 @@ export function useAuth() {
    */
   async function login(username: string, password: string): Promise<boolean> {
     try {
-      await invoke("login", { username, password });
+      await invoke<LoginResult>("login", { username, password });
       authError.value = "";
       isReady.value = true;
       return true;

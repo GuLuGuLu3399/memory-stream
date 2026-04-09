@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import type { ScanResult } from "@memory-stream/types/ipc";
 import { useKnowledgeStore } from "./stores/knowledge";
 import { useLayoutStore } from "./stores/layout";
 import { useWSListener } from "./composables/useWSListener";
@@ -51,7 +52,7 @@ async function checkInitialConfig() {
       showConfigBanner.value = false;
       return;
     }
-    const result: any = await invoke("scan_config");
+    const result = await invoke<ScanResult>("scan_config");
     if (result && result.is_healthy === false) {
       showConfigBanner.value = true;
     } else {
@@ -74,7 +75,7 @@ function handleMergeCompleted(_payload: { survivorId: string; victimIds: string[
 
 async function handleConfigSaved() {
   try {
-    const result: any = await invoke("scan_config");
+    const result = await invoke<ScanResult>("scan_config");
     if (result && result.is_healthy) {
       showConfigBanner.value = false;
       localStorage.setItem(bannerPermanentDismissKey, "true");

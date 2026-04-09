@@ -35,7 +35,17 @@ watch(isSettingsOpen, async (isOpen) => {
   if (isOpen) {
     await store.loadConfig()
     if (store.config) {
-      form.value = { ...store.config }
+      form.value = {
+        api_base_url: store.config.api_base_url,
+        ws_url: store.config.ws_url,
+        s3_endpoint: store.config.s3_endpoint,
+        s3_region: store.config.s3_region,
+        s3_bucket: store.config.s3_bucket,
+        s3_access_key: store.config.s3_access_key ?? '',
+        s3_secret_key: store.config.s3_secret_key ?? '',
+        s3_public_url_base: store.config.s3_public_url_base ?? '',
+        s3_use_path_style: store.config.s3_use_path_style,
+      }
     } else {
       // First run defaults
       form.value = {
