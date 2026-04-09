@@ -324,7 +324,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
   /** 列出所有未同步的本地草稿 */
   async function listDrafts(): Promise<DraftDto[]> {
     try {
-      return await invoke("list_drafts");
+      return await invoke<DraftDto[]>("list_drafts");
     } catch (e) {
       console.error("[Store] listDrafts failed:", e);
       return [];
