@@ -76,7 +76,7 @@ pub async fn api_request(
 
         if !should_refresh {
             // 其他线程正在刷新，等待后用新 token 直接重试
-            std::thread::sleep(std::time::Duration::from_secs(3));
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
             return send_request(&client.0, &auth, &method, &url, body_clone).await;
         }
 

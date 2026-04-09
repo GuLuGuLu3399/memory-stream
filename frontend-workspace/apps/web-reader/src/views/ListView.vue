@@ -235,11 +235,11 @@ watchEffect(() => {
                                        transition-all duration-700" :class="[
                                         store.selectedId === (flatItems[row.index] as CardRow).data.id
                                             ? 'bg-ms-surface/60 border-neon/20 shadow-[0_0_12px_rgba(0,229,255,0.06),0_4px_20px_rgba(0,0,0,0.25)]'
-                                            : 'bg-transparent hover:bg-[#0a0a0a]/30'
+                                            : 'bg-transparent hover:bg-ms-void/30'
                                     ]">
 
                                 <!-- Top edge glow — soft temple hover indicator -->
-                                <div class="absolute top-0 left-[10%] right-[10%] h-[1px] bg-gradient-to-r from-transparent via-[#00e5ff]/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none"
+                                <div class="absolute top-0 left-[10%] right-[10%] h-[1px] bg-gradient-to-r from-transparent via-neon/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none"
                                     style="filter: blur(1px);"></div>
 
                                 <!-- 激活态左侧霓虹边条 -->
@@ -269,7 +269,7 @@ watchEffect(() => {
                                     <div v-if="(flatItems[row.index] as CardRow).data.hot_score > 0"
                                         class="shrink-0 text-[10px] font-mono tracking-widest text-slate-600 uppercase border-b border-slate-800 pb-1">
                                         <span class="mr-1.5">Vol</span>
-                                        <span class="text-[#00e5ff]">{{ Math.round((flatItems[row.index] as CardRow).data.hot_score) }}</span>
+                                        <span class="text-neon">{{ Math.round((flatItems[row.index] as CardRow).data.hot_score) }}</span>
                                     </div>
                                 </div>
 

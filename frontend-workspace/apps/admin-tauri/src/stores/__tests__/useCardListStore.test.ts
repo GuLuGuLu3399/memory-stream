@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { useCardListStore, type CardItem } from '../useCardListStore'
+import { useCardListStore } from '../useCardListStore'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),

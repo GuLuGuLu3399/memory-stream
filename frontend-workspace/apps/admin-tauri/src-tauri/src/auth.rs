@@ -65,14 +65,20 @@ impl AuthState {
         state
     }
 
-    /// 获取当前 access token
+    /// 获取当前 access token（从毒化 mutex 中恢复）
     pub fn get_access_token(&self) -> Option<String> {
-        self.access_token.lock().ok().and_then(|t| t.clone())
+        match self.access_token.lock() {
+            Ok(guard) => guard.clone(),
+            Err(e) => e.into_inner().clone(),
+        }
     }
 
-    /// 获取当前 refresh token
+    /// 获取当前 refresh token（从毒化 mutex 中恢复）
     pub fn get_refresh_token(&self) -> Option<String> {
-        self.refresh_token.lock().ok().and_then(|t| t.clone())
+        match self.refresh_token.lock() {
+            Ok(guard) => guard.clone(),
+            Err(e) => e.into_inner().clone(),
+        }
     }
 
     /// 设置新的 token 对（登录或刷新成功后调用）
@@ -93,6 +99,7 @@ impl AuthState {
     }
 
     /// 清除所有 token（登出时调用）
+    #[allow(dead_code)]
     pub fn clear(&self) {
         if let Ok(mut t) = self.access_token.lock() {
             *t = None;
@@ -107,6 +114,7 @@ impl AuthState {
     }
 
     /// 检查 access token 是否即将过期（在 REFRESH_MARGIN 内）
+    #[allow(dead_code)]
     fn should_refresh_soon(&self) -> bool {
         let created = match self.created_at.lock().ok() {
             Some(guard) => match *guard {
@@ -120,6 +128,7 @@ impl AuthState {
     }
 
     /// 检查 access token 是否已完全过期
+    #[allow(dead_code)]
     fn is_expired(&self) -> bool {
         let created = match self.created_at.lock().ok() {
             Some(guard) => match *guard {
@@ -140,7 +149,7 @@ impl AuthState {
             },
             None => return NO_TOKEN_CHECK_INTERVAL,
         };
-        let has_token = self.access_token.lock().ok().map_or(false, |t| t.is_some());
+        let has_token = self.access_token.lock().ok().is_some_and(|t| t.is_some());
         if !has_token {
             return NO_TOKEN_CHECK_INTERVAL;
         }
@@ -165,7 +174,12 @@ impl AuthState {
                     true
                 }
             }
-            Err(_) => false,
+            Err(e) => {
+                // 从毒化 mutex 中恢复，重置锁定状态
+                let mut guard = e.into_inner();
+                *guard = false;
+                true
+            }
         }
     }
 
@@ -187,7 +201,7 @@ impl AuthState {
     fn too_many_failures(&self) -> bool {
         self.consecutive_failures
             .lock()
-            .map_or(false, |c| *c >= MAX_CONSECUTIVE_FAILURES)
+            .is_ok_and(|c| *c >= MAX_CONSECUTIVE_FAILURES)
     }
 
     /// 持久化 token 到磁盘
@@ -299,8 +313,8 @@ struct RefreshResponse {
     refresh_token: String,
 }
 
-/// 执行 token 刷新（不持锁调用方负责加锁）
- pub async fn do_refresh(client: &reqwest::Client, auth: &AuthState) -> bool {
+/// 执行 token 刷新（调用方负责加锁）
+pub(crate) async fn do_refresh(client: &reqwest::Client, auth: &AuthState) -> bool {
     let refresh_token = match auth.get_refresh_token() {
         Some(t) => t,
         None => {
@@ -346,20 +360,26 @@ struct RefreshResponse {
 ///
 /// 带刷新锁保护：同一时间只有一个刷新请求在进行。
 /// 返回 true 表示刷新成功（或刚被其他请求刷新完），false 表示需要重新登录。
+#[allow(dead_code)]
 pub async fn try_refresh_token(client: &reqwest::Client, auth: &Arc<AuthState>) -> bool {
     // 尝试获取刷新锁
     if !auth.try_acquire_refresh_lock() {
-        // 其他线程正在刷新，等待完成
-        for _ in 0..50 {
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            let refreshing = auth.refreshing.lock().ok().map_or(true, |f| *f);
-            if !refreshing {
-                // 刷新完成，检查是否有有效 token
-                return auth.get_access_token().is_some();
+        // 其他线程正在刷新 — 使用 timeout 等待，避免忙等
+        let wait_result = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let refreshing = auth.refreshing.lock().ok().is_none_or(|f| *f);
+                if !refreshing {
+                    break;
+                }
             }
+        })
+        .await;
+
+        if wait_result.is_err() {
+            eprintln!("[Auth] timed out waiting for concurrent refresh");
         }
-        eprintln!("[Auth] timed out waiting for concurrent refresh");
-        return false;
+        return auth.get_access_token().is_some();
     }
 
     let success = do_refresh(client, auth).await;

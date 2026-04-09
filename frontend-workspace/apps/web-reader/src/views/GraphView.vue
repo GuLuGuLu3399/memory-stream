@@ -162,6 +162,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
     disconnectWS();
+    if (layoutTimer) {
+        clearTimeout(layoutTimer);
+        layoutTimer = null;
+    }
 });
 
 // 🌟 关键：等节点真正渲染后，执行多连通分量布局
@@ -194,6 +198,7 @@ onPaneClick(() => {
 
 // ── 一键归位 ──
 const isLayouting = ref(false);
+let layoutTimer: ReturnType<typeof setTimeout> | null = null;
 
 const layout = async () => {
     if (isLayouting.value) return;
@@ -208,7 +213,7 @@ const layout = async () => {
     const layoutedNodes = layoutMultiComponent(currentNodes, currentEdges);
     setNodes(layoutedNodes);
 
-    setTimeout(() => {
+    layoutTimer = setTimeout(() => {
         const edgesOn = getEdges.value.map((e) => ({
             ...e,
             animated:
@@ -217,6 +222,7 @@ const layout = async () => {
         setEdges(edgesOn);
         fitView({ padding: 0.2, duration: 400 });
         isLayouting.value = false;
+        layoutTimer = null;
     }, 500);
 };
 </script>
@@ -279,7 +285,7 @@ const layout = async () => {
             </template>
 
             <!-- ✨ 一键归位浮动按钮 ── -->
-            <div class="absolute bottom-4 right-4 z-50">
+            <div class="absolute bottom-4 right-4 z-chrome">
                 <button @click="layout" class="layout-btn" :disabled="isLayouting" title="一键归位">
                     <Sparkles :size="18" />
                 </button>

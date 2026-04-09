@@ -42,7 +42,7 @@ pub async fn compress_to_webp(
 ) -> CompressResult<Vec<u8>> {
     task::spawn_blocking(move || compress_sync(&raw_data, &options))
         .await
-        .unwrap_or_else(|_| Err(CompressError::TaskPanic))
+        .unwrap_or(Err(CompressError::TaskPanic))
 }
 
 fn compress_sync(raw_data: &[u8], options: &CompressOptions) -> CompressResult<Vec<u8>> {

@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 
 /**
- * 🌟 MarkdownViewer - 跨端渲染核武器
- * 
- * 纯展示组件，只接收 HTML 字符串，负责：
+ * MarkdownViewer - 跨端统一渲染基座
+ *
+ * 纯展示组件，接收 HTML 字符串，负责：
  * 1. KaTeX 数学公式渲染 (动态按需加载)
  * 2. Shiki 代码高亮 (动态按需加载)
- * 3. Mermaid 流程图渲染 (动态按需加载)
- * 
- * 被 MarkdownEditor 和 web-reader 共同使用
+ * 3. Mermaid 流程图渲染 (动态按需加载, 暗色主题 + 可读字号)
+ * 4. 图片缩放 (medium-zoom, 神殿黑背景)
+ * 5. 锚点跳转拦截 (解决 overflow 容器内 #hash 跳转失效)
  */
 
 const props = defineProps<{
@@ -18,8 +18,17 @@ const props = defineProps<{
 
 const viewerRef = ref<HTMLElement | null>(null);
 
+// ========== medium-zoom 实例 ==========
+let zoomInstance: ReturnType<typeof import('medium-zoom').default> | null = null;
+
 // ========== Shiki 高亮器（懒加载单例） ==========
-let highlighter: any = null;
+let highlighter: import('shiki').Highlighter | null = null;
+
+// ========== Mermaid 初始化标记 ==========
+let mermaidInitialized = false;
+
+// ========== 渲染竞态保护 ==========
+let renderId = 0;
 
 async function getShikiHighlighter() {
     if (!highlighter) {
@@ -34,8 +43,7 @@ async function getShikiHighlighter() {
 
 // ========== 富文本后处理钩子 ==========
 async function applyRichTextRendering(container: HTMLElement) {
-    // 1. KaTeX 数学公式渲染 (动态按需加载)
-    // 🌟 只认 Rust 输出的标准 LaTeX 定界符 \(...\) 和 \[...\]
+    // 1. KaTeX 数学公式渲染
     const hasMath = container.querySelector('.math-inline, .math-block');
     const hasMathDelimiters = container.innerHTML.includes('\\(') || container.innerHTML.includes('\\[');
     if (hasMath || hasMathDelimiters) {
@@ -53,8 +61,7 @@ async function applyRichTextRendering(container: HTMLElement) {
         }
     }
 
-    // 2. Shiki 代码高亮 (动态按需加载)
-    // 🌟 工业级健壮版：大小写标准化 + 语言包校验
+    // 2. Shiki 代码高亮
     const codeBlocks = container.querySelectorAll('pre > code');
     if (codeBlocks.length > 0) {
         try {
@@ -64,15 +71,11 @@ async function applyRichTextRendering(container: HTMLElement) {
             codeBlocks.forEach((el) => {
                 const codeEl = el as HTMLElement;
                 const match = codeEl.className.match(/language-([a-zA-Z0-9]+)/);
-                // 强制转小写，防止大小写不匹配
                 let lang = match ? match[1].toLowerCase() : 'text';
 
-                // 跳过 Mermaid 块
                 if (lang === 'mermaid') return;
 
-                // 检查 Shiki 是否真的加载了这个语言
                 if (!loadedLangs.includes(lang)) {
-                    console.warn(`Shiki 没有加载语言 [${lang}]，回退到 text 模式`);
                     lang = 'text';
                 }
 
@@ -82,7 +85,6 @@ async function applyRichTextRendering(container: HTMLElement) {
                         lang,
                         theme: 'vitesse-dark'
                     });
-                    // 替换整个 pre 元素
                     if (codeEl.parentElement) {
                         codeEl.parentElement.outerHTML = html;
                     }
@@ -95,49 +97,105 @@ async function applyRichTextRendering(container: HTMLElement) {
         }
     }
 
-    // 3. Mermaid 流程图渲染 (动态按需加载)
+    // 3. Mermaid 流程图渲染（仅初始化一次配置）
     const mermaidNodes = Array.from(container.querySelectorAll('.mermaid')) as HTMLElement[];
     if (mermaidNodes.length > 0) {
         try {
             const { default: mermaid } = await import('mermaid');
-            mermaid.initialize({
-                startOnLoad: false,
-                theme: 'dark',
-                securityLevel: 'loose'
-            });
-            // 重置已处理状态
+            if (!mermaidInitialized) {
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'dark',
+                    securityLevel: 'loose',
+                    themeVariables: {
+                        fontSize: '16px',
+                        fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace'
+                    }
+                });
+                mermaidInitialized = true;
+            }
             mermaidNodes.forEach(n => n.removeAttribute('data-processed'));
             await mermaid.run({ nodes: mermaidNodes });
         } catch (e) {
             console.warn('Mermaid 渲染警告:', e);
         }
     }
+
+    // 4. 图片缩放 (medium-zoom)
+    try {
+        const mediumZoom = (await import('medium-zoom')).default;
+        if (zoomInstance) {
+            zoomInstance.detach();
+            zoomInstance = null;
+        }
+        zoomInstance = mediumZoom(container.querySelectorAll('img'), {
+            background: 'rgba(10, 10, 10, 0.95)',
+            margin: 24
+        });
+    } catch (e) {
+        console.warn('medium-zoom 初始化警告:', e);
+    }
 }
 
-// ========== 监听传入的 HTML，触发渲染流水线 ==========
-watch(() => props.htmlContent, async () => {
+// ========== 锚点跳转拦截 ==========
+function handleViewerClick(e: MouseEvent) {
+    const target = (e.target as HTMLElement).closest('a');
+    if (!target) return;
+
+    const href = target.getAttribute('href');
+    if (!href || !href.startsWith('#')) return;
+
+    e.preventDefault();
+
+    let id: string;
+    try {
+        id = decodeURIComponent(href.slice(1));
+    } catch {
+        return; // 无效编码，忽略
+    }
+    if (!id || !viewerRef.value) return;
+
+    const element = viewerRef.value.querySelector(`[id="${CSS.escape(id)}"]`) as HTMLElement | null;
+    if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// ========== 渲染管线（带竞态保护） ==========
+async function triggerRender() {
+    const currentId = ++renderId;
     await nextTick();
     const container = viewerRef.value;
-    if (!container) return;
+    if (!container || currentId !== renderId) return;
     await applyRichTextRendering(container);
-}, { immediate: true });
+}
+
+onMounted(triggerRender);
+
+watch(() => props.htmlContent, triggerRender);
+
+onUnmounted(() => {
+    if (zoomInstance) zoomInstance.detach();
+    highlighter = null;
+});
 </script>
 
 <template>
-    <div ref="viewerRef" class="prose prose-invert max-w-none" v-html="htmlContent"></div>
+    <div ref="viewerRef" class="markdown-body prose prose-invert max-w-none" v-html="htmlContent"
+        @click="handleViewerClick" />
 </template>
 
 <style>
-/* 🚨 核心修复：强制隐藏 KaTeX 的 MathML 辅助文本 */
-.katex-html {
-    display: none !important;
-}
+/* NOTE: <style> intentionally unscoped — v-html content does not receive Vue's scoped
+   data-v- attributes, so scoped selectors would not match rendered markdown elements.
+   All styles are class-scoped via .markdown-body / .prose to prevent global leakage. */
 
-/* ==================== 🎨 视觉附魔：极客美感样式 ==================== */
+/* KaTeX MathML 辅助文本（屏幕阅读器用，视觉上已由 KaTeX 自身隐藏） */
 
-/* --- 1. 排版基石：重塑 prose 质感 --- */
-.prose {
-    @apply text-zinc-300 leading-relaxed max-w-none;
+/* ==================== 排版基石 ==================== */
+.markdown-body {
+    font-size: 1.05rem;
+    line-height: 1.8;
 }
 
 .prose p {
@@ -166,7 +224,6 @@ watch(() => props.htmlContent, async () => {
     @apply text-xl;
 }
 
-/* 优雅的超链接 */
 .prose a {
     @apply text-indigo-400 no-underline border-b border-indigo-400/30 transition-colors;
 }
@@ -175,13 +232,12 @@ watch(() => props.htmlContent, async () => {
     @apply border-indigo-400 text-indigo-300;
 }
 
-/* --- 2. 代码块的"极客装甲" --- */
+/* ==================== 代码块 ==================== */
 .prose pre.shiki {
     @apply relative p-4 rounded-xl border border-zinc-800 bg-[#121212] my-6 text-sm shadow-2xl overflow-x-auto;
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
 
-/* 自定义滚动条 */
 .prose pre.shiki::-webkit-scrollbar {
     height: 8px;
 }
@@ -198,12 +254,11 @@ watch(() => props.htmlContent, async () => {
     @apply bg-zinc-600;
 }
 
-/* 行内代码 */
 .prose code:not(pre code) {
     @apply bg-zinc-800/70 text-indigo-300 px-1.5 py-0.5 rounded text-sm font-medium;
 }
 
-/* --- 3. 引用块的现代化蜕变 --- */
+/* ==================== 引用块 ==================== */
 .prose blockquote {
     @apply relative my-6 pl-5 pr-4 py-3 border-l-4 border-indigo-500 bg-indigo-500/10 rounded-r-lg;
     font-style: normal;
@@ -214,7 +269,7 @@ watch(() => props.htmlContent, async () => {
     @apply my-1;
 }
 
-/* --- 4. 表格与复选框 --- */
+/* ==================== 表格与复选框 ==================== */
 .prose table {
     @apply w-full text-left border-collapse my-8 text-sm;
 }
@@ -231,7 +286,6 @@ watch(() => props.htmlContent, async () => {
     @apply bg-zinc-800/30 transition-colors;
 }
 
-/* 任务列表复选框 */
 .prose input[type="checkbox"] {
     @apply appearance-none w-4 h-4 border border-zinc-600 rounded-sm bg-zinc-900 align-middle mr-2 focus:ring-0 cursor-pointer;
 }
@@ -240,7 +294,7 @@ watch(() => props.htmlContent, async () => {
     @apply bg-indigo-500 border-indigo-500;
 }
 
-/* --- 5. 列表优化 --- */
+/* ==================== 列表 ==================== */
 .prose ul,
 .prose ol {
     @apply my-4 pl-6;
@@ -258,12 +312,31 @@ watch(() => props.htmlContent, async () => {
     @apply list-decimal;
 }
 
-/* --- 6. 图片优化 --- */
-.prose img {
-    @apply rounded-lg shadow-lg my-6;
+/* ==================== Mermaid 图表可读性 ==================== */
+.markdown-body .mermaid {
+    overflow-x: auto;
+    text-align: center;
+    padding: 1rem 0;
 }
 
-/* --- 7. 分割线 --- */
+.markdown-body .mermaid svg {
+    min-width: 600px;
+    max-width: 100%;
+    height: auto;
+}
+
+/* ==================== 图片缩放 ==================== */
+.prose img {
+    @apply rounded-lg shadow-lg my-6;
+    cursor: zoom-in;
+    transition: transform 0.3s cubic-bezier(0.2, 0, 0.2, 1) !important;
+}
+
+.medium-zoom-image--opened {
+    cursor: zoom-out;
+}
+
+/* ==================== 分割线 ==================== */
 .prose hr {
     @apply border-zinc-800 my-8;
 }

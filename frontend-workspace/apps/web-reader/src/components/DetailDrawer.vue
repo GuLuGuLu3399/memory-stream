@@ -7,10 +7,10 @@
  * 监听 selectedId 变化，按需加载卡片详情。
  *
  * 色板：ms-panel/ms-border/neon 统一极客工业风
- * Z-Index：z-overlay（遮罩） / z-drawer（抽屉）
+ * Z-Index：z-drawer（遮罩与抽屉主体）
  */
 
-import { ref, watch, onMounted, onUnmounted } from "vue";
+import { ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import MarkdownViewer from "@memory-stream/ui-shared/components/MarkdownViewer.vue";
 import { useGraphStore } from "../store/useGraphStore";
@@ -88,8 +88,6 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 // ── 双向悬停：wikilink hover → 图谱节点高亮 ──
-const proseRef = ref<HTMLElement>();
-
 function onProseMouseOver(e: MouseEvent) {
     const target = (e.target as HTMLElement).closest("a.wikilink, a[data-card-id]");
     if (target) {
@@ -102,30 +100,20 @@ function onProseMouseOut(e: MouseEvent) {
     const target = (e.target as HTMLElement).closest("a.wikilink, a[data-card-id]");
     if (target) store.highlightNode(null);
 }
-
-onMounted(() => {
-    proseRef.value?.addEventListener("mouseover", onProseMouseOver);
-    proseRef.value?.addEventListener("mouseout", onProseMouseOut);
-});
-
-onUnmounted(() => {
-    proseRef.value?.removeEventListener("mouseover", onProseMouseOver);
-    proseRef.value?.removeEventListener("mouseout", onProseMouseOut);
-});
 </script>
 
 <template>
     <Teleport to="body">
         <!-- 遮罩层 -->
         <Transition name="ms-fade">
-            <div v-if="selectedId" class="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm" @click="close"
+            <div v-if="selectedId" class="fixed inset-0 bg-black/30 z-drawer backdrop-blur-sm" @click="close"
                 @keydown.escape="close" />
         </Transition>
 
         <!-- 抽屉主体 -->
         <Transition name="ms-slide-right">
             <div v-if="selectedId"
-                class="fixed top-0 right-0 h-full z-50 flex flex-col backdrop-blur-md bg-ms-panel/95 border-l border-ms-border shadow-2xl shadow-black/40"
+                class="fixed top-0 right-0 h-full z-drawer flex flex-col backdrop-blur-md bg-ms-panel/95 border-l border-ms-border shadow-2xl shadow-black/40"
                 :style="{
                     width: isMobile ? '100%' : '45%',
                     minWidth: isMobile ? '0' : '400px',
@@ -177,8 +165,9 @@ onUnmounted(() => {
                 </div>
 
                 <!-- 内容区 + Backlinks -->
-                <div v-else-if="detail" ref="proseRef"
-                    class="flex-1 overflow-y-auto px-6 py-5 prose-container scrollbar-thin">
+                <div v-else-if="detail"
+                    class="flex-1 overflow-y-auto px-6 py-5 prose-container scrollbar-thin"
+                    @mouseover="onProseMouseOver" @mouseout="onProseMouseOut">
                     <Transition name="crossfade" mode="out-in">
                         <div :key="detail.id">
                             <MarkdownViewer :html-content="detail.html" />

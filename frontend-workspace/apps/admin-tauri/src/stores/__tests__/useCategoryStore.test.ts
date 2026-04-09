@@ -3,7 +3,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useCategoryStore } from '../useCategoryStore'
 import { useToast } from '../useToast'
-import { z } from 'zod'
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),

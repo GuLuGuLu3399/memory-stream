@@ -11,6 +11,10 @@ dist/
 go-server/bin/
 go-server/nul
 
+# AI runtime residuals
+.omc/
+.claude/
+
 # IDE
 .idea/
 .vscode/

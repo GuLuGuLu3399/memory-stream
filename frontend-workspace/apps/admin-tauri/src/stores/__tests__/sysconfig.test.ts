@@ -132,7 +132,7 @@ describe('useSysConfigStore', () => {
     })
 
     it('should set loading state during save', async () => {
-      let resolveSave: () => void
+      let resolveSave: (value?: unknown) => void
       mockInvoke.mockImplementation(() => new Promise((resolve) => {
         resolveSave = resolve
       }))

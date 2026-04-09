@@ -9,14 +9,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// CategoryHandler handles category CRUD HTTP requests.
 type CategoryHandler struct {
 	service *services.CategoryService
 }
 
+// NewCategoryHandler creates a new CategoryHandler instance.
 func NewCategoryHandler(service *services.CategoryService) *CategoryHandler {
 	return &CategoryHandler{service: service}
 }
 
+// List returns all categories as a flat list.
+// GET /categories
 func (h *CategoryHandler) List(c *gin.Context) {
 	categories, err := h.service.ListAll()
 	if err != nil {
@@ -26,6 +30,8 @@ func (h *CategoryHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"categories": categories})
 }
 
+// GetTree returns categories organized as a tree structure.
+// GET /categories/tree
 func (h *CategoryHandler) GetTree(c *gin.Context) {
 	tree, err := h.service.GetTree()
 	if err != nil {
@@ -35,6 +41,8 @@ func (h *CategoryHandler) GetTree(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"categories": tree})
 }
 
+// Create adds a new category.
+// POST /categories
 func (h *CategoryHandler) Create(c *gin.Context) {
 	var req struct {
 		Name        string  `json:"name" binding:"required"`
@@ -54,6 +62,8 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"category": cat})
 }
 
+// Update modifies an existing category.
+// PUT /categories/:id
 func (h *CategoryHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -77,6 +87,8 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "分类已更新"})
 }
 
+// Delete removes a category by ID.
+// DELETE /categories/:id
 func (h *CategoryHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -95,6 +107,8 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "分类已删除"})
 }
 
+// GetClusters returns graph clusters for a category.
+// GET /categories/:id/clusters
 func (h *CategoryHandler) GetClusters(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)

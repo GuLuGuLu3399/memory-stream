@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, nextTick, watch, ref, computed } from "vue";
+import { onMounted, ref, computed } from "vue";
 import { useKnowledgeStore } from "../stores/knowledge";
 import { useLayoutStore } from "../stores/layout";
 import { storeToRefs } from "pinia";

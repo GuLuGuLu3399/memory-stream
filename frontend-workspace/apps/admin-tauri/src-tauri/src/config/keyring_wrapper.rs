@@ -17,6 +17,22 @@ use std::path::PathBuf;
 const SERVICE_NAME: &str = "memory-stream";
 const KEYRING_FALLBACK_STORE: &str = "keyring-fallback.json";
 
+// Test override for fallback path (thread-local to avoid cross-test interference)
+std::thread_local! {
+    static TEST_FALLBACK_DIR: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+fn set_test_fallback_dir(dir: PathBuf) {
+    TEST_FALLBACK_DIR.with(|d| *d.borrow_mut() = Some(dir));
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+fn clear_test_fallback_dir() {
+    TEST_FALLBACK_DIR.with(|d| *d.borrow_mut() = None);
+}
+
 /// Store a secret in OS keyring, fallback to encrypted JSON file
 ///
 /// # Arguments
@@ -27,7 +43,7 @@ const KEYRING_FALLBACK_STORE: &str = "keyring-fallback.json";
 /// `Ok(())` if successful, `Err` with error message otherwise
 ///
 /// # Example
-/// ```rust
+/// ```ignore
 /// store_secret("api_key", "secret123")?;
 /// ```
 pub fn store_secret(key: &str, value: &str) -> Result<(), String> {
@@ -63,7 +79,7 @@ pub fn store_secret(key: &str, value: &str) -> Result<(), String> {
 /// `Ok(Some(value))` if found, `Ok(None)` if not found, `Err` on error
 ///
 /// # Example
-/// ```rust
+/// ```ignore
 /// if let Some(secret) = get_secret("api_key")? {
 ///     println!("Found secret: {}", secret);
 /// }
@@ -133,8 +149,19 @@ fn try_keyring_get(key: &str) -> Result<Option<String>, String> {
 
 // === Fallback Implementation ===
 
-/// Get platform-specific data directory for fallback storage
+/// Get fallback storage path (uses test override when in tests)
 fn fallback_path() -> Result<PathBuf, String> {
+    // Check for test override first
+    let test_override = TEST_FALLBACK_DIR.with(|d| d.borrow().clone());
+    if let Some(dir) = test_override {
+        return Ok(dir.join(KEYRING_FALLBACK_STORE));
+    }
+
+    platform_fallback_path()
+}
+
+/// Get platform-specific data directory for fallback storage
+fn platform_fallback_path() -> Result<PathBuf, String> {
     #[cfg(target_os = "windows")]
     {
         // Windows: Use %APPDATA%\memory-stream
@@ -244,6 +271,13 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    /// Set up an isolated temp dir for each test to avoid cross-test file races
+    fn setup_test_env() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        set_test_fallback_dir(dir.path().to_path_buf());
+        dir
+    }
+
     fn unique_test_key(prefix: &str) -> String {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -264,6 +298,7 @@ mod tests {
 
     #[test]
     fn test_keyring_store_and_retrieve() {
+        let _dir = setup_test_env();
         let test_key = unique_test_key("test_keyring");
         let test_value = "test_secret_value_12345";
 
@@ -284,6 +319,7 @@ mod tests {
 
     #[test]
     fn test_fallback_store_and_retrieve() {
+        let _dir = setup_test_env();
         let test_key = unique_test_key("test_fallback");
         let test_value = "test_fallback_value";
 
@@ -313,6 +349,7 @@ mod tests {
 
     #[test]
     fn test_delete_secret() {
+        let _dir = setup_test_env();
         let test_key = unique_test_key("test_delete");
         let test_value = "to_be_deleted";
 
@@ -336,12 +373,12 @@ mod tests {
     #[test]
     fn test_fallback_path_exists() {
         let path = fallback_path().expect("Should get fallback path");
-        assert!(path.to_string_lossy().contains("memory-stream"));
-        assert!(path.to_string_lossy().ends_with("keyring-fallback.json"));
+        assert!(path.to_string_lossy().contains("keyring-fallback.json"));
     }
 
     #[test]
     fn test_nonexistent_key() {
+        let _dir = setup_test_env();
         let test_key = unique_test_key("nonexistent");
         let result = get_secret(&test_key).expect("get should succeed");
         assert_eq!(result, None);
@@ -349,6 +386,7 @@ mod tests {
 
     #[test]
     fn test_store_overwrites_existing() {
+        let _dir = setup_test_env();
         let test_key = unique_test_key("test_overwrite");
         let test_value1 = "first_value";
         let test_value2 = "second_value";

@@ -42,7 +42,7 @@ onMounted(() => {
 
 <template>
     <Transition name="entrance-fade">
-        <div v-if="visible" class="entrance-overlay">
+        <div v-if="visible" class="entrance-overlay z-entrance">
             <!-- 背景粒子 -->
             <div class="particle-field">
                 <div v-for="i in 20" :key="i" class="particle" :style="{
@@ -79,7 +79,6 @@ onMounted(() => {
 .entrance-overlay {
     position: fixed;
     inset: 0;
-    z-index: 9999;
     background: #0d0d0d;
     display: flex;
     flex-direction: column;

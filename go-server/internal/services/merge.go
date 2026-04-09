@@ -2,10 +2,12 @@ package services
 
 import (
 	"errors"
+	"sort"
 	"time"
 
 	"github.com/GuLuGuLu3399/memory-stream-server/internal/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // MergeRequest represents the input for merging cards
@@ -33,21 +35,26 @@ func MergeCards(db *gorm.DB, req MergeRequest) (*MergeResult, error) {
 		}
 	}
 
-	// Validation: all IDs must exist
-	var count int64
+	// Collect all IDs and sort to prevent deadlocks (consistent lock ordering)
 	allIDs := append([]string{req.SurvivorID}, req.VictimIDs...)
-	if err := db.Model(&models.Card{}).Where("id IN ?", allIDs).Count(&count).Error; err != nil {
-		return nil, err
-	}
-	if int(count) != len(allIDs) {
-		return nil, errors.New("one or more card IDs not found")
-	}
+	sort.Strings(allIDs)
 
 	result := &MergeResult{
 		Warnings: []string{},
 	}
 
 	err := db.Transaction(func(tx *gorm.DB) error {
+		// Row-level lock: lock all involved cards to prevent concurrent merge
+		var lockedCount int64
+		if err := tx.Model(&models.Card{}).
+			Where("id IN ?", allIDs).
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Count(&lockedCount).Error; err != nil {
+			return err
+		}
+		if int(lockedCount) != len(allIDs) {
+			return errors.New("one or more card IDs not found")
+		}
 		// Step 1: Collect all edges to migrate
 		type EdgeInfo struct {
 			SourceID     string

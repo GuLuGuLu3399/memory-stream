@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/GuLuGuLu3399/memory-stream-server/internal/models"
+	"github.com/GuLuGuLu3399/memory-stream-server/internal/pkg/logger"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -23,7 +24,7 @@ func NewAuthService(db *gorm.DB) *AuthService {
 		if os.Getenv("GO_ENV") == "production" {
 			panic("FATAL: JWT_SECRET environment variable must be set in production. Refusing to start with insecure default.")
 		}
-		fmt.Println("⚠️  WARNING: Using default JWT secret — NOT for production! Set JWT_SECRET environment variable.")
+		logger.Log.Warnf("⚠️  WARNING: Using default JWT secret — NOT for production! Set JWT_SECRET environment variable.")
 		secret = "memory-stream-dev-secret-change-in-production"
 	}
 	if len(secret) < 32 {

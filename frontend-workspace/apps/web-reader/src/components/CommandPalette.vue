@@ -15,6 +15,7 @@ const selectedIndex = ref(0);
 const inputRef = ref<HTMLInputElement>();
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let searchGeneration = 0;
 
 watch(commandPaletteOpen, async (open) => {
     if (open) {
@@ -28,23 +29,26 @@ watch(commandPaletteOpen, async (open) => {
 
 watch(query, (q) => {
     if (debounceTimer) clearTimeout(debounceTimer);
-    
+
     if (!q.trim()) {
         results.value = [];
         return;
     }
-    
+
+    const gen = ++searchGeneration;
     debounceTimer = setTimeout(async () => {
         loading.value = true;
         try {
             const response = await api.searchCards(q, 8);
+            if (gen !== searchGeneration) return; // 丢弃过期结果
             results.value = response.results;
             selectedIndex.value = 0;
         } catch (error) {
+            if (gen !== searchGeneration) return;
             console.error("Search failed:", error);
             results.value = [];
         } finally {
-            loading.value = false;
+            if (gen === searchGeneration) loading.value = false;
         }
     }, 300);
 });
@@ -84,7 +88,7 @@ function onKeydown(e: KeyboardEvent) {
 <template>
     <Teleport to="body">
         <Transition name="ms-scale">
-            <div v-if="commandPaletteOpen" class="fixed inset-0 z-[60] flex items-start justify-center pt-[20vh]"
+            <div v-if="commandPaletteOpen" class="fixed inset-0 z-modal flex items-start justify-center pt-[20vh]"
                 @click="close" @keydown="onKeydown">
                 <!-- 遮罩 -->
                 <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" />

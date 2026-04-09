@@ -2,7 +2,7 @@ declare module "katex/dist/contrib/auto-render.mjs" {
   interface RenderMathInElementOptions {
     delimiters?: Array<{ left: string; right: string; display: boolean }>;
     throwOnError?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   }
 
   function renderMathInElement(

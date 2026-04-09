@@ -10,11 +10,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// MergeHandler handles card merge HTTP requests.
 type MergeHandler struct {
 	DB  *gorm.DB
 	Hub *ws.Hub
 }
 
+// NewMergeHandler creates a new MergeHandler instance.
 func NewMergeHandler(db *gorm.DB, hub *ws.Hub) *MergeHandler {
 	return &MergeHandler{DB: db, Hub: hub}
 }
@@ -24,6 +26,8 @@ type mergeCardsReq struct {
 	VictimIDs  []string `json:"victim_ids" binding:"required,min=1"`
 }
 
+// MergeCards merges multiple victim cards into a survivor card, migrating edges atomically.
+// POST /merge
 func (h *MergeHandler) MergeCards(c *gin.Context) {
 	var req mergeCardsReq
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -53,7 +53,7 @@ impl DraftDb {
             })
         })
         .await
-        .unwrap_or_else(|_| Err(DraftError::TaskPanic))
+        .unwrap_or(Err(DraftError::TaskPanic))
     }
 
     pub async fn save_draft(
@@ -69,7 +69,10 @@ impl DraftDb {
         let now = chrono::Utc::now().timestamp();
 
         task::spawn_blocking(move || {
-            let lock = conn.lock().unwrap();
+            let lock = conn.lock().unwrap_or_else(|e| {
+                eprintln!("[Draft] mutex poisoned, recovering: {}", e);
+                e.into_inner()
+            });
             lock.execute(
                 "INSERT OR REPLACE INTO drafts (card_id, raw_md, ast_data, updated_at) VALUES (?1, ?2, ?3, ?4)",
                 params![card_id, raw_md, ast_data, now],
@@ -77,7 +80,7 @@ impl DraftDb {
             Ok(())
         })
         .await
-        .unwrap_or_else(|_| Err(DraftError::TaskPanic))
+        .unwrap_or(Err(DraftError::TaskPanic))
     }
 
     pub async fn load_draft(&self, card_id: &str) -> DraftResult<Option<Draft>> {
@@ -85,7 +88,10 @@ impl DraftDb {
         let card_id = card_id.to_string();
 
         task::spawn_blocking(move || {
-            let lock = conn.lock().unwrap();
+            let lock = conn.lock().unwrap_or_else(|e| {
+                eprintln!("[Draft] mutex poisoned, recovering: {}", e);
+                e.into_inner()
+            });
             let mut stmt = lock.prepare(
                 "SELECT card_id, raw_md, ast_data, updated_at FROM drafts WHERE card_id = ?1",
             )?;
@@ -102,14 +108,17 @@ impl DraftDb {
             }
         })
         .await
-        .unwrap_or_else(|_| Err(DraftError::TaskPanic))
+        .unwrap_or(Err(DraftError::TaskPanic))
     }
 
     pub async fn list_all(&self) -> DraftResult<Vec<Draft>> {
         let conn = self.conn.clone();
 
         task::spawn_blocking(move || {
-            let lock = conn.lock().unwrap();
+            let lock = conn.lock().unwrap_or_else(|e| {
+                eprintln!("[Draft] mutex poisoned, recovering: {}", e);
+                e.into_inner()
+            });
             let mut stmt = lock.prepare(
                 "SELECT card_id, raw_md, ast_data, updated_at FROM drafts ORDER BY updated_at DESC",
             )?;
@@ -128,7 +137,7 @@ impl DraftDb {
             Ok(drafts)
         })
         .await
-        .unwrap_or_else(|_| Err(DraftError::TaskPanic))
+        .unwrap_or(Err(DraftError::TaskPanic))
     }
 
     pub async fn list_unsynced(&self) -> DraftResult<Vec<Draft>> {
@@ -144,12 +153,15 @@ impl DraftDb {
         let card_id = card_id.to_string();
 
         task::spawn_blocking(move || {
-            let lock = conn.lock().unwrap();
+            let lock = conn.lock().unwrap_or_else(|e| {
+                eprintln!("[Draft] mutex poisoned, recovering: {}", e);
+                e.into_inner()
+            });
             lock.execute("DELETE FROM drafts WHERE card_id = ?1", params![card_id])?;
             Ok(())
         })
         .await
-        .unwrap_or_else(|_| Err(DraftError::TaskPanic))
+        .unwrap_or(Err(DraftError::TaskPanic))
     }
 }
 

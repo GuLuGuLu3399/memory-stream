@@ -114,7 +114,7 @@ onUnmounted(() => {
   <div v-else class="h-screen w-screen bg-ms-deep overflow-hidden font-body flex flex-col">
 
     <!-- 首次使用配置提示横幅（固定在顶部） -->
-    <div v-if="showConfigBanner" class="fixed top-0 left-0 right-0 z-50 bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between font-mono text-xs">
+    <div v-if="showConfigBanner" class="fixed top-0 left-0 right-0 z-chrome bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between font-mono text-xs">
       <span class="text-amber-400">⚠ 首次使用 — 请完成系统配置</span>
       <div class="flex gap-2">
         <button @click="openSettings" class="text-amber-400 hover:text-amber-300 underline">前往配置</button>
@@ -134,7 +134,6 @@ onUnmounted(() => {
                     <MergePanel
                         v-if="isMergeConsoleOpen"
                         :cards="allCardsForMerge"
-                        class="absolute inset-0 z-50"
                         @merge-completed="handleMergeCompleted"
                     />
                 </Transition>

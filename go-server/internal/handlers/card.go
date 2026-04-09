@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// CardHandler handles card CRUD and graph-related HTTP requests.
 type CardHandler struct {
 	cardSvc     *services.CardService
 	edgeSvc     *services.EdgeService
@@ -21,6 +22,7 @@ type CardHandler struct {
 	hub         *ws.Hub
 }
 
+// NewCardHandler creates a new CardHandler instance.
 func NewCardHandler(cardSvc *services.CardService, edgeSvc *services.EdgeService, graphSvc *services.GraphService, rateLimiter *middleware.ViewRateLimiter, hub *ws.Hub) *CardHandler {
 	return &CardHandler{cardSvc: cardSvc, edgeSvc: edgeSvc, graphSvc: graphSvc, rateLimiter: rateLimiter, hub: hub}
 }
@@ -35,6 +37,8 @@ type CreateCardReq struct {
 	RelationType string       `json:"relation_type,omitempty"`
 }
 
+// Create creates a new card and optionally links it to a parent via an edge.
+// POST /cards
 func (h *CardHandler) Create(c *gin.Context) {
 	var req CreateCardReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -83,6 +87,8 @@ func (h *CardHandler) Create(c *gin.Context) {
 	}
 }
 
+// List returns a cursor-paginated list of cards.
+// GET /cards
 func (h *CardHandler) List(c *gin.Context) {
 	cursor := c.Query("cursor")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -95,6 +101,8 @@ func (h *CardHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// Discover returns cards sorted by various criteria with offset pagination.
+// GET /cards/discover
 func (h *CardHandler) Discover(c *gin.Context) {
 	sort := c.DefaultQuery("sort", "latest")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -108,6 +116,8 @@ func (h *CardHandler) Discover(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// GetByID returns a single card by its ID.
+// GET /cards/:id
 func (h *CardHandler) GetByID(c *gin.Context) {
 	cardID := c.Param("id")
 
@@ -120,6 +130,8 @@ func (h *CardHandler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, card)
 }
 
+// Graph returns the neighborhood graph around a card and increments its view count.
+// GET /cards/:id/graph
 func (h *CardHandler) Graph(c *gin.Context) {
 	cardID := c.Param("id")
 	depth, _ := strconv.Atoi(c.DefaultQuery("depth", "2"))
@@ -143,6 +155,8 @@ func (h *CardHandler) Graph(c *gin.Context) {
 	c.JSON(http.StatusOK, graph)
 }
 
+// IncrementView increments a card's view count with IP-based rate limiting.
+// POST /cards/:id/view
 func (h *CardHandler) IncrementView(c *gin.Context) {
 	cardID := c.Param("id")
 	clientIP := c.ClientIP()
@@ -170,6 +184,8 @@ type UpdateCardReq struct {
 	ExtractedLinks []string     `json:"extracted_links"`
 }
 
+// Update modifies a card's content and syncs wikilink reference edges.
+// PUT /cards/:id
 func (h *CardHandler) Update(c *gin.Context) {
 	id := c.Param("id")
 	var req UpdateCardReq
@@ -235,6 +251,8 @@ func (h *CardHandler) GetBacklinks(c *gin.Context) {
 	})
 }
 
+// Delete removes a card by ID and broadcasts the deletion via WebSocket.
+// DELETE /cards/:id
 func (h *CardHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.cardSvc.DeleteCard(id); err != nil {

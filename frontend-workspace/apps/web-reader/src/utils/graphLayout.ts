@@ -37,6 +37,14 @@ interface ComponentBBox {
   height: number;
 }
 
+/** potpack 返回的带偏移量盒子 */
+interface PotpackBox {
+  w: number;
+  h: number;
+  x: number;
+  y: number;
+}
+
 /** 子图布局结果 */
 interface ComponentLayout {
   /** 该分量包含的节点 ID 列表 */
@@ -117,9 +125,11 @@ export function layoutMultiComponent(nodes: Node[], edges: Edge[]): Node[] {
   }
 
   // Step 4: potpack 矩阵打包
-  const boxes = layouts.map((l) => ({
+  const boxes: PotpackBox[] = layouts.map((l) => ({
     w: l.bbox.width + COMPONENT_GAP,
     h: l.bbox.height + COMPONENT_GAP,
+    x: 0,
+    y: 0,
   }));
   potpack(boxes);
 
@@ -130,8 +140,8 @@ export function layoutMultiComponent(nodes: Node[], edges: Edge[]): Node[] {
     const layout = layouts[i];
     const offset = boxes[i];
     // potpack 返回的 x, y 就是该矩形在整体中的偏移
-    const offsetX = (offset as any).x + COMPONENT_GAP / 2;
-    const offsetY = (offset as any).y + COMPONENT_GAP / 2;
+    const offsetX = offset.x + COMPONENT_GAP / 2;
+    const offsetY = offset.y + COMPONENT_GAP / 2;
 
     for (const nodeId of layout.nodeIds) {
       const originalNode = nodeMap.get(nodeId);

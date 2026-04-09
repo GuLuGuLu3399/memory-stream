@@ -35,7 +35,7 @@ function withSetup<T>(composable: () => T): { result: T; app: ReturnType<typeof 
 }
 
 describe('useGlobalShortcuts', () => {
-  let mockStore: ReturnType<typeof useLayoutStore>
+  let mockStore: any
   let keydownHandler: ((e: KeyboardEvent) => void) | null = null
 
   beforeEach(() => {
@@ -49,13 +49,13 @@ describe('useGlobalShortcuts', () => {
       closeAll: vi.fn(),
       closeLeftDrawer: vi.fn(),
       closeRightPanel: vi.fn(),
-      isLeftDrawerOpen: { value: false },
-      isRightPanelOpen: { value: false },
-      isLeftSidebarPinned: { value: false },
-      isCategoryPanelOpen: { value: false },
-      isSettingsOpen: { value: false },
-      isMergeConsoleOpen: { value: false },
-      isImportPanelOpen: { value: false },
+      isLeftDrawerOpen: false,
+      isRightPanelOpen: false,
+      isLeftSidebarPinned: false,
+      isCategoryPanelOpen: false,
+      isSettingsOpen: false,
+      isMergeConsoleOpen: false,
+      isImportPanelOpen: false,
       openCategoryPanel: vi.fn(),
       closeCategoryPanel: vi.fn(),
       openSettings: vi.fn(),
@@ -64,7 +64,7 @@ describe('useGlobalShortcuts', () => {
       openImportPanel: vi.fn(),
       closeImportPanel: vi.fn(),
     }
-    mockUseLayoutStore.mockReturnValue(mockStore)
+    mockUseLayoutStore.mockReturnValue(mockStore as any)
 
     vi.spyOn(window, 'addEventListener').mockImplementation((type, handler) => {
       if (type === 'keydown') {

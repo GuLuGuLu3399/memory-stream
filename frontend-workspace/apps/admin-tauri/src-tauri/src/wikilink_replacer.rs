@@ -56,7 +56,7 @@ pub fn scan_vault_for_wikilinks(vault_path: &Path, victim_title: &str) -> Vec<Pa
             if path.is_dir() {
                 // Recursively scan subdirectories
                 result.extend(scan_vault_for_wikilinks(&path, victim_title));
-            } else if path.extension().map_or(false, |ext| ext == "md") {
+            } else if path.extension().is_some_and(|ext| ext == "md") {
                 // Check if this .md file contains the wikilink
                 if let Ok(content) = fs::read_to_string(&path) {
                     if content.contains(&wikilink_pattern) {
@@ -169,6 +169,7 @@ pub fn count_wikilinks_outside_codeblocks(content: &str, title: &str) -> usize {
 /// Only replaces `[[victim_title]]` exactly - does NOT match:
 /// - `[[victim_title extended]]`
 /// - `[[prefix victim_title]]`
+#[allow(dead_code)]
 pub fn replace_wikilinks_in_memory(
     files: &mut HashMap<PathBuf, String>,
     victim_title: &str,

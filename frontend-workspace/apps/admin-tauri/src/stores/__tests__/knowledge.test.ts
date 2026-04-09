@@ -5,13 +5,6 @@ import { nextTick } from 'vue'
 import { useKnowledgeStore } from '../knowledge'
 import { useToast } from '../useToast'
 
-import { useConfirmDialog } from '../../composables/useConfirmDialog'
-
-import { useCategoryStore } from '../useCategoryStore'
-import { useEdgeStore } from '../useEdgeStore'
-import { useCardListStore, type CardItem } from '../useCardListStore'
-import { useLocalGraphStore } from '../useLocalGraphStore'
-
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
@@ -62,12 +55,6 @@ const mockCardDetail = {
  const mockGraphData = {
   nodes: [{ id: 'node-1', title: 'Node' }],
   edges: [],
-}
-
- const mockBacklinksResponse = {
-  backlinks: [
-    { source_id: 'card-2', source_title: 'Source', relation_type: 'reference' },
-  ],
 }
 
  describe('useKnowledgeStore', () => {

@@ -76,19 +76,19 @@ const ctrlBtnClass = (active: boolean) =>
 
 <template>
     <div ref="dockRef"
-        class="fixed left-0 top-0 h-full z-30 flex items-start transition-all duration-500 ease-out"
+        class="fixed left-0 top-0 h-full z-chrome flex items-start transition-all duration-500 ease-out"
         :style="{
             opacity: isVisible ? 1 : 0,
         }">
 
         <!-- 主导航栏 -->
-        <div class="flex flex-col items-center justify-between bg-[#020202] border-r border-white/5 py-6"
+        <div class="flex flex-col items-center justify-between bg-ms-void border-r border-ms-border/30 py-6"
             style="width: 56px;">
             <div class="flex flex-col items-center gap-2.5">
                 <button :class="navBtnClass(false)" @click="store.toggleCommandPalette()" title="搜索 (⌘K)">
                     <span class="text-sm font-bold font-mono">M</span>
                 </button>
-                <div class="w-7 h-px bg-white/5" />
+                <div class="w-7 h-px bg-ms-border/30" />
                 <button :class="navBtnClass(viewMode === 'list')" @click="store.setViewMode('list')" title="列表视图">
                     <List :size="20" />
                 </button>
@@ -97,7 +97,7 @@ const ctrlBtnClass = (active: boolean) =>
                 </button>
             </div>
             <div class="flex flex-col items-center gap-2.5">
-                <div class="w-7 h-px bg-white/5" />
+                <div class="w-7 h-px bg-ms-border/30" />
                 <button :class="navBtnClass(panelOpen)" @click.stop="panelOpen = !panelOpen" title="控制面板">
                     <SlidersHorizontal :size="20" />
                 </button>
@@ -114,7 +114,7 @@ const ctrlBtnClass = (active: boolean) =>
         <!-- 可展开控制面板 -->
         <Transition name="panel-slide">
             <div v-if="panelOpen"
-                class="bg-[#020202] border-r border-white/5 p-4"
+                class="bg-ms-void border-r border-ms-border/30 p-4"
                 style="width: 220px;">
                 <template v-if="viewMode === 'list'">
                     <div class="flex flex-col gap-2">

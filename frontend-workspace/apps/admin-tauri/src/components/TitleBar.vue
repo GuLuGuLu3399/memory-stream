@@ -25,7 +25,7 @@ async function close() {
 
 <template>
     <div data-tauri-drag-region
-        class="h-[36px] bg-ms-void border-b border-ms-border flex items-center justify-between select-none shrink-0 z-[60]">
+        class="h-[36px] bg-ms-void border-b border-ms-border flex items-center justify-between select-none shrink-0 z-chrome">
         <!-- Left: Global controls -->
         <div data-tauri-drag-region class="flex items-center pl-[68px] gap-0.5">
             <span class="text-[9px] text-slate-700 font-mono tracking-[0.2em] uppercase mr-2">Memory Stream</span>

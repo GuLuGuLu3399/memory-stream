@@ -1,6 +1,8 @@
 # 🌊 Memory Stream — 个人知识图谱系统
 
 > Markdown 卡片 × 有向图边关系 → 知识网络。Web 端沉浸式阅读，桌面端高效管理，Rust 引擎驱动。
+>
+> **版本**: [3.4.0](./VERSION) · **贡献指南**: [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ---
 
@@ -110,7 +112,17 @@ cd frontend-workspace && pnpm --filter admin-tauri tauri dev
 - **Git**：Conventional Commits（`feat:` / `fix:` / `docs:`）
 - **样式**：Tailwind CSS 原子化，设计 Token 统一
 - **API**：RESTful + JWT Bearer Token
-- **路线图**：见 [CHECKLIST.md](./CHECKLIST.md)
+- **CI**：GitHub Actions 三阶段流水线（lint → test → build）
+- **路线图**：见各模块 README
+
+## 文档索引
+
+| 文档 | 说明 |
+|------|------|
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | 开发环境搭建、代码规范、PR 检查清单 |
+| [go-server/API.md](./go-server/API.md) | REST API 端点文档（19 端点） |
+| [FORGE-REPORT.md](./FORGE-REPORT.md) | 架构淬炼报告 — 已知隐患与修复方案 |
+| [VERSION](./VERSION) | 统一版本号 |
 
 ## License
 

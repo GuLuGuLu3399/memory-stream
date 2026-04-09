@@ -13,7 +13,7 @@ vi.mock('../../stores/knowledge', () => ({
   useKnowledgeStore: vi.fn(),
 }))
 
-import { listen } from '@tauri-apps/api/event'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 const mockListen = vi.mocked(listen)
 const mockUseKnowledgeStore = vi.mocked(useKnowledgeStore)
@@ -53,7 +53,7 @@ describe('useWSListener', () => {
   })
 
   it('should register all 6 event listeners on mount', async () => {
-    mockListen.mockImplementation(async () => vi.fn())
+    mockListen.mockImplementation(async () => vi.fn() as unknown as UnlistenFn)
 
     withSetup(() => useWSListener())
     await flushPromises()
@@ -69,7 +69,7 @@ describe('useWSListener', () => {
   })
 
   it('should fire store methods when events arrive', async () => {
-    mockListen.mockImplementation(async () => vi.fn())
+    mockListen.mockImplementation(async () => vi.fn() as unknown as UnlistenFn)
 
     withSetup(() => useWSListener())
     await flushPromises()

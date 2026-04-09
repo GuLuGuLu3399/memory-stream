@@ -110,10 +110,11 @@ impl MarkdownWatcher {
 
     /// 检查事件是否涉及 Markdown 文件
     fn is_markdown_event(event: &Event) -> bool {
-        event.paths.iter().any(|p| Self::is_markdown_file(p))
+        event.paths.iter().any(Self::is_markdown_file)
     }
 
     /// 检查路径是否为 Markdown 文件
+    #[allow(clippy::ptr_arg)]
     fn is_markdown_file(path: &PathBuf) -> bool {
         path.extension()
             .map(|ext| ext == "md" || ext == "markdown")

@@ -54,6 +54,9 @@ let holdTimer: ReturnType<typeof setInterval> | null = null;
 let holdStartTime = 0;
 const HOLD_DURATION_MS = 3000;
 
+// Auto-close timers
+let autoCloseTimers: ReturnType<typeof setTimeout>[] = [];
+
 // Toast states
 const showSuccessToast = ref(false);
 const showWarningToast = ref(false);
@@ -121,6 +124,8 @@ onMounted(async () => {
 onUnmounted(() => {
   if (unlistenFileWriteFailed) unlistenFileWriteFailed();
   clearHoldTimer();
+  autoCloseTimers.forEach(clearTimeout);
+  autoCloseTimers = [];
 });
 
 // Watch for selection changes to auto-fetch impact preview
@@ -271,9 +276,9 @@ async function executeMerge() {
     if (fileWriteErrors.value.length === 0) {
       showSuccessToast.value = true;
       // Auto-close after success
-      setTimeout(() => {
+      autoCloseTimers.push(setTimeout(() => {
         layoutStore.closeMergeConsole();
-      }, 1500);
+      }, 1500));
     } else {
       showWarningToast.value = true;
     }
@@ -297,9 +302,9 @@ async function retryFileWrite(file: string) {
     if (fileWriteErrors.value.length === 0) {
       showWarningToast.value = false;
       showSuccessToast.value = true;
-      setTimeout(() => {
+      autoCloseTimers.push(setTimeout(() => {
         layoutStore.closeMergeConsole();
-      }, 1500);
+      }, 1500));
     }
   } catch (e: unknown) {
     const errorMsg = e instanceof Error ? e.message : String(e);
@@ -313,7 +318,7 @@ async function retryFileWrite(file: string) {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-[100] bg-ms-deep flex flex-col">
+  <div class="fixed inset-0 z-overlay bg-ms-deep flex flex-col">
     <!-- Header Bar -->
     <div class="h-12 flex items-center justify-between px-4 border-b border-ms-border bg-ms-carbon shrink-0">
       <div class="flex items-center gap-3">
@@ -617,7 +622,7 @@ async function retryFileWrite(file: string) {
     <Transition name="ms-slide-up">
       <div
         v-if="showSuccessToast"
-        class="fixed bottom-20 right-4 z-[110] bg-emerald-500/10 border border-emerald-500/30 px-4 py-2 font-mono text-xs text-emerald-400"
+        class="fixed bottom-20 right-4 z-toast bg-emerald-500/10 border border-emerald-500/30 px-4 py-2 font-mono text-xs text-emerald-400"
       >
         合并完成 — 所有文件写入成功
       </div>
@@ -627,7 +632,7 @@ async function retryFileWrite(file: string) {
     <Transition name="ms-slide-up">
       <div
         v-if="showWarningToast"
-        class="fixed bottom-20 right-4 z-[110] bg-amber-500/10 border border-amber-500/30 px-4 py-3 font-mono text-xs text-amber-400 max-w-md"
+        class="fixed bottom-20 right-4 z-toast bg-amber-500/10 border border-amber-500/30 px-4 py-3 font-mono text-xs text-amber-400 max-w-md"
       >
         <div class="mb-2">数据库合并成功，但文件本地覆写受阻</div>
         <div v-for="w in fileWriteErrors" :key="w.file" class="flex items-center gap-2 mt-1">

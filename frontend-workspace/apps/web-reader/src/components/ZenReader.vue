@@ -2,13 +2,14 @@
 /**
  * 🌟 ZenReader — 全屏禅模式阅读器
  *
- * z-[70] 覆盖一切，沉浸式阅读体验。
+ * z-fullscreen 覆盖一切，沉浸式阅读体验。
  * 100% 宽度 Markdown 渲染（max-width: 72ch）
  * 右下角 FloatingCompass 悬浮目录导航
  * Escape 退出
  */
 
 import { ref, watch, nextTick, onUnmounted } from "vue";
+
 import { storeToRefs } from "pinia";
 import MarkdownViewer from "@memory-stream/ui-shared/components/MarkdownViewer.vue";
 import { useGraphStore } from "../store/useGraphStore";
@@ -46,16 +47,24 @@ watch([zenMode, selectedId], async ([zen, id]) => {
         return;
     }
 
-    const result = await loadDetail(id);
-    if (!result) return;
-    detail.value = result;
+    try {
+        const result = await loadDetail(id);
+        if (!result) {
+            detail.value = null;
+            return;
+        }
+        detail.value = result;
 
-    // 直接使用保存时预计算的 TOC（无需 WASM 运行时重算）
-    tocItems.value = result.tocData ?? [];
+        // 直接使用保存时预计算的 TOC（无需 WASM 运行时重算）
+        tocItems.value = result.tocData ?? [];
 
-    // DOM 更新后延迟刷新 observer（等待 MarkdownViewer 异步渲染完成）
-    await nextTick();
-    delayedRefresh();
+        // DOM 更新后延迟刷新 observer（等待 MarkdownViewer 异步渲染完成）
+        await nextTick();
+        delayedRefresh();
+    } catch (err) {
+        console.error("[ZenReader] load failed:", err);
+        detail.value = null;
+    }
 }, { immediate: true });
 
 // ── 锁定外部滚动 ──
@@ -71,7 +80,7 @@ onUnmounted(() => {
 <template>
     <Teleport to="body">
         <Transition name="ms-scale">
-            <div v-if="zenMode && detail" class="fixed inset-0 z-[70] bg-ms-deep flex zen-container">
+            <div v-if="zenMode && detail" class="fixed inset-0 z-fullscreen bg-ms-deep flex zen-container">
                 <!-- 霓虹顶线装饰 -->
                 <div class="zen-neon-topline"></div>
 
@@ -88,13 +97,13 @@ onUnmounted(() => {
                 </div>
 
                 <!-- 悬浮阅读罗盘 -->
-                <div v-if="tocItems.length > 0" class="fixed bottom-6 right-6 z-[71]">
+                <div v-if="tocItems.length > 0" class="fixed bottom-6 right-6 z-[1]">
                     <FloatingCompass :toc-items="tocItems" :active-slug="activeSlug" :container-el="proseRef"
                         :read-progress="readProgress" />
                 </div>
 
                 <!-- 退出提示 -->
-                <div class="fixed top-4 right-4 z-[71]">
+                <div class="fixed top-4 right-4 z-[1]">
                     <button
                         class="px-3 py-1.5 text-[11px] font-mono text-gray-600 hover:text-gray-300 bg-ms-panel/80 backdrop-blur border border-ms-border rounded-lg transition-all"
                         @click="store.toggleZenMode()">

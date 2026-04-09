@@ -9,11 +9,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// EdgeHandler handles edge CRUD HTTP requests.
 type EdgeHandler struct {
 	edgeSvc *services.EdgeService
 	hub     *ws.Hub
 }
 
+// NewEdgeHandler creates a new EdgeHandler instance.
 func NewEdgeHandler(edgeSvc *services.EdgeService, hub *ws.Hub) *EdgeHandler {
 	return &EdgeHandler{edgeSvc: edgeSvc, hub: hub}
 }
@@ -24,6 +26,8 @@ type CreateEdgeReq struct {
 	RelationType string `json:"relation_type"`
 }
 
+// Create adds a new directed edge between two cards.
+// POST /edges
 func (h *EdgeHandler) Create(c *gin.Context) {
 	var req CreateEdgeReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -58,6 +62,8 @@ type DeleteEdgeReq struct {
 	TargetID string `json:"target_id" binding:"required"`
 }
 
+// Delete removes a directed edge between two cards.
+// DELETE /edges
 func (h *EdgeHandler) Delete(c *gin.Context) {
 	var req DeleteEdgeReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -88,6 +94,8 @@ type UpdateEdgeReq struct {
 	RelationType string `json:"relation_type" binding:"required"`
 }
 
+// Update changes the relation type of an existing edge.
+// PUT /edges
 func (h *EdgeHandler) Update(c *gin.Context) {
 	var req UpdateEdgeReq
 	if err := c.ShouldBindJSON(&req); err != nil {

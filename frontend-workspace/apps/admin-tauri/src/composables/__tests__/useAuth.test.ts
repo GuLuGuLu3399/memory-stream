@@ -64,7 +64,7 @@ describe('useAuth', () => {
     })
 
     it('should set isLoading during login', async () => {
-      let resolveLogin: () => void
+      let resolveLogin: (value?: unknown) => void
       mockInvoke.mockImplementation(() => new Promise((resolve) => {
         resolveLogin = resolve
       }))
@@ -93,7 +93,7 @@ describe('useAuth', () => {
     it('should NOT login if already ready', async () => {
       mockInvoke.mockResolvedValueOnce(undefined)
 
-      const { silentLogin, isReady } = useAuth()
+      const { silentLogin } = useAuth()
       await silentLogin()
 
       expect(mockInvoke).toHaveBeenCalledTimes(1)
@@ -104,7 +104,7 @@ describe('useAuth', () => {
     })
 
     it('should NOT login if currently loading', async () => {
-      let resolveLogin: () => void
+      let resolveLogin: (value?: unknown) => void
       mockInvoke.mockImplementation(() => new Promise((resolve) => {
         resolveLogin = resolve
       }))

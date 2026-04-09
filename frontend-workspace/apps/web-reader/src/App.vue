@@ -62,12 +62,12 @@ function handleFitView() {
     aria-label="Memory Stream 知识图谱">
     <!-- ── Skip to content（无障碍快捷跳转） ── -->
     <a href="#main-content"
-      class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-4 focus:py-2 focus:bg-neon focus:text-ms-deep focus:rounded-sm focus:text-sm focus:font-bold">
+      class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-error focus:px-4 focus:py-2 focus:bg-neon focus:text-ms-deep focus:rounded-sm focus:text-sm focus:font-bold">
       跳转到主内容
     </a>
     <!-- ── 全局错误边界：祭坛重连 UI ── -->
     <div v-if="hasError"
-      class="fixed inset-0 z-[100] bg-ms-deep/95 backdrop-blur-xl flex flex-col items-center justify-center">
+      class="fixed inset-0 z-error bg-ms-deep/95 backdrop-blur-xl flex flex-col items-center justify-center">
       <div class="text-center max-w-md px-6">
         <div
           class="w-16 h-16 mx-auto mb-6 rounded-none bg-red-500/10 border border-red-500/20 flex items-center justify-center">

@@ -49,17 +49,18 @@ pub fn start_ws_client(
         ws_url
     };
 
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().expect("tokio runtime failed");
-        rt.block_on(async move {
-            let mut retry_delay = std::time::Duration::from_secs(3);
-            loop {
+    tauri::async_runtime::spawn(async move {
+        let mut retry_delay = std::time::Duration::from_secs(3);
+        let mut retry_count: u32 = 0;
+        const MAX_RETRIES: u32 = 30;
+        loop {
                 eprintln!("[WS] connecting to {}...", url);
 
                 match connect_async(&url).await {
                     Ok((ws_stream, _)) => {
                         eprintln!("[WS] connected! sending AUTH...");
                         retry_delay = std::time::Duration::from_secs(3);
+                        retry_count = 0;
                         let (mut write, mut read) = ws_stream.split();
                         let app2 = app_h.clone();
                         let cache2 = cache_c.clone();
@@ -149,13 +150,17 @@ pub fn start_ws_client(
                     }
                 }
 
-                eprintln!("[WS] retry in {}s...", retry_delay.as_secs());
+                retry_count += 1;
+                if retry_count >= MAX_RETRIES {
+                    eprintln!("[WS] max retries ({}) reached — stopping", MAX_RETRIES);
+                    break;
+                }
+                eprintln!("[WS] retry {}/{} in {}s...", retry_count, MAX_RETRIES, retry_delay.as_secs());
                 tokio::time::sleep(retry_delay).await;
                 retry_delay =
                     (retry_delay * 2).min(std::time::Duration::from_secs(30));
             }
-        });
-    });
+            });
 
     WsSender { tx }
 }

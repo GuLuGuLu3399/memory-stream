@@ -10,10 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// AuthHandler handles authentication-related HTTP requests.
 type AuthHandler struct {
 	authSvc *services.AuthService
 }
 
+// NewAuthHandler creates a new AuthHandler instance.
 func NewAuthHandler(authSvc *services.AuthService) *AuthHandler {
 	return &AuthHandler{authSvc: authSvc}
 }
@@ -23,6 +25,8 @@ type LoginReq struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// Login authenticates a user and returns access/refresh tokens.
+// POST /auth/login
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -51,6 +55,8 @@ type RefreshReq struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
+// Refresh rotates tokens using a valid refresh token.
+// POST /auth/refresh
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	var req RefreshReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -75,6 +81,8 @@ type RegisterReq struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// Register creates a new user account with guest role.
+// POST /auth/register
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -104,6 +112,8 @@ type GenesisReq struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// Genesis is the one-time bootstrap endpoint that creates the initial admin account.
+// POST /auth/genesis
 func (h *AuthHandler) Genesis(c *gin.Context) {
 	var req GenesisReq
 	if err := c.ShouldBindJSON(&req); err != nil {

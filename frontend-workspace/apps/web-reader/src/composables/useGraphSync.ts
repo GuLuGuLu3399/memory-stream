@@ -116,6 +116,8 @@ export function useGraphSync<N extends MinimalNode, E extends MinimalEdge>(
 
   let ws: WebSocket | null = null;
   let reconnectDelay = RECONNECT_BASE_DELAY;
+  let reconnectAttempts = 0;
+  const MAX_RECONNECT_ATTEMPTS = 15;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let authTimer: ReturnType<typeof setTimeout> | null = null;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
@@ -147,6 +149,7 @@ export function useGraphSync<N extends MinimalNode, E extends MinimalEdge>(
       connected.value = true;
       wsConnected.value = true;
       reconnectDelay = RECONNECT_BASE_DELAY;
+      reconnectAttempts = 0;
 
       // 立即发送 AUTH 消息
       const token = getAuthToken();
@@ -269,14 +272,19 @@ export function useGraphSync<N extends MinimalNode, E extends MinimalEdge>(
       const result = await api.getFullGraph();
       if (!result.nodes || result.nodes.length === 0) return;
 
+      // 处理时捕获最新 refs（防止 async 等待期间数据过期）
+      const currentNodes = nodes.value;
+      const currentEdges = edges.value;
+
       // 构建节点 ID 集合，用于快速查找
       const serverNodeIds = new Set(result.nodes.map((n) => n.id));
 
       // 同步节点：添加缺失的，移除已删除的
-      const currentNodeIds = new Set(nodes.value.map((n) => n.id));
+      const currentNodeIds = new Set(currentNodes.map((n) => n.id));
+      const newNodes: N[] = [];
       for (const node of result.nodes) {
         if (!currentNodeIds.has(node.id)) {
-          const newNode = {
+          newNodes.push({
             id: node.id,
             type: "card",
             position: { x: Math.random() * 400, y: Math.random() * 400 },
@@ -285,17 +293,19 @@ export function useGraphSync<N extends MinimalNode, E extends MinimalEdge>(
               date: "",
               isOrphan: true,
             },
-          } as unknown as N;
-          nodes.value = [...nodes.value, newNode];
+          } as unknown as N);
         }
       }
+      if (newNodes.length > 0) {
+        nodes.value = [...currentNodes, ...newNodes];
+      }
       // 移除服务端已不存在的节点
-      const beforeCount = nodes.value.length;
-      nodes.value = nodes.value.filter((n) => serverNodeIds.has(n.id));
-      if (nodes.value.length !== beforeCount) {
+      const filteredNodes = nodes.value.filter((n) => serverNodeIds.has(n.id));
+      if (filteredNodes.length !== nodes.value.length) {
         console.log(
-          `[WS] reconcile: removed ${beforeCount - nodes.value.length} stale nodes`,
+          `[WS] reconcile: removed ${nodes.value.length - filteredNodes.length} stale nodes`,
         );
+        nodes.value = filteredNodes;
       }
 
       // 同步边：构建边 ID 集合
@@ -304,11 +314,12 @@ export function useGraphSync<N extends MinimalNode, E extends MinimalEdge>(
       );
 
       // 添加缺失的边
+      const newEdges: E[] = [];
       for (const edge of result.edges) {
         const edgeId = `e-${edge.source}-${edge.target}`;
-        if (!edges.value.some((e) => e.id === edgeId)) {
+        if (!currentEdges.some((e) => e.id === edgeId)) {
           const relation = edge.relation || "reference";
-          const newEdge = {
+          newEdges.push({
             id: edgeId,
             source: edge.source,
             target: edge.target,
@@ -319,17 +330,19 @@ export function useGraphSync<N extends MinimalNode, E extends MinimalEdge>(
               relation === "sequence"
                 ? { stroke: "#00e5ff", strokeWidth: 2 }
                 : { stroke: "#71717a", strokeWidth: 1.5 },
-          } as unknown as E;
-          edges.value = [...edges.value, newEdge];
+          } as unknown as E);
         }
       }
+      if (newEdges.length > 0) {
+        edges.value = [...edges.value, ...newEdges];
+      }
       // 移除已不存在的边
-      const beforeEdgeCount = edges.value.length;
-      edges.value = edges.value.filter((e) => serverEdgeIds.has(e.id));
-      if (edges.value.length !== beforeEdgeCount) {
+      const filteredEdges = edges.value.filter((e) => serverEdgeIds.has(e.id));
+      if (filteredEdges.length !== edges.value.length) {
         console.log(
-          `[WS] reconcile: removed ${beforeEdgeCount - edges.value.length} stale edges`,
+          `[WS] reconcile: removed ${edges.value.length - filteredEdges.length} stale edges`,
         );
+        edges.value = filteredEdges;
       }
 
       console.log(
@@ -490,7 +503,12 @@ export function useGraphSync<N extends MinimalNode, E extends MinimalEdge>(
 
   function scheduleReconnect() {
     if (reconnectTimer) return;
-    console.log(`[WS] reconnect in ${reconnectDelay / 1000}s...`);
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.error(`[WS] max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached — giving up`);
+      return;
+    }
+    reconnectAttempts++;
+    console.log(`[WS] reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${reconnectDelay / 1000}s...`);
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
       connect();

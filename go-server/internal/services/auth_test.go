@@ -8,11 +8,17 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/GuLuGuLu3399/memory-stream-server/internal/models"
+	"github.com/GuLuGuLu3399/memory-stream-server/internal/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+func TestMain(m *testing.M) {
+	logger.Init()
+	m.Run()
+}
 
 func setupAuthTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	sqlDB, mock, err := sqlmock.New()

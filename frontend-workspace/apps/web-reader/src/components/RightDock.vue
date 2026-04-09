@@ -35,7 +35,7 @@ const ctrlBtnClass = (active: boolean) =>
 
 <template>
     <div
-        class="right-dock fixed right-4 top-1/2 -translate-y-1/2 z-30 flex flex-col bg-ms-panel/80 backdrop-blur-xl border border-ms-border rounded-sm shadow-lg shadow-black/30 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+        class="right-dock fixed right-4 top-1/2 -translate-y-1/2 z-chrome flex flex-col bg-ms-panel/80 backdrop-blur-xl border border-ms-border rounded-sm shadow-lg shadow-black/30 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
         <!-- 收起态：仅图标 -->
         <div class="dock-collapsed p-2 flex flex-col items-center gap-2">
             <button

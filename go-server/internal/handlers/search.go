@@ -9,14 +9,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// SearchHandler handles card search HTTP requests.
 type SearchHandler struct {
 	searchSvc *services.SearchService
 }
 
+// NewSearchHandler creates a new SearchHandler instance.
 func NewSearchHandler(searchSvc *services.SearchService) *SearchHandler {
 	return &SearchHandler{searchSvc: searchSvc}
 }
 
+// Search performs a full-text search across cards.
+// GET /search
 func (h *SearchHandler) Search(c *gin.Context) {
 	query := c.Query("q")
 	if query == "" {

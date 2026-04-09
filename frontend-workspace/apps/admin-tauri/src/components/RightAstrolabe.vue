@@ -16,6 +16,7 @@ const store = useKnowledgeStore();
 const { localNodes, localEdges, activeCard, orphanCards, recentCards, categories } = storeToRefs(store);
 
 const { onConnect } = useVueFlow();
+const { confirm } = useConfirmDialog();
 
 // ===== Edge selection & context menu state =====
 interface SelectedEdge {
@@ -259,7 +260,6 @@ function setEdgeType(relation: string) {
 async function handleDeleteEdge() {
   if (!selectedEdge.value) return;
   const { source, target } = selectedEdge.value;
-  const { confirm } = useConfirmDialog();
   const ok = await confirm("确定要断开这条连线吗？", {
     title: "断开连线",
     confirmText: "断开",
@@ -350,7 +350,7 @@ onUnmounted(() => {
     <!-- Edge Context Menu (teleported to body for correct positioning) -->
     <Teleport to="body">
       <div v-if="contextMenu"
-        class="fixed z-[9999] bg-ms-carbon rounded-sm shadow-xl border border-ms-border py-1 min-w-[160px]"
+        class="fixed z-dropdown bg-ms-carbon rounded-sm shadow-xl border border-ms-border py-1 min-w-[160px]"
         :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }" @click.stop>
         <button @click="setEdgeType('sequence')"
           class="w-full text-left px-3 py-2 text-sm hover:bg-ms-surface flex items-center gap-2 transition"

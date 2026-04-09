@@ -5,6 +5,7 @@ import { useLayoutStore } from "../stores/layout";
 import { storeToRefs } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
 import CodemirrorEditor from "./CodemirrorEditor.vue";
+import MarkdownViewer from "@memory-stream/ui-shared/components/MarkdownViewer.vue";
 import type { EditorView } from "@codemirror/view";
 
 const store = useKnowledgeStore();
@@ -78,6 +79,7 @@ async function handleImagePaste(e: ClipboardEvent) {
 type ViewMode = "edit" | "split" | "preview";
 const viewMode = ref<ViewMode>("split");
 const renderedHtml = ref("");
+const renderError = ref("");
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ===== 表单验证 =====
@@ -87,6 +89,7 @@ const validationError = ref("");
 async function renderPreview(content: string) {
   if (!content.trim()) {
     renderedHtml.value = "";
+    renderError.value = "";
     return;
   }
   try {
@@ -94,15 +97,11 @@ async function renderPreview(content: string) {
       "process_markdown",
       { content },
     );
+    renderError.value = "";
     renderedHtml.value = result.html;
   } catch (e) {
     console.error("[Forge] render failed:", e);
-    // 🌟 显示详细错误信息，不再静默失败
-    renderedHtml.value = `
-      <div class="p-4 bg-red-50 border border-red-200 text-red-600 rounded-md">
-        <strong>渲染引擎错误:</strong><br>
-        <pre class="text-xs mt-2 whitespace-pre-wrap">${e}</pre>
-      </div>`;
+    renderError.value = String(e);
   }
 }
 
@@ -123,11 +122,14 @@ function handlePreviewClick(e: MouseEvent) {
   }
 }
 
-// Watch content changes for live preview + dirty state
+// Watch content changes for live preview + dirty state + validation
 watch(
   () => activeCard.value?.content,
   (newContent) => {
     store.checkDirty();
+    if (validationError.value && newContent?.trim()) {
+      validationError.value = "";
+    }
     if (newContent !== undefined) {
       scheduleRender(newContent);
     }
@@ -139,16 +141,6 @@ watch(
   () => {
     store.checkDirty();
     if (validationError.value && activeCard.value?.title.trim()) {
-      validationError.value = "";
-    }
-  },
-);
-
-// Clear validation error when content changes
-watch(
-  () => activeCard.value?.content,
-  () => {
-    if (validationError.value && activeCard.value?.content.trim()) {
       validationError.value = "";
     }
   },
@@ -319,8 +311,12 @@ function handleSave() {
               </h1>
             </div>
             <div class="flex-1 overflow-y-auto px-6 py-6">
-            <div v-if="renderedHtml" class="preview-content text-slate-300 leading-relaxed" v-html="renderedHtml" @click="handlePreviewClick">
+              <!-- Render error (safe text binding, no XSS) -->
+              <div v-if="renderError" class="p-4 bg-red-50 border border-red-200 text-red-600 rounded-md">
+                <strong>渲染引擎错误:</strong>
+                <pre class="text-xs mt-2 whitespace-pre-wrap">{{ renderError }}</pre>
               </div>
+              <MarkdownViewer v-else-if="renderedHtml" :html-content="renderedHtml" @click="handlePreviewClick" />
               <div v-else class="text-slate-500 text-sm italic">
                 {{ activeCard.content ? "渲染中..." : "在编辑区输入 Markdown，这里会实时预览" }}
               </div>
@@ -473,13 +469,13 @@ function handleSave() {
     opacity: 0;
   }
 }
-.preview-content :deep(a.wikilink) {
+.markdown-body :deep(a.wikilink) {
   color: #00e5ff;
   border-bottom: 1px dashed rgba(0, 229, 255, 0.3);
   cursor: pointer;
   transition: border-color 0.15s;
 }
-.preview-content :deep(a.wikilink:hover) {
+.markdown-body :deep(a.wikilink:hover) {
   border-bottom-color: rgba(0, 229, 255, 0.8);
 }
 </style>

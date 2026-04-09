@@ -35,6 +35,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// HandleWS upgrades an HTTP connection to WebSocket and starts the client pumps.
 func HandleWS(c *gin.Context, hub *ws.Hub) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -55,6 +56,7 @@ func HandleWS(c *gin.Context, hub *ws.Hub) {
 	go client.ReadPump()
 }
 
+// SetupWSHandlers registers action handlers for WebSocket events (AUTH, CREATE_EDGE, DELETE_EDGE, PING).
 func SetupWSHandlers(hub *ws.Hub, edgeSvc *services.EdgeService, authSvc *services.AuthService) {
 	hub.SetActionHandler(func(client *ws.Client, action ws.Action) {
 		switch action.Action {

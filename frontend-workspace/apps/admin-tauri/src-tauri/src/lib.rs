@@ -236,6 +236,7 @@ fn get_cached_layouts(state: State<'_, Mutex<AppState>>) -> Result<LayoutCacheRe
 ///
 /// 这是专用的复合命令，一次调用完成：创建卡片 → 建立边关系。
 /// 使用全局 HTTP 客户端连接池，避免重复创建。
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn create_card_with_relation(
     client: State<'_, AppHttpClient>,
@@ -261,7 +262,7 @@ async fn create_card_with_relation(
     };
     let mut req = client
         .0
-        .post(&format!("{}/cards", api::API_BASE_URL))
+        .post(format!("{}/cards", api::API_BASE_URL))
         .json(&body);
     if let Some(token) = auth_state.get_access_token() {
         req = req.header("Authorization", format!("Bearer {}", token));
@@ -291,7 +292,7 @@ async fn delete_card(
 ) -> Result<(), String> {
     let mut req = client
         .0
-        .delete(&format!("{}/cards/{}", api::API_BASE_URL, id));
+        .delete(format!("{}/cards/{}", api::API_BASE_URL, id));
     if let Some(token) = auth_state.get_access_token() {
         req = req.header("Authorization", format!("Bearer {}", token));
     }
@@ -316,7 +317,7 @@ async fn get_card_detail(
 ) -> Result<serde_json::Value, String> {
     let mut req = client
         .0
-        .get(&format!("{}/cards/{}", api::API_BASE_URL, id));
+        .get(format!("{}/cards/{}", api::API_BASE_URL, id));
     if let Some(token) = auth_state.get_access_token() {
         req = req.header("Authorization", format!("Bearer {}", token));
     }
@@ -350,7 +351,7 @@ fn sync_from_server(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, Str
     // 同步操作使用 blocking 客户端（非 async 上下文）
     let client = reqwest::blocking::Client::new();
     let resp = client
-        .get(&format!("{}/graph/outline", api::API_BASE_URL))
+        .get(format!("{}/graph/outline", api::API_BASE_URL))
         .timeout(std::time::Duration::from_secs(10))
         .send()
         .map_err(|e| format!("sync request failed: {}", e))?;
@@ -612,8 +613,8 @@ fn extract_plain_text(content: &str, max_len: usize) -> String {
             continue;
         }
         let cleaned = trimmed
-            .replace(|c: char| c == '*' || c == '_' || c == '`', "")
-            .replace(|c: char| c == '[' || c == ']' || c == '(', "")
+            .replace(['*', '_', '`'], "")
+            .replace(['[', ']', '('], "")
             .trim_start_matches('-')
             .trim_start_matches(|c: char| c.is_ascii_digit() || c == '.')
             .trim()
@@ -656,8 +657,8 @@ fn strip_wikilinks(text: &str) -> String {
                 end += 1;
             }
             if end + 1 < len {
-                for j in start..end {
-                    result.push(chars[j]);
+                for &ch in &chars[start..end] {
+                    result.push(ch);
                 }
                 i = end + 2;
             } else {
@@ -733,14 +734,14 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir).ok();
             let db_path = data_dir.join("memory-stream-cache.db");
             let cache =
-                CacheManager::open(db_path.to_str().unwrap()).expect("SQLite init failed");
+                CacheManager::open(db_path.to_str().expect("cache db path must be valid UTF-8")).expect("SQLite init failed");
             let cache_arc = Arc::new(Mutex::new(Some(cache)));
 
             // ── 2. AuthState + Proactive Refresh ──
             let auth_arc = Arc::new(AuthState::new(data_dir.clone()));
             
             // Load config from store and initialize reloadable state
-            let config = tauri::async_runtime::block_on(config::get_config(&app.handle()))
+            let config = tauri::async_runtime::block_on(config::get_config(app.handle()))
                 .expect("Failed to load config");
             
             let ws_url = if config.ws_url.is_empty() {
@@ -807,7 +808,7 @@ pub fn run() {
                 .build()?;
 
             TrayIconBuilder::with_id("main-tray")
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(app.default_window_icon().expect("app icon must be configured").clone())
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id().as_ref() {

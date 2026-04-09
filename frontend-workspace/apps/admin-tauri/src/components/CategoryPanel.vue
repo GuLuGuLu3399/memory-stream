@@ -15,6 +15,7 @@ const categoryStore = useCategoryStore();
 const { categories } = storeToRefs(categoryStore);
 const knowledgeStore = useKnowledgeStore();
 const { orphanCards, recentCards } = storeToRefs(knowledgeStore);
+const { confirm } = useConfirmDialog();
 
 // Selected category for right panel
 const selectedId = ref<number | null>(null);
@@ -130,7 +131,6 @@ async function handleSave() {
 
 // Delete with confirmation
 async function handleDelete(id: number, name: string) {
-  const { confirm } = useConfirmDialog();
   const ok = await confirm(`确定要删除分类「${name}」吗？该分类下的卡片将变为未分类。`, {
     title: "删除分类",
     confirmText: "删除",
@@ -172,7 +172,7 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
     <Transition name="ms-slide-right">
       <div
         v-if="isCategoryPanelOpen"
-        class="fixed inset-0 z-[100]"
+        class="fixed inset-0 z-panel"
         @click.self="layoutStore.closeCategoryPanel()"
       >
         <!-- Blur backdrop -->
