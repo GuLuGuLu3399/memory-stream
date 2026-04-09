@@ -6,6 +6,7 @@ import { useKnowledgeStore } from '../stores/knowledge'
 import { FileArchive, FileText, X, Loader2 } from 'lucide-vue-next'
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
+import type { RenderResult, TocNodeDto } from '@memory-stream/types/ipc'
 
 const emit = defineEmits<{ (e: 'close'): void }>()
 
@@ -124,16 +125,11 @@ async function importCards() {
     
     for (const card of cardsToImport.value) {
       try {
-        const renderResult = await invoke<{
-          html: string
-          ast_json: string
-          excerpt: string
-          extracted_links: string[]
-        }>('process_markdown', { content: card.body_md })
+        const renderResult = await invoke<RenderResult>('process_markdown', { content: card.body_md })
         
-        let tocData: unknown = null
+        let tocData: TocNodeDto[] | null = null
         try {
-          tocData = await invoke('extract_toc', {
+          tocData = await invoke<TocNodeDto[]>('extract_toc', {
             astJson: renderResult.ast_json
           })
         } catch (e) {

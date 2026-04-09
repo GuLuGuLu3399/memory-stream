@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { MergePreview } from "@memory-stream/types/ipc";
 import { useLayoutStore } from "../stores/layout";
 
 // ============================================================================
@@ -32,17 +33,8 @@ const selectedVictims = ref<string[]>([]);
 const victimSearchQuery = ref("");
 const survivorSearchQuery = ref("");
 
-// Impact preview data
-interface ImpactFile {
-  path: string;
-  link_count: number;
-}
-interface ImpactResult {
-  files_to_modify: number;
-  total_wikilinks: number;
-  affected_files: ImpactFile[];
-}
-const impactResult = ref<ImpactResult | null>(null);
+// Impact preview data — types from ts-rs generated IPC
+const impactResult = ref<MergePreview | null>(null);
 const isLoadingImpact = ref(false);
 const impactError = ref<string | null>(null);
 
@@ -185,7 +177,7 @@ async function fetchImpactPreview() {
     .filter((t): t is string => !!t);
 
   try {
-    const result = await invoke<ImpactResult>("preview_merge_impact", {
+    const result = await invoke<MergePreview>("preview_merge_impact", {
       victimTitles,
     });
     impactResult.value = result;
