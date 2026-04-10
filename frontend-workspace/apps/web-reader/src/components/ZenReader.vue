@@ -86,7 +86,7 @@ onUnmounted(() => {
 
                 <!-- 全屏 Markdown 阅读 -->
                 <div class="flex-1 overflow-y-auto scrollbar-thin" ref="proseRef" @scroll="calculateProgress">
-                    <div class="max-w-[72ch] mx-auto px-8 py-16">
+                    <div class="max-w-prose mx-auto px-8 py-16">
                         <!-- 标题 -->
                         <h1 class="text-3xl font-bold text-white mb-8 leading-tight">
                             {{ detail.title }}

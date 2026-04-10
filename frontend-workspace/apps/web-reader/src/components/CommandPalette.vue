@@ -108,7 +108,7 @@ function onKeydown(e: KeyboardEvent) {
                     </div>
 
                     <!-- 结果列表 -->
-                    <div v-if="results.length > 0" class="max-h-[300px] overflow-y-auto py-2">
+                    <div v-if="results.length > 0" class="max-h-dropdown overflow-y-auto py-2">
                         <button v-for="(item, idx) in results" :key="item.id"
                             class="w-full flex items-center gap-3 px-5 py-3 text-left transition-colors group"
                             :class="idx === selectedIndex

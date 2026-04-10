@@ -49,7 +49,7 @@ const enriched = computed(() =>
             @click="emit('jump', g.index)">
             <!-- Dot on the line -->
             <div class="absolute right-0 w-[7px] h-[7px] rounded-full border transition-all duration-200" :class="g.active
-                ? 'bg-neon border-neon shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+                ? 'bg-neon border-neon shadow-neon-glow-active'
                 : 'bg-ms-deep border-gray-700 group-hover/tl:border-gray-500'" />
 
             <!-- Label -->

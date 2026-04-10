@@ -91,8 +91,10 @@ export default {
                 // ── Neon glow variants ──
                 'neon-glow-xs': '0 0 6px rgba(0, 229, 255, 0.3)',
                 'neon-glow-soft': '0 0 8px rgba(0, 229, 255, 0.3)',
+                'neon-glow-active': '0 0 8px rgba(0, 229, 255, 0.5)',
                 'neon-glow-ball': '0 0 16px rgba(0, 229, 255, 0.3)',
                 'neon-glow-btn': '0 0 8px rgba(0, 229, 255, 0.2)',
+                'neon-glow-subtle': '0 0 12px rgba(0, 229, 255, 0.15)',
 
                 // ── Card state ──
                 'card-active': '0 0 12px rgba(0, 229, 255, 0.06), 0 4px 20px rgba(0, 0, 0, 0.25)',
@@ -102,6 +104,12 @@ export default {
             },
             minWidth: {
                 'stats-panel': '260px',
+            },
+            maxWidth: {
+                'prose': '72ch',
+            },
+            maxHeight: {
+                'dropdown': '300px',
             },
             gridTemplateColumns: {
                 'spine': '64px 24px 1fr',

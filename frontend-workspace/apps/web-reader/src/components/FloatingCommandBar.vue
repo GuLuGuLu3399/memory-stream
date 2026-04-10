@@ -35,7 +35,7 @@ const {
 // ── 视图切换按钮样式 ──
 const viewBtnClass = (active: boolean) =>
     `flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${active
-        ? "bg-neon/15 text-neon font-bold shadow-[0_0_12px_rgba(0,229,255,0.15)]"
+        ? "bg-neon/15 text-neon font-bold shadow-neon-glow-subtle"
         : "text-gray-500 hover:text-gray-300"
     }`;
 

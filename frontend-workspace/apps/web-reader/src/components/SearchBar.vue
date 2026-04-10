@@ -111,7 +111,7 @@ function onKeydown(e: KeyboardEvent) {
                         </kbd>
                     </div>
 
-                    <div v-if="results.length > 0" class="max-h-[300px] overflow-y-auto py-2">
+                    <div v-if="results.length > 0" class="max-h-dropdown overflow-y-auto py-2">
                         <button
                             v-for="(item, idx) in results"
                             :key="item.id"
