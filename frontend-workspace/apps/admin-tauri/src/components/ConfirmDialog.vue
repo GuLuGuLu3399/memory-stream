@@ -45,7 +45,7 @@ function onKeydown(e: KeyboardEvent) {
 <template>
     <Transition name="ms-scale">
         <div v-if="dialogState.visible" ref="rootEl" role="dialog" aria-modal="true" aria-labelledby="dialog-title"
-            aria-describedby="dialog-message" class="fixed inset-0 z-modal flex items-center justify-center"
+            aria-describedby="dialog-message" class="fixed inset-x-0 bottom-0 top-[36px] z-modal flex items-center justify-center"
             @keydown="onKeydown" tabindex="-1">
             <!-- Backdrop -->
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" @click="handleCancel" />

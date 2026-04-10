@@ -142,9 +142,9 @@ onUnmounted(() => {
 <template>
     <Teleport to="body">
         <Transition name="ms-scale">
-            <div v-if="isOpen" class="fixed inset-0 z-modal flex items-start justify-center pt-[20vh]"
+            <div v-if="isOpen" class="fixed inset-x-0 bottom-0 top-[36px] z-modal flex items-start justify-center pt-[20vh]"
                 @click.self="close">
-                <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" @click="close"></div>
+                <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="close"></div>
 
                 <div role="combobox" :aria-expanded="isOpen" aria-haspopup="listbox"
                     class="relative w-full max-w-lg bg-ms-carbon shadow-2xl border border-ms-border overflow-hidden">

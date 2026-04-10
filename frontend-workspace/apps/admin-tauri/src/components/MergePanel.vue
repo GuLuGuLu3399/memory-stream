@@ -310,7 +310,7 @@ async function retryFileWrite(file: string) {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-overlay bg-ms-deep flex flex-col">
+  <div class="fixed inset-x-0 bottom-0 top-[36px] z-overlay bg-ms-deep flex flex-col">
     <!-- Header Bar -->
     <div class="h-12 flex items-center justify-between px-4 border-b border-ms-border bg-ms-carbon shrink-0">
       <div class="flex items-center gap-3">

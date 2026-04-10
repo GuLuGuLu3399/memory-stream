@@ -172,7 +172,7 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
     <Transition name="ms-slide-right">
       <div
         v-if="isCategoryPanelOpen"
-        class="fixed inset-0 z-panel"
+        class="fixed inset-x-0 bottom-0 top-[36px] z-panel"
         @click.self="layoutStore.closeCategoryPanel()"
       >
         <!-- Blur backdrop -->
