@@ -337,9 +337,11 @@ function handleSave() {
             </div>
           </Transition>
 
+        </div>
+
           <!-- Reverse Gravity Radar: Backlinks -->
           <div v-if="activeCard.id && backlinks.length > 0"
-            class="absolute bottom-0 left-0 right-0 bg-ms-void/95 backdrop-blur border-t border-dashed border-slate-800 z-[5]">
+            class="shrink-0 bg-ms-void/95 backdrop-blur border-t border-dashed border-slate-800">
             <div class="px-6 py-3">
               <div class="flex items-center text-xs font-mono mb-2 text-slate-500">
                 <span class="text-neon mr-2 animate-pulse">❯</span>
@@ -368,7 +370,6 @@ function handleSave() {
               </div>
             </div>
           </div>
-        </div>
 
       </div>
 
