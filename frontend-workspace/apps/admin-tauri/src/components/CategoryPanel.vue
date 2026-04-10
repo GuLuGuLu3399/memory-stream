@@ -264,34 +264,34 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
 
                 <!-- Section A: Data Readout -->
                 <div class="mb-6">
-                  <h3 class="text-[10px] font-mono text-slate-600 uppercase tracking-widest mb-3">DATA READOUT</h3>
+                  <h3 class="text-2xs font-mono text-slate-600 uppercase tracking-widest mb-3">DATA READOUT</h3>
                   <div class="grid grid-cols-2 gap-3">
                     <div class="bg-ms-deep border border-ms-border p-3">
                       <div class="text-2xl font-mono text-neon">{{ categoryCardCount }}</div>
-                      <div class="text-[10px] text-slate-600 uppercase tracking-widest mt-1">CARDS</div>
+                      <div class="text-2xs text-slate-600 uppercase tracking-widest mt-1">CARDS</div>
                     </div>
                     <div class="bg-ms-deep border border-ms-border p-3">
                       <div class="text-2xl font-mono text-neon">{{ categoryChildCount }}</div>
-                      <div class="text-[10px] text-slate-600 uppercase tracking-widest mt-1">CHILDREN</div>
+                      <div class="text-2xs text-slate-600 uppercase tracking-widest mt-1">CHILDREN</div>
                     </div>
                   </div>
                 </div>
 
                 <!-- Section B: Quick Index -->
                 <div class="mb-6">
-                  <h3 class="text-[10px] font-mono text-slate-600 uppercase tracking-widest mb-3">QUICK INDEX</h3>
+                  <h3 class="text-2xs font-mono text-slate-600 uppercase tracking-widest mb-3">QUICK INDEX</h3>
                   <div v-if="categoryCards.length > 0" class="space-y-1">
                     <div v-for="card in categoryCards" :key="card.id"
                       class="flex items-center justify-between px-3 py-1.5 bg-ms-deep/50 border border-ms-border/50 group">
                       <span class="text-xs text-slate-400 truncate flex-1 mr-2">{{ card.title || '无标题' }}</span>
                       <button @click="handleUnlinkCard(card.id)"
-                        class="shrink-0 opacity-0 group-hover:opacity-100 text-[10px] text-slate-600 hover:text-red-400 transition-all font-mono"
+                        class="shrink-0 opacity-0 group-hover:opacity-100 text-2xs text-slate-600 hover:text-red-400 transition-all font-mono"
                         title="从分类中移除">
                         UNLINK
                       </button>
                       <div class="relative shrink-0">
                         <button @click.stop="movingCardId = movingCardId === card.id ? null : card.id"
-                          class="opacity-0 group-hover:opacity-100 text-[10px] text-slate-600 hover:text-neon transition-all font-mono"
+                          class="opacity-0 group-hover:opacity-100 text-2xs text-slate-600 hover:text-neon transition-all font-mono"
                           title="迁移到其他分类">
                           MOVE
                         </button>
@@ -309,12 +309,12 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
                       </div>
                     </div>
                   </div>
-                  <div v-else class="text-[10px] text-slate-700 italic font-mono py-2">NO CARDS IN THIS CATEGORY</div>
+                  <div v-else class="text-2xs text-slate-700 italic font-mono py-2">NO CARDS IN THIS CATEGORY</div>
                 </div>
 
                 <!-- Section C: Edit + Danger Zone -->
                 <div>
-                  <h3 class="text-[10px] font-mono text-slate-600 uppercase tracking-widest mb-3">EDIT</h3>
+                  <h3 class="text-2xs font-mono text-slate-600 uppercase tracking-widest mb-3">EDIT</h3>
                   <div class="space-y-4">
                     <div>
                       <label class="block text-xs text-slate-400 mb-1.5">分类名称</label>
@@ -354,7 +354,7 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
 
                   <!-- Danger Zone -->
                   <div class="mt-6 pt-4 border-t border-ms-border/50">
-                    <h3 class="text-[10px] font-mono text-red-500/60 uppercase tracking-widest mb-3">DANGER ZONE</h3>
+                    <h3 class="text-2xs font-mono text-red-500/60 uppercase tracking-widest mb-3">DANGER ZONE</h3>
                     <button @click="handleDelete(selectedId, categories.find(c => c.id === selectedId)?.name || '')"
                       class="w-full px-4 py-2 text-sm text-red-400 bg-transparent border border-red-500/30 rounded-sm hover:bg-red-500/10 transition-all">
                       删除分类

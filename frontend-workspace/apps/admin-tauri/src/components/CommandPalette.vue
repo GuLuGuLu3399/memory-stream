@@ -160,7 +160,7 @@ onUnmounted(() => {
                             :aria-activedescendant="isOpen && displayItems.length > 0 ? `palette-option-${displayItems[selectedIndex]?.id ?? selectedIndex}` : undefined"
                             class="flex-1 px-3 py-3 text-sm outline-none bg-transparent text-slate-200 placeholder-slate-600 font-mono" />
                         <kbd
-                            class="text-[10px] bg-ms-surface text-slate-500 px-1.5 py-0.5 rounded border border-ms-border">ESC</kbd>
+                            class="text-2xs bg-ms-surface text-slate-500 px-1.5 py-0.5 rounded border border-ms-border">ESC</kbd>
                     </div>
 
                     <!-- Command Mode -->
@@ -175,7 +175,7 @@ onUnmounted(() => {
                                 : 'text-slate-400 hover:bg-ms-surface'">
                             <span class="font-mono text-xs">&gt;</span>
                             <span class="font-mono">{{ cmd.label }}</span>
-                            <span class="text-[10px] text-slate-600 ml-auto">{{ cmd.description }}</span>
+                            <span class="text-2xs text-slate-600 ml-auto">{{ cmd.description }}</span>
                         </button>
                         <div v-if="filteredCommands.length === 0" class="px-4 py-6 text-center text-sm text-slate-500 font-mono">
                             No command found
@@ -204,7 +204,7 @@ onUnmounted(() => {
                         </div>
                     </div>
 
-                    <div class="px-4 py-2 border-t border-ms-border text-[10px] text-slate-600 flex gap-3 font-mono">
+                    <div class="px-4 py-2 border-t border-ms-border text-2xs text-slate-600 flex gap-3 font-mono">
                         <span>↑↓ 导航</span>
                         <span>↵ 确认</span>
                         <span>Esc 关闭</span>

@@ -115,21 +115,21 @@ async function handleDelete(cardId: string, title: string) {
       <!-- Ctrl+K hint bar -->
       <div class="h-10 flex items-center justify-between px-3 border-b border-ms-border shrink-0">
         <div class="flex items-center space-x-2">
-          <div class="w-5 h-5 bg-neon/10 border border-neon/30 flex items-center justify-center text-neon text-[10px] font-bold font-display select-none">M</div>
-          <span class="text-slate-600 font-mono text-[10px] tracking-[0.15em] uppercase">Memory_Bay</span>
+          <div class="w-5 h-5 bg-neon/10 border border-neon/30 flex items-center justify-center text-neon text-2xs font-bold font-display select-none">M</div>
+          <span class="text-slate-600 font-mono text-2xs tracking-spine uppercase">Memory_Bay</span>
         </div>
-        <span class="text-[9px] text-slate-700 font-mono border border-ms-border px-1.5 py-0.5 rounded-sm select-none">Ctrl+K</span>
+        <span class="text-3xs text-slate-700 font-mono border border-ms-border px-1.5 py-0.5 rounded-sm select-none">Ctrl+K</span>
       </div>
 
       <!-- Category Ribbon -->
       <div v-if="categories.length > 0" class="flex px-3 py-1.5 gap-3 overflow-x-auto border-b border-ms-border/50 no-scrollbar">
         <button @click="store.selectedCategoryId = null"
-          class="shrink-0 font-mono text-[10px] tracking-wider uppercase pb-0.5 border-b-2 transition-colors"
+          class="shrink-0 font-mono text-2xs tracking-wider uppercase pb-0.5 border-b-2 transition-colors"
           :class="selectedCategoryId === null ? 'text-neon border-b-neon' : 'text-slate-600 border-b-transparent hover:text-slate-400'">
           ALL
         </button>
         <button v-for="cat in categories" :key="cat.id" @click="store.selectedCategoryId = cat.id"
-          class="shrink-0 font-mono text-[10px] tracking-wider uppercase pb-0.5 border-b-2 transition-all"
+          class="shrink-0 font-mono text-2xs tracking-wider uppercase pb-0.5 border-b-2 transition-all"
           :style="(selectedCategoryId === cat.id && hexForKey(cat.theme_color))
             ? { color: hexForKey(cat.theme_color)!, borderBottomColor: hexForKey(cat.theme_color)! }
             : undefined"
@@ -143,7 +143,7 @@ async function handleDelete(cardId: string, title: string) {
       <!-- View Tabs -->
       <div class="flex px-3 pt-2 gap-0.5">
         <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
-          class="flex-1 text-[10px] py-1.5 transition-all text-center font-mono tracking-wider" :class="activeTab === tab.key
+          class="flex-1 text-2xs py-1.5 transition-all text-center font-mono tracking-wider" :class="activeTab === tab.key
             ? 'text-neon border-b border-neon/50'
             : 'text-slate-600 border-b border-transparent hover:text-slate-400'
             ">
@@ -164,7 +164,7 @@ async function handleDelete(cardId: string, title: string) {
             <div class="flex items-center justify-between">
               <div class="truncate text-xs flex-1 mr-2">
                 {{ card.title || "无标题" }}
-                <span v-if="card.title && !card.content" class="text-[9px] text-slate-700 ml-1">∅</span>
+                <span v-if="card.title && !card.content" class="text-3xs text-slate-700 ml-1">∅</span>
               </div>
               <button @click.stop="handleDelete(card.id, card.title)"
                 class="shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all px-0.5 rounded-sm"
@@ -174,14 +174,14 @@ async function handleDelete(cardId: string, title: string) {
                 </svg>
               </button>
             </div>
-            <div v-if="card.content" class="truncate text-[10px] mt-0.5 font-mono" :class="activeCard?.id === card.id
+            <div v-if="card.content" class="truncate text-2xs mt-0.5 font-mono" :class="activeCard?.id === card.id
               ? 'text-neon/40'
               : 'text-slate-600'
               ">
               {{ contentPreview(card.content) }}
             </div>
           </div>
-          <div v-if="filteredOrphans.length === 0" class="text-[10px] text-slate-700 italic py-2 font-mono">
+          <div v-if="filteredOrphans.length === 0" class="text-2xs text-slate-700 italic py-2 font-mono">
             暂无孤岛卡片
           </div>
         </div>
@@ -198,10 +198,10 @@ async function handleDelete(cardId: string, title: string) {
             <div class="flex items-center justify-between">
               <div class="truncate text-xs flex-1 mr-2">
                 {{ card.title || "无标题" }}
-                <span v-if="card.title && !card.content" class="text-[9px] text-slate-700 ml-1">∅</span>
+                <span v-if="card.title && !card.content" class="text-3xs text-slate-700 ml-1">∅</span>
               </div>
               <span v-if="card.category_id && categoryMap.get(card.category_id)"
-                class="shrink-0 text-[9px] bg-ms-deep text-slate-500 px-1.5 py-0.5 rounded-sm font-mono mr-1">
+                class="shrink-0 text-3xs bg-ms-deep text-slate-500 px-1.5 py-0.5 rounded-sm font-mono mr-1">
                 {{ categoryMap.get(card.category_id) }}
               </span>
               <button @click.stop="handleDelete(card.id, card.title)"
@@ -212,14 +212,14 @@ async function handleDelete(cardId: string, title: string) {
                 </svg>
               </button>
             </div>
-            <div v-if="card.content" class="truncate text-[10px] mt-0.5 font-mono" :class="activeCard?.id === card.id
+            <div v-if="card.content" class="truncate text-2xs mt-0.5 font-mono" :class="activeCard?.id === card.id
               ? 'text-neon/40'
               : 'text-slate-600'
               ">
               {{ contentPreview(card.content) }}
             </div>
           </div>
-          <div v-if="allCards.length === 0" class="text-[10px] text-slate-700 italic py-2 font-mono">
+          <div v-if="allCards.length === 0" class="text-2xs text-slate-700 italic py-2 font-mono">
             暂无卡片
           </div>
         </div>

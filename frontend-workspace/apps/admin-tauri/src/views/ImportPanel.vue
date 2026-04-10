@@ -288,7 +288,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                     </td>
                     <td class="px-4 py-2 text-center">
                       <span
-                        class="px-2 py-0.5 text-[10px] tracking-wider uppercase"
+                        class="px-2 py-0.5 text-2xs tracking-wider uppercase"
                         :class="card.status === 'duplicate' 
                           ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
                           : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'"
@@ -306,7 +306,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                           : 'border-ms-border hover:border-neon/50'"
                         :title="card.skip ? '点击取消跳过' : '点击跳过此卡片'"
                       >
-                        <span v-if="card.skip" class="text-[10px]">✕</span>
+                        <span v-if="card.skip" class="text-2xs">✕</span>
                       </button>
                     </td>
                   </tr>

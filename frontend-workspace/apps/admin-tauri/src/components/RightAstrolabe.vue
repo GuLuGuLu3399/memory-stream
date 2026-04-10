@@ -304,7 +304,7 @@ onUnmounted(() => {
 
     <div class="h-12 flex items-center px-4 border-b border-ms-border bg-ms-carbon shrink-0">
       <span class="font-bold text-slate-400 text-xs font-mono tracking-wider">局部拓扑</span>
-      <span class="ml-2 text-[10px] text-slate-600 font-mono">点击节点跳转 · 右击连线操作</span>
+      <span class="ml-2 text-2xs text-slate-600 font-mono">点击节点跳转 · 右击连线操作</span>
       <span v-if="selectedEdge" class="ml-auto text-xs bg-neon/10 text-neon px-2 py-0.5 rounded-sm">
         已选中连线
       </span>
@@ -371,7 +371,7 @@ onUnmounted(() => {
       </div>
     </Teleport>
     <!-- 连线类型图例 -->
-    <div class="px-3 pb-2 text-[10px] text-slate-600 font-mono">
+    <div class="px-3 pb-2 text-2xs text-slate-600 font-mono">
       <div>━━ 实线 = 主干（手动连接）</div>
       <div>╌╌ 虚线 = 参考（[[链接]] 自动生成）</div>
     </div>

@@ -145,12 +145,12 @@ onUnmounted(() => {
     <!-- 底部状态栏 -->
     <footer class="h-6 bg-ms-void border-t border-ms-border flex items-center px-3 justify-between select-none shrink-0">
       <div class="flex items-center gap-3">
-        <span class="text-[10px] text-slate-700 font-mono">MS-ADMIN</span>
-        <span class="text-[10px] text-slate-700 font-mono">v0.1.0</span>
+        <span class="text-2xs text-slate-700 font-mono">MS-ADMIN</span>
+        <span class="text-2xs text-slate-700 font-mono">v0.1.0</span>
       </div>
       <div class="flex items-center gap-3">
-        <span class="text-[10px] text-slate-700 font-mono">WS ●</span>
-        <span class="text-[10px] text-slate-700 font-mono">READY</span>
+        <span class="text-2xs text-slate-700 font-mono">WS ●</span>
+        <span class="text-2xs text-slate-700 font-mono">READY</span>
       </div>
     </footer>
 
