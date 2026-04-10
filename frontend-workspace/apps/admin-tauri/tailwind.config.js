@@ -63,13 +63,20 @@ export default {
                 'sharp': '0px',
                 'industrial': '2px',
             },
+            fontSize: {
+                '2xs': '10px',
+                '3xs': '9px',
+            },
             boxShadow: {
                 'neon-glow': '0 0 8px rgba(0, 229, 255, 0.3), 0 0 20px rgba(0, 229, 255, 0.1)',
                 'neon-glow-sm': '0 0 4px rgba(0, 229, 255, 0.2)',
                 'neon-glow-lg': '0 0 12px rgba(0, 229, 255, 0.4), 0 0 30px rgba(0, 229, 255, 0.15)',
             },
-            height: {
+            spacing: {
                 'titlebar': '36px',
+            },
+            minWidth: {
+                'merge-btn': '280px',
             },
             transitionDuration: {
                 'drawer': '200ms',

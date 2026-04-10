@@ -310,7 +310,7 @@ async function retryFileWrite(file: string) {
 </script>
 
 <template>
-  <div class="fixed inset-x-0 bottom-0 top-[36px] z-overlay bg-ms-deep flex flex-col">
+  <div class="fixed inset-x-0 bottom-0 top-titlebar z-overlay bg-ms-deep flex flex-col">
     <!-- Header Bar -->
     <div class="h-12 flex items-center justify-between px-4 border-b border-ms-border bg-ms-carbon shrink-0">
       <div class="flex items-center gap-3">
@@ -318,7 +318,7 @@ async function retryFileWrite(file: string) {
         <span class="font-bold text-slate-300 text-xs font-mono tracking-wider uppercase">
           MERGE STAGING AREA
         </span>
-        <span class="text-[10px] text-slate-600 font-mono">概念坍缩引擎</span>
+        <span class="text-2xs text-slate-600 font-mono">概念坍缩引擎</span>
       </div>
       <button
         @click="layoutStore.closeMergeConsole()"
@@ -338,21 +338,21 @@ async function retryFileWrite(file: string) {
         <!-- Section Header -->
         <div class="h-10 flex items-center justify-between px-3 border-b border-ms-border shrink-0">
           <div class="flex items-center gap-2">
-            <span class="text-[10px] font-mono uppercase tracking-widest text-amber-400">
+            <span class="text-2xs font-mono uppercase tracking-widest text-amber-400">
               SACRIFICES
             </span>
-            <span class="text-[10px] text-slate-600 font-mono">(祭品)</span>
+            <span class="text-2xs text-slate-600 font-mono">(祭品)</span>
           </div>
           <div class="flex items-center gap-1">
             <button
               @click="selectAllVictims"
-              class="text-[9px] text-slate-500 hover:text-slate-300 px-1.5 py-0.5 transition-colors"
+              class="text-3xs text-slate-500 hover:text-slate-300 px-1.5 py-0.5 transition-colors"
             >
               ALL
             </button>
             <button
               @click="clearAllVictims"
-              class="text-[9px] text-slate-500 hover:text-slate-300 px-1.5 py-0.5 transition-colors"
+              class="text-3xs text-slate-500 hover:text-slate-300 px-1.5 py-0.5 transition-colors"
             >
               CLEAR
             </button>
@@ -371,7 +371,7 @@ async function retryFileWrite(file: string) {
 
         <!-- Victim Counter -->
         <div v-if="selectedVictims.length > 0" class="px-3 py-1.5 border-b border-ms-border/50 bg-amber-500/5">
-          <span class="text-[10px] text-amber-400 font-mono">
+          <span class="text-2xs text-amber-400 font-mono">
             {{ selectedVictims.length }} 个待献祭
           </span>
         </div>
@@ -400,7 +400,7 @@ async function retryFileWrite(file: string) {
           </label>
 
           <div v-if="availableVictimCards.length === 0" class="px-3 py-4 text-center">
-            <span class="text-[10px] text-slate-600 italic font-mono">
+            <span class="text-2xs text-slate-600 italic font-mono">
               无可用卡片
             </span>
           </div>
@@ -411,10 +411,10 @@ async function retryFileWrite(file: string) {
       <div class="flex-1 flex flex-col bg-ms-panel">
         <!-- Section Header -->
         <div class="h-10 flex items-center px-3 border-b border-ms-border shrink-0">
-          <span class="text-[10px] font-mono uppercase tracking-widest text-cyan-400">
+          <span class="text-2xs font-mono uppercase tracking-widest text-cyan-400">
             BLAST RADIUS
           </span>
-          <span class="text-[10px] text-slate-600 font-mono ml-2">(爆炸半径)</span>
+          <span class="text-2xs text-slate-600 font-mono ml-2">(爆炸半径)</span>
         </div>
 
         <!-- Content -->
@@ -424,7 +424,7 @@ async function retryFileWrite(file: string) {
             <div class="text-slate-600 text-xs font-mono mb-2">
               请选择一个主节点和至少一个祭品
             </div>
-            <div class="text-slate-700 text-[10px] font-mono">
+            <div class="text-slate-700 text-2xs font-mono">
               以预览合并影响范围
             </div>
           </div>
@@ -444,7 +444,7 @@ async function retryFileWrite(file: string) {
           <div v-else-if="impactError" class="h-full flex items-center justify-center">
             <div class="text-center">
               <div class="text-red-400 text-xs font-mono mb-2">影响预览失败</div>
-              <div class="text-slate-500 text-[10px] font-mono">{{ impactError }}</div>
+              <div class="text-slate-500 text-2xs font-mono">{{ impactError }}</div>
             </div>
           </div>
 
@@ -453,7 +453,7 @@ async function retryFileWrite(file: string) {
             <!-- Stats Grid -->
             <div class="grid grid-cols-2 gap-4">
               <div class="border border-ms-border bg-ms-deep p-4">
-                <div class="text-[9px] text-slate-500 uppercase tracking-wider mb-1 font-mono">
+                <div class="text-3xs text-slate-500 uppercase tracking-wider mb-1 font-mono">
                   受影响链接
                 </div>
                 <div class="text-2xl text-neon font-bold font-mono">
@@ -461,7 +461,7 @@ async function retryFileWrite(file: string) {
                 </div>
               </div>
               <div class="border border-ms-border bg-ms-deep p-4">
-                <div class="text-[9px] text-slate-500 uppercase tracking-wider mb-1 font-mono">
+                <div class="text-3xs text-slate-500 uppercase tracking-wider mb-1 font-mono">
                   待修改文件
                 </div>
                 <div class="text-2xl text-amber-400 font-bold font-mono">
@@ -472,7 +472,7 @@ async function retryFileWrite(file: string) {
 
             <!-- File List -->
             <div v-if="impactResult.affected_files.length > 0">
-              <div class="text-[9px] text-slate-500 uppercase tracking-wider mb-2 font-mono">
+              <div class="text-3xs text-slate-500 uppercase tracking-wider mb-2 font-mono">
                 受影响文件
               </div>
               <div class="space-y-1">
@@ -482,7 +482,7 @@ async function retryFileWrite(file: string) {
                   class="flex items-center justify-between text-xs font-mono px-3 py-2 bg-ms-deep border border-ms-border"
                 >
                   <span class="text-slate-300 truncate flex-1">{{ file.path }}</span>
-                  <span class="text-amber-400/60 text-[10px] ml-3 shrink-0">
+                  <span class="text-amber-400/60 text-2xs ml-3 shrink-0">
                     {{ file.link_count }} 链接
                   </span>
                 </div>
@@ -491,7 +491,7 @@ async function retryFileWrite(file: string) {
 
             <!-- No files affected -->
             <div v-else class="text-center py-4">
-              <span class="text-[10px] text-slate-600 italic font-mono">
+              <span class="text-2xs text-slate-600 italic font-mono">
                 没有文件会被修改
               </span>
             </div>
@@ -503,10 +503,10 @@ async function retryFileWrite(file: string) {
       <div class="w-72 border-l border-ms-border flex flex-col bg-ms-void">
         <!-- Section Header -->
         <div class="h-10 flex items-center px-3 border-b border-ms-border shrink-0">
-          <span class="text-[10px] font-mono uppercase tracking-widest text-emerald-400">
+          <span class="text-2xs font-mono uppercase tracking-widest text-emerald-400">
             SURVIVOR
           </span>
-          <span class="text-[10px] text-slate-600 font-mono ml-2">(主节点)</span>
+          <span class="text-2xs text-slate-600 font-mono ml-2">(主节点)</span>
         </div>
 
         <!-- Search -->
@@ -521,7 +521,7 @@ async function retryFileWrite(file: string) {
 
         <!-- Selected Survivor Display -->
         <div v-if="selectedSurvivor" class="px-3 py-2 border-b border-ms-border bg-emerald-500/5">
-          <div class="text-[9px] text-emerald-400 font-mono mb-1">已选定</div>
+          <div class="text-3xs text-emerald-400 font-mono mb-1">已选定</div>
           <div class="text-xs text-slate-300 font-mono truncate">
             {{ cards.find(c => c.id === selectedSurvivor)?.title || "无标题" }}
           </div>
@@ -552,7 +552,7 @@ async function retryFileWrite(file: string) {
           </label>
 
           <div v-if="availableSurvivorCards.length === 0" class="px-3 py-4 text-center">
-            <span class="text-[10px] text-slate-600 italic font-mono">
+            <span class="text-2xs text-slate-600 italic font-mono">
               无可用卡片
             </span>
           </div>
@@ -571,7 +571,7 @@ async function retryFileWrite(file: string) {
           <span v-if="canShowBlastRadius">⚠</span>
           {{ warningMessage }}
         </div>
-        <div v-if="generalError" class="text-[10px] text-red-400 font-mono mt-0.5 truncate">
+        <div v-if="generalError" class="text-2xs text-red-400 font-mono mt-0.5 truncate">
           {{ generalError }}
         </div>
       </div>
@@ -582,7 +582,7 @@ async function retryFileWrite(file: string) {
         @pointerup="handlePointerUp"
         @pointerleave="handlePointerLeave"
         :disabled="!canShowBlastRadius || isExecuting"
-        class="relative h-10 min-w-[280px] overflow-hidden transition-colors select-none"
+        class="relative h-10 min-w-merge-btn overflow-hidden transition-colors select-none"
         :class="
           canShowBlastRadius && !isExecuting
             ? 'bg-red-500/10 border border-red-500/30 cursor-pointer'

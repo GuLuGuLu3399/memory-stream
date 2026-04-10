@@ -168,7 +168,7 @@ function getStatusColor(status: TestStatus): string {
   <Transition name="ms-fade">
     <div
       v-if="isSettingsOpen"
-      class="fixed inset-x-0 bottom-0 top-[36px] z-panel flex items-center justify-center bg-ms-deep/95 backdrop-blur-sm"
+      class="fixed inset-x-0 bottom-0 top-titlebar z-panel flex items-center justify-center bg-ms-deep/95 backdrop-blur-sm"
       @click.self="close"
     >
       <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-ms-panel border border-ms-border shadow-2xl">

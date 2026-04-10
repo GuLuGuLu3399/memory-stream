@@ -57,9 +57,9 @@ const isUploading = ref(false);
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
 
 // ========== 防抖工具函数 ==========
-function useDebounce<T extends (...args: any[]) => any>(fn: T, delay: number): T {
+function useDebounce<T extends (...args: any[]) => unknown>(fn: T, delay: number): T {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    return ((...args: any[]) => {
+    return ((...args: Parameters<T>) => {
         if (timeoutId) clearTimeout(timeoutId);
         timeoutId = setTimeout(() => fn(...args), delay);
     }) as T;

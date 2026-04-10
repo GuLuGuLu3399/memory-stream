@@ -142,7 +142,7 @@ onUnmounted(() => {
 <template>
     <Teleport to="body">
         <Transition name="ms-scale">
-            <div v-if="isOpen" class="fixed inset-x-0 bottom-0 top-[36px] z-modal flex items-start justify-center pt-[20vh]"
+            <div v-if="isOpen" class="fixed inset-x-0 bottom-0 top-titlebar z-modal flex items-start justify-center pt-[20vh]"
                 @click.self="close">
                 <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="close"></div>
 
