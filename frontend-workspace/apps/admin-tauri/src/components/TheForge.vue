@@ -162,7 +162,7 @@ watch(
 function handleKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key === "s") {
     e.preventDefault();
-    handleSave();
+    if (canSave.value) handleSave();
   }
 }
 
