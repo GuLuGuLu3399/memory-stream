@@ -13,8 +13,10 @@ pub struct SysConfig {
     pub s3_region: String,
     pub s3_bucket: String,
     #[serde(skip_serializing)]
+    #[ts(skip)]
     pub s3_access_key: Option<String>,
     #[serde(skip_serializing)]
+    #[ts(skip)]
     pub s3_secret_key: Option<String>,
     pub s3_public_url_base: Option<String>,
     #[serde(default)]
