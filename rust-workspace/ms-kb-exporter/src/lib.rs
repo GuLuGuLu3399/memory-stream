@@ -40,9 +40,9 @@ mod serde_bytes {
         const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
         for chunk in data.chunks(3) {
-            let b0 = chunk[0] as u32;
-            let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
-            let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
+            let b0 = u32::from(chunk[0]);
+            let b1 = if chunk.len() > 1 { u32::from(chunk[1]) } else { 0 };
+            let b2 = if chunk.len() > 2 { u32::from(chunk[2]) } else { 0 };
             let triple = (b0 << 16) | (b1 << 8) | b2;
             let _ = write!(
                 out,
@@ -64,9 +64,14 @@ mod serde_bytes {
         out
     }
 
+    // CC-理由: 保持 API 一致性，与其他序列化/反序列化函数统一返回 Result
+    #[allow(clippy::unnecessary_wraps)]
+    #[allow(clippy::cast_possible_truncation)]
     fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
         const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let s = s.trim_end_matches('=');
+        // CC-理由: Base64 解码的字符位置不会超过 63，符合 u32 范围
+        #[allow(clippy::cast_possible_truncation)]
         let mut out = Vec::with_capacity(s.len() * 3 / 4);
         for chunk in s.as_bytes().chunks(4) {
             let mut acc = 0u32;
@@ -108,6 +113,10 @@ impl Default for ExportOptions {
     }
 }
 
+/// 导出卡片到 ZIP 文件。
+///
+/// # Errors
+/// 返回错误如果文件创建或压缩失败。
 pub async fn export_to_zip(
     cards: Vec<KbCard>,
     dest_path: &Path,
@@ -128,7 +137,7 @@ pub async fn export_to_zip(
             let category = sanitize_filename(&card.category_name);
             let title = sanitize_filename(&card.title);
 
-            let md_path = format!("{}/{}.md", category, title);
+            let md_path = format!("{category}/{title}.md");
             zip.start_file(&md_path, zip_options.clone())?;
             zip.write_all(card.raw_md.as_bytes())?;
 
@@ -160,6 +169,10 @@ pub async fn export_to_zip(
     .unwrap_or(Err(ExportError::TaskPanic))
 }
 
+/// 使用 fetcher 函数导出卡片到 ZIP 文件。
+///
+/// # Errors
+/// 返回错误如果获取卡片或导出失败。
 pub async fn export_with_fetcher<F, Fut>(
     card_ids: Vec<String>,
     dest_path: &Path,
@@ -269,7 +282,7 @@ mod tests {
 
         let file = std::fs::File::open(&zip_path).unwrap();
         let archive = ZipArchive::new(file).unwrap();
-        let names: Vec<String> = archive.file_names().map(|s| s.to_string()).collect();
+        let names: Vec<String> = archive.file_names().map(std::string::ToString::to_string).collect();
         assert!(names.iter().any(|n| n.starts_with("Go/")));
         assert!(names.iter().any(|n| n.starts_with("Rust/")));
         assert_eq!(names.len(), 3);
@@ -299,7 +312,7 @@ mod tests {
 
         let file = std::fs::File::open(&zip_path).unwrap();
         let archive = ZipArchive::new(file).unwrap();
-        let names: Vec<String> = archive.file_names().map(|s| s.to_string()).collect();
+        let names: Vec<String> = archive.file_names().map(std::string::ToString::to_string).collect();
         assert!(names.iter().any(|n| n.starts_with("images/")));
     }
 
@@ -327,7 +340,7 @@ mod tests {
 
         let file = std::fs::File::open(&zip_path).unwrap();
         let archive = ZipArchive::new(file).unwrap();
-        let names: Vec<String> = archive.file_names().map(|s| s.to_string()).collect();
+        let names: Vec<String> = archive.file_names().map(std::string::ToString::to_string).collect();
         assert!(names.iter().any(|n| n == "技术/diagram.png"));
     }
 
@@ -360,7 +373,7 @@ mod tests {
 
         let file = std::fs::File::open(&zip_path).unwrap();
         let archive = ZipArchive::new(file).unwrap();
-        let names: Vec<String> = archive.file_names().map(|s| s.to_string()).collect();
+        let names: Vec<String> = archive.file_names().map(std::string::ToString::to_string).collect();
         assert_eq!(names.len(), 1);
         assert!(!names[0].contains(':'));
         assert!(!names[0].contains('?'));

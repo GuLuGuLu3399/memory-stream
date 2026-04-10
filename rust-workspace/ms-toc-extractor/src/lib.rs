@@ -16,18 +16,24 @@ pub struct TocFlatItem {
     pub slug: String,
 }
 
+#[must_use] 
 pub fn extract_toc(node: &AstNode) -> Vec<TocNode> {
     let headings = collect_headings(node);
     build_tree(&headings)
 }
 
+/// 从 JSON 字符串提取 TOC。
+///
+/// # Errors
+/// 返回错误如果 JSON 解析失败或 TOC 提取失败。
 pub fn extract_toc_from_json(json: &str) -> Result<Vec<TocNode>, ast_core::error::MSError> {
     let node: ast_core::AstNodeOwned = serde_json::from_str(json).map_err(|e| {
-        ast_core::error::MSError::ParseError(format!("AST JSON 反序列化失败: {}", e))
+        ast_core::error::MSError::ParseError(format!("AST JSON 反序列化失败: {e}"))
     })?;
     Ok(extract_toc(&node))
 }
 
+#[must_use] 
 pub fn extract_toc_flat(node: &AstNode) -> Vec<TocFlatItem> {
     collect_headings(node)
         .into_iter()
@@ -70,8 +76,7 @@ fn collect_text(children: &[AstNode]) -> String {
 
 fn append_text(node: &AstNode, out: &mut String) {
     match node {
-        AstNode::Text { value } => out.push_str(value),
-        AstNode::CodeBlock { value, .. } => out.push_str(value),
+        AstNode::Text { value } | AstNode::CodeBlock { value, .. } => out.push_str(value),
         AstNode::Strong { children }
         | AstNode::Emphasis { children }
         | AstNode::Link { children, .. }
@@ -310,14 +315,14 @@ mod tests {
 
     #[test]
     fn test_with_real_parser() {
-        let md = r#"# Main
+        let md = r"# Main
 
 ## Section A
 
 ### Sub A1
 
 ## Section B
-"#;
+";
         let ast = md_parser::parse_markdown(md).unwrap();
         let toc = extract_toc(&ast);
         assert_eq!(toc.len(), 1);

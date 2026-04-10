@@ -34,6 +34,10 @@ pub struct S3Backend {
 }
 
 impl S3Backend {
+    /// 创建新的 S3 后端实例。
+    ///
+    /// # Errors
+    /// 返回错误如果配置无效或 S3 客户端创建失败。
     pub fn new(config: &StorageConfig) -> StorageResult<Self> {
         let credentials = Credentials::new(
             Some(&config.access_key),
@@ -42,7 +46,7 @@ impl S3Backend {
             None,
             None,
         )
-        .map_err(|e| StorageError::ConfigError(format!("凭证创建失败: {}", e)))?;
+        .map_err(|e| StorageError::ConfigError(format!("凭证创建失败: {e}")))?;
 
         let mut bucket = Bucket::new(
             &config.bucket,
@@ -52,7 +56,7 @@ impl S3Backend {
             },
             credentials,
         )
-        .map_err(|e| StorageError::ConfigError(format!("Bucket 创建失败: {}", e)))?;
+        .map_err(|e| StorageError::ConfigError(format!("Bucket 创建失败: {e}")))?;
 
         if config.use_path_style {
             bucket.set_path_style();
@@ -103,6 +107,10 @@ impl StorageProvider for S3Backend {
     }
 }
 
+/// 创建存储提供者实例。
+///
+/// # Errors
+/// 返回错误如果配置无效或后端创建失败。
 pub fn create_storage(config: &StorageConfig) -> StorageResult<Box<dyn StorageProvider>> {
     Ok(Box::new(S3Backend::new(config)?))
 }
@@ -197,7 +205,7 @@ mod tests {
     #[test]
     fn test_config_debug_format() {
         let config: StorageConfig = serde_json::from_str(sample_config_json()).unwrap();
-        let debug_str = format!("{:?}", config);
+        let debug_str = format!("{config:?}");
         // Debug output should contain field names
         assert!(debug_str.contains("endpoint"));
         assert!(debug_str.contains("region"));
@@ -211,15 +219,15 @@ mod tests {
     #[test]
     fn test_error_display_config() {
         let err = StorageError::ConfigError("bad cfg".to_string());
-        let msg = format!("{}", err);
-        assert!(msg.contains("配置错误"), "expected Chinese prefix, got: {}", msg);
+        let msg = format!("{err}");
+        assert!(msg.contains("配置错误"), "expected Chinese prefix, got: {msg}");
         assert!(msg.contains("bad cfg"));
     }
 
     #[test]
     fn test_error_display_upload() {
         let err = StorageError::UploadError("network failure".to_string());
-        let msg = format!("{}", err);
+        let msg = format!("{err}");
         assert!(msg.contains("上传失败"));
         assert!(msg.contains("network failure"));
     }
@@ -227,7 +235,7 @@ mod tests {
     #[test]
     fn test_error_display_delete() {
         let err = StorageError::DeleteError("not found".to_string());
-        let msg = format!("{}", err);
+        let msg = format!("{err}");
         assert!(msg.contains("删除失败"));
         assert!(msg.contains("not found"));
     }
@@ -235,7 +243,7 @@ mod tests {
     #[test]
     fn test_error_display_head() {
         let err = StorageError::HeadError("timeout".to_string());
-        let msg = format!("{}", err);
+        let msg = format!("{err}");
         assert!(msg.contains("查询失败"));
         assert!(msg.contains("timeout"));
     }
@@ -243,7 +251,7 @@ mod tests {
     #[test]
     fn test_error_display_url() {
         let err = StorageError::UrlError("invalid host".to_string());
-        let msg = format!("{}", err);
+        let msg = format!("{err}");
         assert!(msg.contains("URL 生成失败"));
         assert!(msg.contains("invalid host"));
     }
@@ -251,7 +259,7 @@ mod tests {
     #[test]
     fn test_error_debug_includes_variant_info() {
         let err = StorageError::ConfigError("detail".to_string());
-        let debug = format!("{:?}", err);
+        let debug = format!("{err:?}");
         assert!(debug.contains("ConfigError"));
     }
 
@@ -260,6 +268,7 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
+    #[allow(clippy::unwrap_used, clippy::unnecessary_literal_unwrap)]
     fn test_storage_result_ok() {
         let result: StorageResult<String> = Ok("hello".to_string());
         assert!(result.is_ok());
@@ -267,11 +276,12 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unwrap_used, clippy::unnecessary_literal_unwrap)]
     fn test_storage_result_err() {
         let result: StorageResult<String> = Err(StorageError::UploadError("fail".to_string()));
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(format!("{}", err).contains("上传失败"));
+        assert!(format!("{err}").contains("上传失败"));
     }
 
     // ---------------------------------------------------------------------------
@@ -500,8 +510,8 @@ mod tests {
         let mock = MockStorage::new("https://cdn.example.com");
         for i in 0..10 {
             mock.upload(
-                &format!("key-{}", i),
-                format!("data-{}", i).as_bytes(),
+                &format!("key-{i}"),
+                format!("data-{i}").as_bytes(),
                 "text/plain",
             )
             .await
@@ -509,7 +519,7 @@ mod tests {
         }
 
         for i in 0..10 {
-            assert!(mock.exists(&format!("key-{}", i)).await.unwrap());
+            assert!(mock.exists(&format!("key-{i}")).await.unwrap());
         }
         assert!(!mock.exists("key-10").await.unwrap());
     }

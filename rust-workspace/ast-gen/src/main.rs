@@ -1,13 +1,17 @@
-//! ast-gen: 从 RawMd 生成真实 AST JSON，直接写入 SQL 文件
+//! ast-gen: 从 `RawMd` 生成真实 AST JSON，直接写入 SQL 文件
 //!
 //! 用法: cargo run -p ast-gen [输出路径]
 //! 默认写入 ../../go-server/migration/sql/009_seed_ast_data.sql
+
+use std::fmt::Write;
 
 struct SeedCard {
     id: &'static str,
     raw_md: &'static str,
 }
 
+// CC-理由: 主函数包含多个种子卡片定义，拆分会降低可读性
+#[allow(clippy::too_many_lines)]
 fn main() {
     let out_path = std::env::args()
         .nth(1)
@@ -16,7 +20,7 @@ fn main() {
     let cards = vec![
         SeedCard {
             id: "a0000000-0000-0000-0000-000000000001",
-            raw_md: r#"# 我的知识系统规划
+            raw_md: r"# 我的知识系统规划
 
 ## 核心目标
 - 建立可复用的知识图谱
@@ -24,11 +28,11 @@ fn main() {
 
 ## 技术栈
 - 后端: Go + PostgreSQL
-- 前端: Vue 3 + Vue Flow"#,
+- 前端: Vue 3 + Vue Flow",
         },
         SeedCard {
             id: "a0000000-0000-0000-0000-000000000002",
-            raw_md: r#"# Phase 1: 基础架构
+            raw_md: r"# Phase 1: 基础架构
 
 ## 完成项
 - [x] 数据库设计
@@ -37,11 +41,11 @@ fn main() {
 
 ## 核心收获
 - 理解了 UUID 与前端 ID 的映射
-- 掌握了 GORM 的软删除机制"#,
+- 掌握了 GORM 的软删除机制",
         },
         SeedCard {
             id: "a0000000-0000-0000-0000-000000000003",
-            raw_md: r#"# Phase 2: 语义缩放
+            raw_md: r"# Phase 2: 语义缩放
 
 ## 目标
 - 实现 0.5x (Topic) 视图
@@ -50,11 +54,11 @@ fn main() {
 
 ## 关键技术
 - Vue Flow 的 parentNode 机制
-- 前端动态样式计算"#,
+- 前端动态样式计算",
         },
         SeedCard {
             id: "a0000000-0000-0000-0000-000000000004",
-            raw_md: r#"# Vue Flow 最佳实践
+            raw_md: r"# Vue Flow 最佳实践
 
 ## 官方文档
 - [Vue Flow 官网](https://vueflow.dev/)
@@ -63,11 +67,11 @@ fn main() {
 ## 核心概念
 - Node Types
 - Edge Types
-- Handle 系统"#,
+- Handle 系统",
         },
         SeedCard {
             id: "a0000000-0000-0000-0000-000000000005",
-            raw_md: r#"# Go 后端性能优化
+            raw_md: r"# Go 后端性能优化
 
 ## 已实施
 - 热度计算: O(1) 单表操作
@@ -76,11 +80,11 @@ fn main() {
 
 ## 待优化
 - 使用 Redis 缓存热点数据
-- 实现增量布局计算"#,
+- 实现增量布局计算",
         },
         SeedCard {
             id: "a0000000-0000-0000-0000-000000000006",
-            raw_md: r#"# PostgreSQL UUID 性能
+            raw_md: r"# PostgreSQL UUID 性能
 
 ## 关键发现
 - UUID 类型比 VARCHAR(36) 快 15%
@@ -90,11 +94,11 @@ fn main() {
 ## 推荐配置
 ```sql
 CREATE INDEX idx_cards_id ON cards(id);
-```"#,
+```",
         },
         SeedCard {
             id: "a0000000-0000-0000-0000-000000000007",
-            raw_md: r#"# Phase 3: 联调与优化
+            raw_md: r"# Phase 3: 联调与优化
 
 ## 当前状态
 - [x] 修复 UUID 类型冲突
@@ -104,11 +108,11 @@ CREATE INDEX idx_cards_id ON cards(id);
 ## 下一步
 - [ ] 前端联调测试
 - [ ] 性能压测
-- [ ] 用户体验优化"#,
+- [ ] 用户体验优化",
         },
         SeedCard {
             id: "a0000000-0000-0000-0000-000000000008",
-            raw_md: r#"# Rust 学习笔记
+            raw_md: r"# Rust 学习笔记
 
 ## 所有权规则
 1. 每个值都有一个所有者
@@ -117,7 +121,7 @@ CREATE INDEX idx_cards_id ON cards(id);
 
 ## 借用规则
 - 不可变借用可以有多个
-- 可变借用只能有一个"#,
+- 可变借用只能有一个",
         },
     ];
 
@@ -131,10 +135,11 @@ CREATE INDEX idx_cards_id ON cards(id);
             Ok(ast) => {
                 let ast_json = serde_json::to_string(&ast).unwrap();
                 let escaped = ast_json.replace('\'', "''");
-                sql.push_str(&format!(
-                    "UPDATE cards SET ast_data = '{}'::JSONB WHERE id = '{}'::UUID;\n",
+                writeln!(
+                    sql,
+                    "UPDATE cards SET ast_data = '{}'::JSONB WHERE id = '{}'::UUID;",
                     escaped, card.id
-                ));
+                ).unwrap();
             }
             Err(e) => {
                 eprintln!("-- ❌ 解析失败 [{}]: {}", card.id, e);
@@ -145,5 +150,5 @@ CREATE INDEX idx_cards_id ON cards(id);
     sql.push_str("\nCOMMIT;\n");
 
     std::fs::write(&out_path, &sql).expect("写入文件失败");
-    eprintln!("✅ 已写入: {}", out_path);
+    eprintln!("✅ 已写入: {out_path}");
 }

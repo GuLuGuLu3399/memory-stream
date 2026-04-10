@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-///AstNode的错误枚举类型
+///`AstNode的错误枚举类型`
 #[derive(Error, Debug)]
 pub enum MSError {
     #[error("Markdown 解析失败: {0}")]
@@ -50,12 +50,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unwrap_used, clippy::unnecessary_literal_unwrap)]
     fn test_msresult_ok() {
         let result: MSResult<i32> = Ok(42);
         assert_eq!(result.unwrap(), 42);
     }
 
     #[test]
+    #[allow(clippy::unwrap_used, clippy::unnecessary_literal_unwrap)]
     fn test_msresult_err() {
         let result: MSResult<i32> = Err(MSError::ParseError("bad input".to_string()));
         assert!(result.is_err());

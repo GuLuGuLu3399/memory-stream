@@ -17,6 +17,10 @@ fn cowstr_to_cow(s: CowStr) -> Cow<str> {
     }
 }
 
+/// 从 Markdown 文本中提取 wikilink。
+///
+/// # Panics
+/// 不会 panic（正则表达式编译在编译时已验证）。
 pub fn extract_wikilinks(md: &str) -> Vec<String> {
     static WIKILINK_REGEX: OnceLock<Regex> = OnceLock::new();
     let re = WIKILINK_REGEX.get_or_init(|| Regex::new(r"\[\[([^\]]+)\]\]").unwrap());
@@ -49,10 +53,18 @@ pub fn extract_wikilinks(md: &str) -> Vec<String> {
 /// # 返回
 /// 解析成功返回 `AstNode::Root`，失败返回 `MSError::ParseError`。
 ///
+/// # Errors
+/// 当 Markdown 文本格式无法解析时返回 `MSError::ParseError`。
+///
+/// # Panics
+/// 当解析器内部状态不一致时可能 panic（理论上不应发生）。
+///
 /// # 示例
 /// ```ignore
 /// let ast = parse_markdown("## Hello")?;
 /// ```
+// CC-理由: 核心解析逻辑，拆分会降低可读性
+#[allow(clippy::too_many_lines)]
 pub fn parse_markdown(md_text: &str) -> MSResult<AstNode<'_>> {
     // 🌟 开启扩展解析选项：表格、任务列表、删除线、数学公式
     let mut opts = Options::empty();
@@ -146,7 +158,7 @@ pub fn parse_markdown(md_text: &str) -> MSResult<AstNode<'_>> {
             Event::Code(code_text) => {
                 if let Some(top_node) = stack.last_mut() {
                     top_node.push_child(AstNode::Text {
-                        value: Cow::Owned(format!("`{}`", code_text)),
+                        value: Cow::Owned(format!("`{code_text}`")),
                     });
                 }
             }
@@ -273,14 +285,14 @@ mod tests {
             ordered, children, ..
         } = first_node
         {
-            assert_eq!(*ordered, false);
+            assert!(!(*ordered));
             assert_eq!(children.len(), 1);
 
             if let AstNode::ListItem {
                 children: item_children,
             } = &children[0]
             {
-                assert!(item_children.len() > 0);
+                assert!(!item_children.is_empty());
             } else {
                 panic!("List 子节点不是 ListItem");
             }

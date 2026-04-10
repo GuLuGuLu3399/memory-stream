@@ -1,4 +1,4 @@
-//! MemoryStream AST → HTML 渲染器。
+//! `MemoryStream` AST → HTML 渲染器。
 //!
 //! 将 `AstNode` 树递归渲染为安全的 HTML 字符串。
 //! 内置 XSS 防护：所有文本经过 HTML 转义，URL 经过白名单过滤。
@@ -6,6 +6,7 @@
 use ast_core::{error::MSResult, AlignType, AstNode};
 use regex::Regex;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::LazyLock;
 
 /// Wikilink 正则：匹配 `[[Card Name]]` 格式。
@@ -19,8 +20,8 @@ static WIKILINK_REGEX: LazyLock<Regex> =
 /// - `card_name_to_id`: 可选的卡片名称到 UUID 的映射
 ///
 /// # 渲染规则
-/// - 当提供 HashMap 且包含卡片名称时：`<a href="/cards/{uuid}" class="reference-link">Card Name</a>`
-/// - 当未提供 HashMap 或名称未找到时：`<a class="reference-link" data-card-name="Card Name">Card Name</a>`
+/// - 当提供 `HashMap` 且包含卡片名称时：`<a href="/cards/{uuid}" class="reference-link">Card Name</a>`
+/// - 当未提供 `HashMap` 或名称未找到时：`<a class="reference-link" data-card-name="Card Name">Card Name</a>`
 fn render_wikilinks(text: &str, card_name_to_id: Option<&HashMap<String, String>>) -> String {
     let mut result = String::with_capacity(text.len());
     let mut last_end = 0;
@@ -38,17 +39,18 @@ fn render_wikilinks(text: &str, card_name_to_id: Option<&HashMap<String, String>
         // 尝试从映射中获取 UUID
         if let Some(uuid) = card_name_to_id.and_then(|map| map.get(card_name)) {
             // 有 UUID：渲染为带 href 的链接
-            result.push_str(&format!(
+            write!(
+                result,
                 r#"<a href="/cards/{}" class="reference-link">{}</a>"#,
                 escape_html(uuid),
                 escaped_name
-            ));
+            ).unwrap();
         } else {
             // 无 UUID：渲染为 data-card-name 属性
-            result.push_str(&format!(
-                r#"<a class="reference-link" data-card-name="{}">{}</a>"#,
-                escaped_name, escaped_name
-            ));
+            write!(
+                result,
+                r#"<a class="reference-link" data-card-name="{escaped_name}">{escaped_name}</a>"#
+            ).unwrap();
         }
 
         last_end = full_match.end();
@@ -65,7 +67,7 @@ fn render_wikilinks(text: &str, card_name_to_id: Option<&HashMap<String, String>
 ///
 /// # 安全性
 /// - 所有文本内容经过 HTML 实体转义（`<` → `<` 等）
-/// - URL 白名单过滤（仅允许 http/https/mailto/相对路径，阻止 javascript:/data:）
+/// - URL 白名单过滤（仅允许 http/https/mailto/相对路径，阻止 <javascript:/data>:）
 /// - Mermaid 代码块使用专用 `<pre class="mermaid">` 标签
 ///
 /// # 参数
@@ -73,13 +75,23 @@ fn render_wikilinks(text: &str, card_name_to_id: Option<&HashMap<String, String>
 ///
 /// # 返回
 /// 渲染后的 HTML 字符串
+///
+/// # Errors
+/// 返回错误如果渲染过程中发生失败（如格式化错误）。
+///
+/// # Panics
+/// CC-理由: 核心渲染逻辑，拆分会降低可读性
+#[allow(clippy::too_many_lines)]
 pub fn render_to_html(node: &AstNode) -> MSResult<String> {
     let html = match node {
-        AstNode::Root { children } => render_children(children)?,
+        AstNode::Root { children }
+        | AstNode::TableHead { children }
+        | AstNode::TableRow { children }
+        | AstNode::TableCell { children } => render_children(children)?,
 
         AstNode::Heading { level, children } => {
             let inner_html = render_children(children)?;
-            format!("<h{}>{}</h{}>", level, inner_html, level)
+            format!("<h{level}>{inner_html}</h{level}>")
         }
 
         AstNode::Paragraph { children } => {
@@ -88,8 +100,10 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
 
         AstNode::Text { value } => render_wikilinks(value, None),
 
-        AstNode::Strong { children } => format!("<strong>{}</strong>", render_children(children)?),
-        AstNode::Emphasis { children } => format!("<em>{}</em>", render_children(children)?),
+        AstNode::Strong { children } | AstNode::Emphasis { children } => {
+            let tag = if matches!(node, AstNode::Strong { .. }) { "strong" } else { "em" };
+            format!("<{tag}>{}</{tag}>", render_children(children)?)
+        }
 
         AstNode::List {
             ordered,
@@ -98,7 +112,7 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
         } => {
             let tag = if *ordered { "ol" } else { "ul" };
             let start_attr = match start {
-                Some(s) if *ordered && *s != 1 => format!(" start=\"{}\"", s),
+                Some(s) if *ordered && *s != 1 => format!(" start=\"{s}\""),
                 _ => String::new(),
             };
             format!(
@@ -175,14 +189,13 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
                             let align = alignments
                                 .get(i)
                                 .and_then(|a| a.as_ref())
-                                .map(|a| match a {
+                                .map_or("", |a| match a {
                                     AlignType::Left => " style=\"text-align:left\"",
                                     AlignType::Center => " style=\"text-align:center\"",
                                     AlignType::Right => " style=\"text-align:right\"",
                                     AlignType::None => "",
-                                })
-                                .unwrap_or("");
-                            html.push_str(&format!("<th{}>", align));
+                                });
+                            write!(html, "<th{align}>").unwrap();
                             if let AstNode::TableCell {
                                 children: cell_children,
                             } = cell
@@ -205,14 +218,13 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
                             let align = alignments
                                 .get(i)
                                 .and_then(|a| a.as_ref())
-                                .map(|a| match a {
+                                .map_or("", |a| match a {
                                     AlignType::Left => " style=\"text-align:left\"",
                                     AlignType::Center => " style=\"text-align:center\"",
                                     AlignType::Right => " style=\"text-align:right\"",
                                     AlignType::None => "",
-                                })
-                                .unwrap_or("");
-                            html.push_str(&format!("<td{}>", align));
+                                });
+                            write!(html, "<td{align}>").unwrap();
                             if let AstNode::TableCell {
                                 children: cell_children,
                             } = cell
@@ -234,9 +246,6 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
             html.push_str("</tbody></table>");
             html
         }
-        AstNode::TableHead { children } => render_children(children)?,
-        AstNode::TableRow { children } => render_children(children)?,
-        AstNode::TableCell { children } => render_children(children)?,
         AstNode::Strikethrough { children } => {
             format!("<del>{}</del>", render_children(children)?)
         }
@@ -255,10 +264,9 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
 /// 转义 `&`、`<`、`>`、`"`、`'` 五个特殊字符。
 fn escape_html(s: &str) -> String {
     let extra = s.chars().fold(0usize, |acc, c| match c {
-        '&' => acc + 4,
+        '&' | '\'' => acc + 4,
         '<' | '>' => acc + 3,
         '"' => acc + 5,
-        '\'' => acc + 4,
         _ => acc,
     });
     let mut buf = String::with_capacity(s.len() + extra);
@@ -275,7 +283,7 @@ fn escape_html(s: &str) -> String {
     buf
 }
 
-/// URL 白名单过滤 — 阻止 javascript:/data: 等危险协议。
+/// URL 白名单过滤 — 阻止 <javascript:/data>: 等危险协议。
 /// 允许的协议：http、https、mailto、相对路径（/、#）。
 fn sanitize_url(url: &str) -> String {
     let trimmed = url.trim_start();
@@ -525,10 +533,8 @@ mod tests {
             };
             let html = render_to_html(&ast).unwrap();
             assert!(
-                html.contains(&format!("href=\"{}\"", url)),
-                "relative URL '{}' should pass through: {}",
-                url,
-                html
+                html.contains(&format!("href=\"{url}\"")),
+                "relative URL '{url}' should pass through: {html}"
             );
         }
     }

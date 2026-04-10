@@ -22,6 +22,7 @@ impl Default for CompressOptions {
 }
 
 impl CompressOptions {
+    #[must_use] 
     pub fn new(quality: f32) -> Self {
         Self {
             quality,
@@ -29,6 +30,7 @@ impl CompressOptions {
         }
     }
 
+    #[must_use] 
     pub fn with_max_size(mut self, max_width: u32, max_height: u32) -> Self {
         self.max_width = Some(max_width);
         self.max_height = Some(max_height);
@@ -36,6 +38,10 @@ impl CompressOptions {
     }
 }
 
+/// 压缩图片为 WebP 格式。
+///
+/// # Errors
+/// 返回错误如果图片解码或编码失败。
 pub async fn compress_to_webp(
     raw_data: Vec<u8>,
     options: CompressOptions,
@@ -118,7 +124,7 @@ mod tests {
         assert!(result.is_err());
         match result.unwrap_err() {
             CompressError::DecodeError(_) => {}
-            other => panic!("Expected DecodeError, got: {}", other),
+            other => panic!("Expected DecodeError, got: {other}"),
         }
     }
 
@@ -133,8 +139,12 @@ mod tests {
         let mut img = image::RgbaImage::new(500, 500);
         for y in 0..500 {
             for x in 0..500 {
+                // CC-理由: 颜色分量 0-255，模运算结果已在合法范围内
+                #[allow(clippy::cast_possible_truncation)]
                 let r = ((x * 3 + y * 7) % 256) as u8;
+                #[allow(clippy::cast_possible_truncation)]
                 let g = ((x * 13 + y * 11) % 256) as u8;
+                #[allow(clippy::cast_possible_truncation)]
                 let b = ((x * 17 + y * 23) % 256) as u8;
                 img.put_pixel(x, y, image::Rgba([r, g, b, 255]));
             }

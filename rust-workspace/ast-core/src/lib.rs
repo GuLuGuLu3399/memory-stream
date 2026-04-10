@@ -1,4 +1,4 @@
-//! MemoryStream AST 核心类型定义。
+//! `MemoryStream` AST 核心类型定义。
 //!
 //! 定义了 Markdown 文档的抽象语法树节点类型，支持零拷贝解析（`Cow<'a, str>`）
 //! 和 JSON 序列化/反序列化（`serde` tag = "type" 判别式）。
@@ -98,20 +98,20 @@ impl<'a> AstNode<'a> {
     /// 对叶子节点（Text、ThematicBreak、Image）静默忽略。
     pub fn push_child(&mut self, child: AstNode<'a>) {
         match self {
-            AstNode::Root { children } => children.push(child),
-            AstNode::Heading { children, .. } => children.push(child),
-            AstNode::Paragraph { children } => children.push(child),
-            AstNode::Blockquote { children } => children.push(child),
-            AstNode::List { children, .. } => children.push(child),
-            AstNode::ListItem { children } => children.push(child),
-            AstNode::Strong { children } => children.push(child),
-            AstNode::Emphasis { children } => children.push(child),
-            AstNode::Link { children, .. } => children.push(child),
-            AstNode::Table { children, .. } => children.push(child),
-            AstNode::TableHead { children } => children.push(child),
-            AstNode::TableRow { children } => children.push(child),
-            AstNode::TableCell { children } => children.push(child),
-            AstNode::Strikethrough { children } => children.push(child),
+            AstNode::Root { children }
+            | AstNode::Heading { children, .. }
+            | AstNode::Paragraph { children }
+            | AstNode::Blockquote { children }
+            | AstNode::List { children, .. }
+            | AstNode::ListItem { children }
+            | AstNode::Strong { children }
+            | AstNode::Emphasis { children }
+            | AstNode::Link { children, .. }
+            | AstNode::Table { children, .. }
+            | AstNode::TableHead { children }
+            | AstNode::TableRow { children }
+            | AstNode::TableCell { children }
+            | AstNode::Strikethrough { children } => children.push(child),
             _ => {}
         }
     }

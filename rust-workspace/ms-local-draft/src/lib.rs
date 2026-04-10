@@ -20,23 +20,27 @@ pub struct DraftDb {
 }
 
 impl DraftDb {
+    /// 创建新的草稿数据库实例。
+    ///
+    /// # Errors
+    /// 返回错误如果数据库打开失败或初始化失败。
     pub async fn new(db_path: &Path) -> DraftResult<Self> {
         let path = db_path.to_path_buf();
         task::spawn_blocking(move || {
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent)
-                    .map_err(|e| DraftError::OpenError(format!("创建目录失败: {}", e)))?;
+                    .map_err(|e| DraftError::OpenError(format!("创建目录失败: {e}")))?;
             }
 
             let conn = rusqlite::Connection::open(&path)
-                .map_err(|e| DraftError::OpenError(format!("打开数据库失败: {}", e)))?;
+                .map_err(|e| DraftError::OpenError(format!("打开数据库失败: {e}")))?;
 
             conn.execute_batch(
                 "PRAGMA journal_mode=WAL;
                  PRAGMA synchronous=NORMAL;
                  PRAGMA foreign_keys=ON;",
             )
-            .map_err(|e| DraftError::OpenError(format!("设置 PRAGMA 失败: {}", e)))?;
+            .map_err(|e| DraftError::OpenError(format!("设置 PRAGMA 失败: {e}")))?;
 
             conn.execute_batch(
                 "CREATE TABLE IF NOT EXISTS drafts (
@@ -46,7 +50,7 @@ impl DraftDb {
                     updated_at INTEGER NOT NULL
                 );",
             )
-            .map_err(|e| DraftError::OpenError(format!("建表失败: {}", e)))?;
+            .map_err(|e| DraftError::OpenError(format!("建表失败: {e}")))?;
 
             Ok(Self {
                 conn: Arc::new(Mutex::new(conn)),
@@ -56,6 +60,10 @@ impl DraftDb {
         .unwrap_or(Err(DraftError::TaskPanic))
     }
 
+    /// 保存草稿到数据库。
+    ///
+    /// # Errors
+    /// 返回错误如果数据库操作失败。
     pub async fn save_draft(
         &self,
         card_id: &str,
@@ -65,12 +73,12 @@ impl DraftDb {
         let conn = self.conn.clone();
         let card_id = card_id.to_string();
         let raw_md = raw_md.to_string();
-        let ast_data = ast_data.map(|s| s.to_string());
+        let ast_data = ast_data.map(std::string::ToString::to_string);
         let now = chrono::Utc::now().timestamp();
 
         task::spawn_blocking(move || {
             let lock = conn.lock().unwrap_or_else(|e| {
-                eprintln!("[Draft] mutex poisoned, recovering: {}", e);
+                eprintln!("[Draft] mutex poisoned, recovering: {e}");
                 e.into_inner()
             });
             lock.execute(
@@ -83,13 +91,17 @@ impl DraftDb {
         .unwrap_or(Err(DraftError::TaskPanic))
     }
 
+    /// 从数据库加载草稿。
+    ///
+    /// # Errors
+    /// 返回错误如果数据库查询失败。
     pub async fn load_draft(&self, card_id: &str) -> DraftResult<Option<Draft>> {
         let conn = self.conn.clone();
         let card_id = card_id.to_string();
 
         task::spawn_blocking(move || {
             let lock = conn.lock().unwrap_or_else(|e| {
-                eprintln!("[Draft] mutex poisoned, recovering: {}", e);
+                eprintln!("[Draft] mutex poisoned, recovering: {e}");
                 e.into_inner()
             });
             let mut stmt = lock.prepare(
@@ -111,12 +123,16 @@ impl DraftDb {
         .unwrap_or(Err(DraftError::TaskPanic))
     }
 
+    /// 列出所有草稿。
+    ///
+    /// # Errors
+    /// 返回错误如果数据库查询失败。
     pub async fn list_all(&self) -> DraftResult<Vec<Draft>> {
         let conn = self.conn.clone();
 
         task::spawn_blocking(move || {
             let lock = conn.lock().unwrap_or_else(|e| {
-                eprintln!("[Draft] mutex poisoned, recovering: {}", e);
+                eprintln!("[Draft] mutex poisoned, recovering: {e}");
                 e.into_inner()
             });
             let mut stmt = lock.prepare(
@@ -140,21 +156,33 @@ impl DraftDb {
         .unwrap_or(Err(DraftError::TaskPanic))
     }
 
+    /// 列出未同步的草稿。
+    ///
+    /// # Errors
+    /// 返回错误如果数据库查询失败。
     pub async fn list_unsynced(&self) -> DraftResult<Vec<Draft>> {
         self.list_all().await
     }
 
+    /// 标记草稿为已同步（删除本地草稿）。
+    ///
+    /// # Errors
+    /// 返回错误如果数据库操作失败。
     pub async fn mark_synced(&self, card_id: &str) -> DraftResult<()> {
         self.delete_draft(card_id).await
     }
 
+    /// 删除草稿。
+    ///
+    /// # Errors
+    /// 返回错误如果数据库操作失败。
     pub async fn delete_draft(&self, card_id: &str) -> DraftResult<()> {
         let conn = self.conn.clone();
         let card_id = card_id.to_string();
 
         task::spawn_blocking(move || {
             let lock = conn.lock().unwrap_or_else(|e| {
-                eprintln!("[Draft] mutex poisoned, recovering: {}", e);
+                eprintln!("[Draft] mutex poisoned, recovering: {e}");
                 e.into_inner()
             });
             lock.execute("DELETE FROM drafts WHERE card_id = ?1", params![card_id])?;
@@ -246,7 +274,7 @@ mod tests {
                 conn: db.conn.clone(),
             };
             handles.push(tokio::spawn(async move {
-                db.save_draft(&format!("card-{}", i), &format!("md-{}", i), None)
+                db.save_draft(&format!("card-{i}"), &format!("md-{i}"), None)
                     .await
             }));
         }
