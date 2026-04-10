@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from "vue";
-import { VueFlow, useVueFlow } from "@vue-flow/core";
+import { VueFlow, useVueFlow, type Connection } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import dagre from "dagre";
@@ -184,10 +184,11 @@ const flowEdges = computed(() => {
     });
 });
 
-onConnect((params: any) => {
+onConnect((params: Connection) => {
   // Always create sequence edges by default. Prohibit creating reference edges via drag.
-  const potentialRelation = (params && (params.relation || (params.edge && (params.edge as any).relation))) || "sequence";
-  if (potentialRelation === "reference" || (params && (params as any).relation === "reference")) {
+  const p = params as Connection & { relation?: string; edge?: { relation?: string } };
+  const potentialRelation = p.relation || p.edge?.relation || "sequence";
+  if (potentialRelation === "reference" || p.relation === "reference") {
     // Notify user that reference edges are auto-generated from wikilinks and cannot be created via drag
     if (store?.addToast) {
       store.addToast("参考连线由内容中的 [[wikilinks]] 自动生成，无法手动创建。", "info");

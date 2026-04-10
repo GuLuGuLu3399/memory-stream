@@ -23,7 +23,7 @@ export const useCategoryStore = defineStore("category", () => {
   /** 从后端加载全部分类列表 */
   async function loadCategories() {
     try {
-      const data = await invoke<Record<string, unknown>>("api_request", {
+      const data: unknown = await invoke("api_request", {
         method: "GET",
         endpoint: "/categories",
       });

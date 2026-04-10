@@ -25,6 +25,12 @@ export interface LocalGraphEdge {
   relation: string;
 }
 
+/** 局部图谱 API 响应 */
+interface GraphDetailResponse {
+  nodes: Array<{ id: string; title?: string }>;
+  edges: Array<{ source: string; target: string; relation?: string }>;
+}
+
 export const useLocalGraphStore = defineStore("localGraph", () => {
   // ---- 响应式状态 ----
   const localNodes = ref<LocalGraphNode[]>([]);
@@ -34,22 +40,20 @@ export const useLocalGraphStore = defineStore("localGraph", () => {
   async function loadLocalGraph(cardId: string) {
     if (!cardId) return;
     try {
-      const data = await invoke<Record<string, unknown>>("api_request", {
+      const data = await invoke<GraphDetailResponse>("api_request", {
         method: "GET",
         endpoint: `/graph/detail/${cardId}`,
       });
-      const nodes = (data.nodes || []) as Record<string, unknown>[];
-      const edges = (data.edges || []) as Record<string, unknown>[];
-      localNodes.value = nodes.map((n) => ({
-        id: n.id as string,
-        title: (n.title as string) || (n.id as string),
+      localNodes.value = (data.nodes || []).map((n) => ({
+        id: n.id,
+        title: n.title || n.id,
         x: 0,
         y: 0,
       }));
-      localEdges.value = edges.map((e) => ({
-        source: e.source as string,
-        target: e.target as string,
-        relation: (e.relation as string) || "reference",
+      localEdges.value = (data.edges || []).map((e) => ({
+        source: e.source,
+        target: e.target,
+        relation: e.relation || "reference",
       }));
     } catch (e) {
       console.error("[LocalGraphStore] loadLocalGraph failed:", e);
