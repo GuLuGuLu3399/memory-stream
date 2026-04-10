@@ -99,14 +99,14 @@ func (s *EdgeService) FindRoot(cardID string) string {
 	var rootID string
 	cte := `
 WITH RECURSIVE chain AS (
-    SELECT ? AS id, 0 AS depth
+    SELECT ?::uuid AS id, 0 AS depth
     UNION ALL
     SELECT e.source_id, c.depth + 1
     FROM chain c
     JOIN card_edges e ON e.target_id = c.id AND e.relation_type = 'sequence'
     WHERE c.depth < 100
 )
-SELECT id FROM chain ORDER BY depth DESC LIMIT 1`
+SELECT id::text FROM chain ORDER BY depth DESC LIMIT 1`
 	if err := s.db.Raw(cte, cardID).Scan(&rootID).Error; err != nil {
 		logger.Log.Warnf("[EdgeService] FindRoot CTE failed for %s: %v, fallback to self", cardID, err)
 		return cardID
