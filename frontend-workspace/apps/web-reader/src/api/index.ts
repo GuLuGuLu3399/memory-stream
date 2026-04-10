@@ -370,12 +370,18 @@ export interface CardMetrics {
 }
 
 /** 包含关联数据的卡片详情（后端返回的完整结构） */
+/** AST 数据结构 — 解析后的 JSON 对象 */
+export interface AstData {
+  children?: AstData[];
+  [key: string]: unknown;
+}
+
 export interface CardWithRelations {
   id: string;
   title: string;
   raw_md: string;
   excerpt: string;
-  ast_data: Record<string, unknown> | null;
+  ast_data: AstData | null;
   category_id?: number | null;
   created_at: string;
   updated_at: string;

@@ -202,8 +202,8 @@ export function useCards() {
       if (
         astData &&
         renderFromAst &&
-        Array.isArray((astData as Record<string, unknown>).children) &&
-        ((astData as Record<string, unknown>).children as unknown[]).length > 0
+        Array.isArray(astData.children) &&
+        astData.children.length > 0
       ) {
         html = renderFromAst(JSON.stringify(astData));
       }
