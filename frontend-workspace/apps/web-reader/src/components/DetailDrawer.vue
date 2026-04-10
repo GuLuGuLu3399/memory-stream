@@ -192,7 +192,7 @@ function onProseMouseOut(e: MouseEvent) {
                                 <Transition name="slide-down">
                                     <div v-if="backlinksOpen" class="space-y-1.5">
                                         <button v-for="bl in backlinks" :key="bl.source_id"
-                                            class="w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-xs text-gray-400 hover:text-neon hover:bg-neon/5 transition-all duration-150 group"
+                                            class="w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-xs text-gray-400 hover:text-neon hover:bg-neon/5 transition-all duration-200 group"
                                             @click="store.selectNode(bl.source_id)">
                                             <ArrowLeft :size="10"
                                                 class="flex-shrink-0 text-gray-600 group-hover:text-neon transition-colors" />
@@ -286,23 +286,5 @@ function onProseMouseOut(e: MouseEvent) {
 .prose-container {
     max-width: 72ch;
     margin: 0 auto;
-}
-
-/* 自定义滚动条 */
-.scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #333;
-    border-radius: 2px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: #444;
 }
 </style>

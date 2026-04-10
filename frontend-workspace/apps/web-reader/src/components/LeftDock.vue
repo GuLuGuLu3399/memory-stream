@@ -62,13 +62,13 @@ onUnmounted(() => {
 const emit = defineEmits<{ fitView: [] }>();
 
 const navBtnClass = (active: boolean) =>
-    `w-12 h-12 flex items-center justify-center transition-all duration-500 ${active
+    `w-12 h-12 flex items-center justify-center transition-all duration-300 ${active
         ? "text-white/80"
         : "text-white/20 hover:text-white/50"
     }`;
 
 const ctrlBtnClass = (active: boolean) =>
-    `flex items-center gap-2 px-3 py-2 text-sm font-mono transition-all duration-500 whitespace-nowrap ${active
+    `flex items-center gap-2 px-3 py-2 text-sm font-mono transition-all duration-300 whitespace-nowrap ${active
         ? "text-white/70 border-b border-white/10"
         : "text-white/30 hover:text-white/50 border-b border-transparent hover:border-white/10"
     }`;

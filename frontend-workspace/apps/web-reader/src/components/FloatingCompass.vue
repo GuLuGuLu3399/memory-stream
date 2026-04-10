@@ -132,17 +132,4 @@ function scrollToHeading(slug: string) {
     transform: translateX(12px) scale(0.95);
 }
 
-/* ── 自定义滚动条 ── */
-.scrollbar-thin::-webkit-scrollbar {
-    width: 3px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #333;
-    border-radius: 2px;
-}
 </style>

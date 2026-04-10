@@ -41,7 +41,7 @@ const viewBtnClass = (active: boolean) =>
 
 // ── 控制面板小按钮样式 ──
 const ctrlBtnClass = (active: boolean) =>
-    `flex items-center gap-1 px-2.5 py-1.5 text-1.5xs font-mono rounded-md transition-all duration-150 ${active
+    `flex items-center gap-1 px-2.5 py-1.5 text-1.5xs font-mono rounded-md transition-all duration-200 ${active
         ? "bg-neon/10 text-neon border border-neon/30"
         : "text-gray-500 hover:text-gray-300 border border-transparent hover:border-ms-border"
     }`;
@@ -75,7 +75,7 @@ const ctrlBtnClass = (active: boolean) =>
             <!-- 上下文感知控制面板入口 -->
             <button
                 class="flex items-center gap-1 px-2.5 py-1.5 text-1.5xs text-gray-400 hover:text-gray-200 rounded-lg transition-all"
-                @click="" title="展示控制">
+                title="展示控制">
                 <SlidersHorizontal :size="12" />
             </button>
         </div>

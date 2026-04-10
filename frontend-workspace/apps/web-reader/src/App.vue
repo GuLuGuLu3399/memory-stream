@@ -7,7 +7,7 @@
  * - v-show：零延迟切换且保留 VueFlow 状态
  * - DetailDrawer：右侧阅读抽屉（无 ✕ 按钮，依赖遮罩/Esc/右滑关闭）
  * - ZenReader：全屏禅模式阅读（z-70，WASM TOC 侧边栏）
- * - CommandPalette：Cmd+K 全局搜索
+ * - SearchBar：Cmd+K 全局搜索
  * - TimelineRuler：列表视图右侧极简时间轴
  */
 

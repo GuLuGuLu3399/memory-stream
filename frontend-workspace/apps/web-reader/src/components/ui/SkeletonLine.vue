@@ -23,7 +23,7 @@ defineProps<{
 
 <style scoped>
 .skeleton-line {
-    background: linear-gradient(90deg, #222 25%, #2a2a2a 50%, #222 75%);
+    background: linear-gradient(90deg, theme('colors.ms-panel') 25%, theme('colors.ms-surface') 50%, theme('colors.ms-panel') 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
     border-radius: 4px;

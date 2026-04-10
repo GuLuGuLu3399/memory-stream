@@ -87,6 +87,11 @@ function selectCard(id: string) {
     store.selectNode(id);
 }
 
+function handleRowClick(rowIndex: number) {
+    const item = flatItems.value[rowIndex] as CardRow;
+    if (item?.data) selectCard(item.data.id);
+}
+
 function formatTime(iso: string): string {
     if (!iso) return "";
     const d = new Date(iso);
@@ -147,8 +152,7 @@ watchEffect(() => {
         <div v-else-if="filteredCards.length > 0" ref="listRef" class="flex-1 min-h-0 overflow-y-auto pb-6 relative">
 
             <!-- 全局脊柱线 - 神圣光束 -->
-            <div class="absolute left-24 top-0 bottom-0 w-24 z-0 pointer-events-none"
-                style="background: radial-gradient(ellipse at center, rgba(0,229,255,0.06) 0%, transparent 70%);" />
+            <div class="spine-beam absolute left-24 top-0 bottom-0 w-24 z-0 pointer-events-none" />
 
             <div class="max-w-4xl mx-auto">
                 <div :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
@@ -157,7 +161,10 @@ watchEffect(() => {
                         top: 0,
                         transform: `translateY(${row.start}px)`,
                         width: '100%',
-                    }" class="grid grid-cols-spine items-start group">
+                    }" class="grid grid-cols-spine items-start group cursor-pointer w-full transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-white/[0.02]"
+                        role="button" tabindex="0"
+                        @click="handleRowClick(row.index)"
+                        @keyup.enter="handleRowClick(row.index)">
 
                         <!-- ━━━ 第1列：铭文日期 ━━━ -->
                         <div class="relative flex items-start justify-end pr-3 pt-2">
@@ -206,8 +213,7 @@ watchEffect(() => {
                         </div>
 
                         <!-- ━━━ 第3列：极简卡片 ━━━ -->
-                        <div v-if="(flatItems[row.index] as CardRow)?.data" class=" relative cursor-pointer pl-6 pr-12 py-8"
-                            @click="selectCard((flatItems[row.index] as CardRow).data.id)">
+                        <div v-if="(flatItems[row.index] as CardRow)?.data" class="relative pl-6 pr-12 py-8">
 
                             <!-- 连接线 — 主干: 实线霓虹 / 参考: 虚线灰色 -->
                             <div class="absolute left-0 top-4.5 w-3 h-0.5 z-10 transition-opacity duration-300 overflow-hidden"
@@ -217,11 +223,9 @@ watchEffect(() => {
                                             ? 'opacity-80'
                                             : 'opacity-0 group-hover:opacity-60')
                                         : (store.selectedId === (flatItems[row.index] as CardRow).data.id
-                                            ? 'opacity-50'
-                                            : 'opacity-0 group-hover:opacity-30'),
-                                ]" :style="(flatItems[row.index] as CardRow).data.relation !== 'sequence'
-                                    ? { borderStyle: 'dashed', borderWidth: '1px 0 0 0', borderColor: 'rgba(100,116,139,0.4)' }
-                                    : {}">
+                                            ? 'opacity-50 conn-reference'
+                                            : 'opacity-0 group-hover:opacity-30 conn-reference'),
+                                ]">
                                 <div v-if="(flatItems[row.index] as CardRow).data.relation === 'sequence'"
                                     class="w-full h-full bg-gradient-to-r from-neon/60 via-neon/20 to-transparent" />
                                 <div v-else
@@ -231,7 +235,7 @@ watchEffect(() => {
                             </div>
 
                             <!-- 卡片本体 -->
-                            <div class="peer group relative max-w-2xl ml-2
+                            <div class="peer group relative max-w-2xl ml-2 px-4 py-3 rounded-sm
                                        transition-all duration-700" :class="[
                                         store.selectedId === (flatItems[row.index] as CardRow).data.id
                                             ? 'bg-ms-surface/60 border-neon/20 shadow-card-active'
@@ -247,7 +251,7 @@ watchEffect(() => {
                                     class="absolute left-0 top-0 bottom-0 w-0.5 bg-neon/60 shadow-neon-glow-xs" />
 
                                 <!-- 标题行 -->
-                                <div class="flex items-center gap-3 mb-2">
+                                <div class="flex items-center gap-3 mb-3">
                                     <h3 class="text-lg font-serif font-semibold tracking-spine transition-colors duration-700 truncate flex-1"
                                         :class="store.selectedId === (flatItems[row.index] as CardRow).data.id
                                             ? 'text-slate-100'
@@ -313,6 +317,18 @@ watchEffect(() => {
 </template>
 
 <style scoped>
+/* ── Spine beam — sacred light column ── */
+.spine-beam {
+    background: radial-gradient(ellipse at center, rgba(0, 229, 255, 0.06) 0%, transparent 70%);
+}
+
+/* ── Reference connection line — dashed slate ── */
+.conn-reference {
+    border-style: dashed;
+    border-width: 1px 0 0 0;
+    border-color: rgba(100, 116, 139, 0.4);
+}
+
 /* ── Temple card — sacred monolith aesthetic ── */
 .mechanic-card {
     transition: background-color 0.7s cubic-bezier(0.25, 1, 0.5, 1);

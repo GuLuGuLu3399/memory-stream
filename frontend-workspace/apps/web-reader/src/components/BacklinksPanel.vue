@@ -65,7 +65,7 @@ function navigateToCard(cardId: string) {
 // ── Badge color based on relation type ──
 function getBadgeClass(relationType: string): string {
     if (relationType === "sequence") {
-        return "text-cyan-400 bg-cyan-500/10 border-cyan-500/30";
+        return "text-neon bg-neon/10 border-neon/30";
     }
     // reference or other types
     return "text-gray-400 bg-gray-500/10 border-gray-500/30";

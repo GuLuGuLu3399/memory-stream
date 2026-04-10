@@ -125,9 +125,9 @@ onUnmounted(() => {
     height: 2px;
     background: linear-gradient(90deg,
             transparent 0%,
-            #00e5ff 15%,
-            #00e5ff 50%,
-            #00e5ff 85%,
+            theme('colors.neon.DEFAULT') 15%,
+            theme('colors.neon.DEFAULT') 50%,
+            theme('colors.neon.DEFAULT') 85%,
             transparent 100%);
     box-shadow:
         0 0 8px rgba(0, 229, 255, 0.6),
@@ -147,18 +147,5 @@ onUnmounted(() => {
     50% {
         opacity: 1;
     }
-}
-
-.scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #333;
-    border-radius: 2px;
 }
 </style>

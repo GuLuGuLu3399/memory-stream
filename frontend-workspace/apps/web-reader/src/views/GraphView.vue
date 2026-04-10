@@ -371,7 +371,7 @@ const layout = async () => {
 
 /* ── 聚光灯焦点路径边发光 ── */
 :deep(.vue-flow__edge.spotlight-active .vue-flow__edge-path) {
-    stroke: #00e5ff;
+    stroke: theme('colors.neon.DEFAULT');
     filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.6));
     stroke-width: 2.5;
     stroke-dasharray: 8 4;
@@ -390,33 +390,33 @@ const layout = async () => {
 
 /* ── Reference 参考线：虚线灰色 ── */
 :deep(.vue-flow__edge.reference .vue-flow__edge-path) {
-    stroke: #71717a;
+    stroke: theme('colors.zinc.500');
     stroke-width: 1.5;
     stroke-dasharray: 6 4;
 }
 
 /* ── Sequence 能量流线：实线 + animated 流动） ── */
 :deep(.vue-flow__edge.animated .vue-flow__edge-path) {
-    stroke: #00e5ff;
+    stroke: theme('colors.neon.DEFAULT');
     stroke-width: 3;
     filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.5));
 }
 
 /* ── Controls 主题适配 ── */
 :deep(.vue-flow__controls) {
-    background: #1a1a1a;
-    border: 1px solid #333;
+    background: theme('colors.ms-carbon');
+    border: 1px solid theme('colors.ms-border');
     border-radius: 2px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 :deep(.vue-flow__controls-button) {
-    background: #1a1a1a;
-    border-bottom: 1px solid #333;
-    fill: #a3a3a3;
+    background: theme('colors.ms-carbon');
+    border-bottom: 1px solid theme('colors.ms-border');
+    fill: theme('colors.gray.400');
 }
 
 :deep(.vue-flow__controls-button:hover) {
-    background: #222;
+    background: theme('colors.ms-panel');
 }
 </style>

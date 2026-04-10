@@ -79,7 +79,7 @@ onMounted(() => {
 .entrance-overlay {
     position: fixed;
     inset: 0;
-    background: #0d0d0d;
+    background: theme('colors.ms-deep');
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -97,7 +97,7 @@ onMounted(() => {
     position: absolute;
     width: 2px;
     height: 2px;
-    background: #00e5ff;
+    background: theme('colors.neon.DEFAULT');
     border-radius: 50%;
     opacity: 0;
     animation: particle-drift 2s ease-in-out infinite;
@@ -151,7 +151,7 @@ onMounted(() => {
 }
 
 .logo-icon {
-    color: #00e5ff;
+    color: theme('colors.neon.DEFAULT');
     filter: drop-shadow(0 0 12px rgba(0, 229, 255, 0.6));
     animation: icon-pulse 1s ease-out;
 }
