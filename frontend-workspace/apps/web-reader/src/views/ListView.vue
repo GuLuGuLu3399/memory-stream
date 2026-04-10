@@ -147,7 +147,7 @@ watchEffect(() => {
         <div v-else-if="filteredCards.length > 0" ref="listRef" class="flex-1 min-h-0 overflow-y-auto pb-6 relative">
 
             <!-- 全局脊柱线 - 神圣光束 -->
-            <div class="absolute left-[96px] top-0 bottom-0 w-24 z-0 pointer-events-none"
+            <div class="absolute left-24 top-0 bottom-0 w-24 z-0 pointer-events-none"
                 style="background: radial-gradient(ellipse at center, rgba(0,229,255,0.06) 0%, transparent 70%);" />
 
             <div class="max-w-4xl mx-auto">
@@ -157,12 +157,12 @@ watchEffect(() => {
                         top: 0,
                         transform: `translateY(${row.start}px)`,
                         width: '100%',
-                    }" class="grid grid-cols-[64px_24px_1fr] items-start group">
+                    }" class="grid grid-cols-spine items-start group">
 
                         <!-- ━━━ 第1列：铭文日期 ━━━ -->
                         <div class="relative flex items-start justify-end pr-3 pt-2">
                             <div v-if="(flatItems[row.index] as CardRow)?.isFirstInDay"
-                                class="sticky top-4 z-20 text-slate-600/40 font-mono text-[10px] tracking-widest whitespace-nowrap select-none"
+                                class="sticky top-4 z-20 text-slate-600/40 font-mono text-2xs tracking-widest whitespace-nowrap select-none"
                                 style="writing-mode: vertical-rl; transform: rotate(180deg);">
                                 {{ (flatItems[row.index] as CardRow).dateLabel }}
                             </div>
@@ -175,15 +175,15 @@ watchEffect(() => {
                             <div v-if="!(flatItems[row.index] as CardRow)?.isFirstInDay"
                                 class="w-1 h-1 rounded-full transition-all duration-700 cursor-pointer"
                                 :class="store.selectedId === (flatItems[row.index] as CardRow)?.data?.id
-                                    ? 'bg-white/80 shadow-[0_0_10px_rgba(255,255,255,0.6)]'
-                                    : 'bg-white/30 group-hover/node:bg-white/60 group-hover/node:shadow-[0_0_8px_rgba(255,255,255,0.3)]'" />
+                                    ? 'bg-white/80 shadow-white-glow'
+                                    : 'bg-white/30 group-hover/node:bg-white/60 group-hover/node:shadow-white-glow-sm'" />
 
                             <!-- Genesis Node：能量流动双环 -->
                             <div v-else
                                 class="genesis-node w-4 h-4 rounded-full transition-all duration-300 cursor-pointer relative"
                                 :class="store.selectedId === (flatItems[row.index] as CardRow)?.data?.id
-                                    ? 'genesis-selected shadow-[0_0_12px_rgba(255,255,255,0.5)]'
-                                    : 'group-hover/node:shadow-[0_0_8px_rgba(0,229,255,0.3)]'">
+                                    ? 'genesis-selected shadow-white-glow-lg'
+                                    : 'group-hover/node:shadow-neon-glow-soft'">
                                 <!-- 外层能量环（conic-gradient 旋转） -->
                                 <div class="genesis-ring absolute inset-0 rounded-full" />
                                 <!-- 选中态：额外旋转外环 -->
@@ -199,7 +199,7 @@ watchEffect(() => {
                             <div v-if="(flatItems[row.index] as CardRow)?.data"
                                 class="absolute left-1/2 -translate-x-1/2 -top-2 opacity-0 group-hover/node:opacity-100 group-hover:opacity-80 transition-opacity duration-200 pointer-events-none z-30">
                                 <span
-                                    class="text-[10px] font-mono text-white/70 bg-ms-deep/90 backdrop-blur-sm px-1.5 py-0.5 border border-white/15 whitespace-nowrap">
+                                    class="text-2xs font-mono text-white/70 bg-ms-deep/90 backdrop-blur-sm px-1.5 py-0.5 border border-white/15 whitespace-nowrap">
                                     {{ formatTime((flatItems[row.index] as CardRow).data.updated_at) }}
                                 </span>
                             </div>
@@ -210,7 +210,7 @@ watchEffect(() => {
                             @click="selectCard((flatItems[row.index] as CardRow).data.id)">
 
                             <!-- 连接线 — 主干: 实线霓虹 / 参考: 虚线灰色 -->
-                            <div class="absolute left-0 top-[18px] w-3 h-[2px] z-10 transition-opacity duration-300 overflow-hidden"
+                            <div class="absolute left-0 top-4.5 w-3 h-0.5 z-10 transition-opacity duration-300 overflow-hidden"
                                 :class="[
                                     (flatItems[row.index] as CardRow).data.relation === 'sequence'
                                         ? (store.selectedId === (flatItems[row.index] as CardRow).data.id
@@ -234,21 +234,21 @@ watchEffect(() => {
                             <div class="peer group relative max-w-2xl ml-2
                                        transition-all duration-700" :class="[
                                         store.selectedId === (flatItems[row.index] as CardRow).data.id
-                                            ? 'bg-ms-surface/60 border-neon/20 shadow-[0_0_12px_rgba(0,229,255,0.06),0_4px_20px_rgba(0,0,0,0.25)]'
+                                            ? 'bg-ms-surface/60 border-neon/20 shadow-card-active'
                                             : 'bg-transparent hover:bg-ms-void/30'
                                     ]">
 
                                 <!-- Top edge glow — soft temple hover indicator -->
-                                <div class="absolute top-0 left-[10%] right-[10%] h-[1px] bg-gradient-to-r from-transparent via-neon/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none"
+                                <div class="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-neon/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none"
                                     style="filter: blur(1px);"></div>
 
                                 <!-- 激活态左侧霓虹边条 -->
                                 <div v-if="store.selectedId === (flatItems[row.index] as CardRow).data.id"
-                                    class="absolute left-0 top-0 bottom-0 w-0.5 bg-neon/60 shadow-[0_0_6px_rgba(0,229,255,0.3)]" />
+                                    class="absolute left-0 top-0 bottom-0 w-0.5 bg-neon/60 shadow-neon-glow-xs" />
 
                                 <!-- 标题行 -->
                                 <div class="flex items-center gap-3 mb-2">
-                                    <h3 class="text-[17px] font-serif font-semibold tracking-[0.15em] transition-colors duration-700 truncate flex-1"
+                                    <h3 class="text-lg font-serif font-semibold tracking-spine transition-colors duration-700 truncate flex-1"
                                         :class="store.selectedId === (flatItems[row.index] as CardRow).data.id
                                             ? 'text-slate-100'
                                             : 'text-slate-300 group-hover:text-slate-100'">
@@ -257,7 +257,7 @@ watchEffect(() => {
 
                                     <!-- 关系类型标识 — 终端标识符风格 -->
                                     <span
-                                        class="shrink-0 text-[10px] font-mono px-1.5 py-0.5 border select-none uppercase tracking-widest"
+                                        class="shrink-0 text-2xs font-mono px-1.5 py-0.5 border select-none uppercase tracking-widest"
                                         :class="(flatItems[row.index] as CardRow).data.relation === 'sequence'
                                             ? 'text-slate-400 border-slate-700/50 bg-slate-800/30'
                                             : 'text-slate-500 border-slate-700/50 bg-slate-800/30'">
@@ -267,14 +267,14 @@ watchEffect(() => {
 
                                     <!-- 热度数据读数 — 终端仪表板风格（仅有值时显示） -->
                                     <div v-if="(flatItems[row.index] as CardRow).data.hot_score > 0"
-                                        class="shrink-0 text-[10px] font-mono tracking-widest text-slate-600 uppercase border-b border-slate-800 pb-1">
+                                        class="shrink-0 text-2xs font-mono tracking-widest text-slate-600 uppercase border-b border-slate-800 pb-1">
                                         <span class="mr-1.5">Vol</span>
                                         <span class="text-neon">{{ Math.round((flatItems[row.index] as CardRow).data.hot_score) }}</span>
                                     </div>
                                 </div>
 
                                 <!-- 描述（单行截断） -->
-                                <p class="text-slate-500/70 text-[13px] truncate leading-loose tracking-wide group-hover:text-slate-400 transition-colors duration-700">
+                                <p class="text-slate-500/70 text-sm truncate leading-loose tracking-wide group-hover:text-slate-400 transition-colors duration-700">
                                     {{ (flatItems[row.index] as CardRow).data.excerpt || '暂无摘要' }}
                                 </p>
                             </div>

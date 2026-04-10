@@ -40,7 +40,7 @@ const sparklinePoints = computed(() => {
         <button v-if="!expanded" @click="expanded = true"
             class="relative w-12 h-12 rounded-none flex items-center justify-center transition-all duration-300 hover:scale-110"
             :class="todayCount > 0
-                ? 'bg-gradient-to-br from-neon/30 to-cyan-500/30 shadow-[0_0_16px_rgba(0,229,255,0.3)] border border-neon/40'
+                ? 'bg-gradient-to-br from-neon/30 to-cyan-500/30 shadow-neon-glow-ball border border-neon/40'
                 : 'bg-ms-panel/80 border border-ms-border shadow-lg shadow-black/30'">
             <!-- 聚光灯激活时的旋转光环 -->
             <div v-if="spotlightMode"
@@ -53,7 +53,7 @@ const sparklinePoints = computed(() => {
         <!-- 展开态：精致面板 -->
         <Transition name="widget-expand">
             <div v-if="expanded"
-                class="rounded-sm bg-ms-panel/85 backdrop-blur-xl border border-ms-border shadow-2xl shadow-black/50 p-5 min-w-[260px] origin-bottom-right">
+                class="rounded-sm bg-ms-panel/85 backdrop-blur-xl border border-ms-border shadow-2xl shadow-black/50 p-5 min-w-stats-panel origin-bottom-right">
 
                 <!-- 头部 -->
                 <div class="flex items-center justify-between mb-4">
@@ -74,26 +74,26 @@ const sparklinePoints = computed(() => {
                 <div class="flex items-center justify-between gap-4 mb-4">
                     <div class="flex flex-col items-center gap-1 flex-1">
                         <span class="text-2xl font-bold text-slate-200 font-mono leading-none">{{ totalNodes }}</span>
-                        <span class="text-[10px] text-gray-500 font-mono">节点</span>
+                        <span class="text-2xs text-gray-500 font-mono">节点</span>
                     </div>
                     <div class="flex flex-col items-center gap-1 flex-1">
                         <span class="text-2xl font-bold font-mono leading-none"
                             :class="todayCount > 0 ? 'text-neon' : 'text-slate-400'">
                             {{ todayCount > 0 ? `+${todayCount}` : '0' }}
                         </span>
-                        <span class="text-[10px] text-gray-500 font-mono">今日</span>
+                        <span class="text-2xs text-gray-500 font-mono">今日</span>
                     </div>
                     <div class="flex flex-col items-center gap-1 flex-1">
                         <span class="text-2xl font-bold text-orange-400 font-mono leading-none">{{ avgHot }}</span>
-                        <span class="text-[10px] text-gray-500 font-mono">热度</span>
+                        <span class="text-2xs text-gray-500 font-mono">热度</span>
                     </div>
                 </div>
 
                 <!-- Mini Sparkline -->
                 <div v-if="sparklineData.length >= 2" class="mb-3">
                     <div class="flex items-center justify-between mb-1">
-                        <span class="text-[10px] text-gray-600 font-mono">热度趋势</span>
-                        <span class="text-[10px] text-gray-600 font-mono">最近 {{ sparklineData.length }} 条</span>
+                        <span class="text-2xs text-gray-600 font-mono">热度趋势</span>
+                        <span class="text-2xs text-gray-600 font-mono">最近 {{ sparklineData.length }} 条</span>
                     </div>
                     <svg class="w-full h-8 opacity-70" viewBox="0 0 200 32" preserveAspectRatio="none">
                         <defs>
@@ -119,7 +119,7 @@ const sparklinePoints = computed(() => {
                     <button @click="store.toggleSpotlight()"
                         class="flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-md border transition-all duration-200"
                         :class="spotlightMode
-                            ? 'bg-neon/15 border-neon/40 text-neon shadow-[0_0_8px_rgba(0,229,255,0.2)]'
+                            ? 'bg-neon/15 border-neon/40 text-neon shadow-neon-glow-btn'
                             : 'bg-ms-carbon/80 border-ms-border/50 text-gray-400 hover:text-gray-300 hover:border-gray-500'">
                         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="9" y="9" width="6" height="6" fill="currentColor" />

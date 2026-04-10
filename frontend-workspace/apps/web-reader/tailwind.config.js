@@ -70,10 +70,39 @@ export default {
                 sharp: '0px',
                 industrial: '2px',
             },
+            fontSize: {
+                '2xs': '10px',
+            },
+            letterSpacing: {
+                'spine': '0.15em',
+            },
             boxShadow: {
                 'neon-glow': '0 0 8px rgba(0, 229, 255, 0.3), 0 0 20px rgba(0, 229, 255, 0.1)',
                 'neon-glow-sm': '0 0 4px rgba(0, 229, 255, 0.2)',
                 'neon-glow-lg': '0 0 12px rgba(0, 229, 255, 0.4), 0 0 30px rgba(0, 229, 255, 0.15)',
+
+                // ── White glow (spine nodes) ──
+                'white-glow': '0 0 10px rgba(255, 255, 255, 0.6)',
+                'white-glow-sm': '0 0 8px rgba(255, 255, 255, 0.3)',
+                'white-glow-lg': '0 0 12px rgba(255, 255, 255, 0.5)',
+
+                // ── Neon glow variants ──
+                'neon-glow-xs': '0 0 6px rgba(0, 229, 255, 0.3)',
+                'neon-glow-soft': '0 0 8px rgba(0, 229, 255, 0.3)',
+                'neon-glow-ball': '0 0 16px rgba(0, 229, 255, 0.3)',
+                'neon-glow-btn': '0 0 8px rgba(0, 229, 255, 0.2)',
+
+                // ── Card state ──
+                'card-active': '0 0 12px rgba(0, 229, 255, 0.06), 0 4px 20px rgba(0, 0, 0, 0.25)',
+            },
+            spacing: {
+                '4.5': '18px',
+            },
+            minWidth: {
+                'stats-panel': '260px',
+            },
+            gridTemplateColumns: {
+                'spine': '64px 24px 1fr',
             },
             transitionDuration: {
                 drawer: "200ms",
