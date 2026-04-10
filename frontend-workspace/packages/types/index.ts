@@ -196,6 +196,30 @@ export interface ApiResponse<T> {
 }
 
 // ============================================================================
+// 分页响应
+// ============================================================================
+
+/** 分页响应 — Go PaginatedResult 映射 */
+export interface PaginatedResponse<T> {
+  data: T[];
+  has_more: boolean;
+  total_count: number;
+  next_cursor?: string;
+}
+
+/** 卡片列表项（API 响应）— Card 精简表示，含图谱坐标 */
+export interface CardListItem {
+  id: UUID;
+  title: string;
+  excerpt?: string;
+  raw_md?: string;
+  x: number;
+  y: number;
+  updated_at: string;
+  category_id: number | null;
+}
+
+// ============================================================================
 // 渲染引擎 (与 ui-shared 对齐)
 // ============================================================================
 

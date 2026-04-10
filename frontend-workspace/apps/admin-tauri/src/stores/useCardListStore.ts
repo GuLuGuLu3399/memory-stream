@@ -9,6 +9,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import type { PaginatedResponse, CardListItem } from "@memory-stream/types";
 
 /** 侧边栏卡片列表项 — Card 的精简表示 */
 export interface CardItem {
@@ -64,20 +65,18 @@ export const useCardListStore = defineStore("cardList", () => {
   /** 加载孤儿卡片（未建立关联的卡片，匹配 Go Discover PaginatedResult） */
   async function loadOrphans() {
     try {
-      const data = await invoke<Record<string, unknown>>("api_request", {
+      const result = await invoke<PaginatedResponse<CardListItem>>("api_request", {
         method: "GET",
         endpoint: "/cards/discover",
       });
-      // Go GetDiscover 返回 { data: [...], has_more, total_count }
-      const list = (data.data || data.cards || []) as Record<string, unknown>[];
-      orphanCards.value = list.map((c) => ({
-        id: c.id as string,
-        title: (c.title as string) || "无标题",
-        content: (c.excerpt as string) || (c.raw_md as string) || "",
-        x: (c.x as number) || 0,
-        y: (c.y as number) || 0,
-        updated_at: c.updated_at as string,
-        category_id: c.category_id != null ? (c.category_id as number) : null,
+      orphanCards.value = result.data.map((c) => ({
+        id: c.id,
+        title: c.title || "无标题",
+        content: c.excerpt || c.raw_md || "",
+        x: c.x || 0,
+        y: c.y || 0,
+        updated_at: c.updated_at,
+        category_id: c.category_id,
       }));
     } catch (e) {
       console.error("[CardListStore] loadOrphans failed:", e);
@@ -87,20 +86,18 @@ export const useCardListStore = defineStore("cardList", () => {
   /** 加载最近编辑的卡片列表（匹配 Go PaginatedResult 结构） */
   async function loadRecent() {
     try {
-      const data = await invoke<Record<string, unknown>>("api_request", {
+      const result = await invoke<PaginatedResponse<CardListItem>>("api_request", {
         method: "GET",
         endpoint: "/cards",
       });
-      // Go 返回 { data: [...], has_more, next_cursor, total_count }
-      const list = (data.data || data.cards || []) as Record<string, unknown>[];
-      recentCards.value = list.map((c) => ({
-        id: c.id as string,
-        title: (c.title as string) || "无标题",
-        content: (c.excerpt as string) || (c.raw_md as string) || "",
-        x: (c.x as number) || 0,
-        y: (c.y as number) || 0,
-        updated_at: c.updated_at as string,
-        category_id: c.category_id != null ? (c.category_id as number) : null,
+      recentCards.value = result.data.map((c) => ({
+        id: c.id,
+        title: c.title || "无标题",
+        content: c.excerpt || c.raw_md || "",
+        x: c.x || 0,
+        y: c.y || 0,
+        updated_at: c.updated_at,
+        category_id: c.category_id,
       }));
     } catch (e) {
       console.error("[CardListStore] loadRecent failed:", e);
