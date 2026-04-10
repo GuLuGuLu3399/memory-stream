@@ -23,6 +23,7 @@ import { defineStore, storeToRefs } from "pinia";
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { RenderResult, TocNodeDto, DraftDto } from "@memory-stream/types/ipc";
+import type { CardListItem } from "@memory-stream/types";
 import { useConfirmDialog } from "../composables/useConfirmDialog";
 
 // Sub-stores
@@ -71,6 +72,23 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
     relation_type: string;
     context_snippet?: string;
   }
+
+  /** 反向链接 API 响应 */
+  interface BacklinksResponse {
+    backlinks: BacklinkItem[];
+  }
+
+  /** 更新卡片请求体（含 AST 衍生字段） */
+  interface UpdateCardBody {
+    title: string;
+    raw_md: string;
+    excerpt?: string;
+    ast_data?: string;
+    toc_data?: unknown;
+    extracted_links?: unknown;
+    category_id?: number | null;
+  }
+
   const backlinks = ref<BacklinkItem[]>([]);
 
   // ---- 防抖工具 ----
@@ -137,18 +155,17 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
     if (!(await confirmDirtyDiscard())) return;
     isLoading.value = true;
     try {
-      const detail = await invoke<Record<string, unknown>>("get_card_detail", {
+      const detail = await invoke<CardListItem>("get_card_detail", {
         id: cardId,
       });
       const card: CardItem = {
-        id: detail.id as string,
-        title: (detail.title as string) || "无标题",
-        content: (detail.raw_md as string) || "",
-        x: (detail.x as number) || 0,
-        y: (detail.y as number) || 0,
-        updated_at: detail.updated_at as string,
-        category_id:
-          detail.category_id != null ? (detail.category_id as number) : null,
+        id: detail.id,
+        title: detail.title || "无标题",
+        content: detail.raw_md || "",
+        x: detail.x || 0,
+        y: detail.y || 0,
+        updated_at: detail.updated_at,
+        category_id: detail.category_id,
       };
       activeCard.value = card;
       captureSnapshot();
@@ -219,7 +236,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
       // Step 3: 智能分流 — 有 ID 更新，无 ID 创建
       if (card.id) {
         // UPDATE 路径 — 通过 Rust api_request 网关
-        const body: Record<string, unknown> = {
+        const body: UpdateCardBody = {
           title: card.title,
           raw_md: card.content,
           excerpt: renderResult.excerpt,
@@ -546,11 +563,11 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
 
   async function fetchBacklinks(cardId: string) {
     try {
-      const data = await invoke<Record<string, unknown>>("api_request", {
+      const data = await invoke<BacklinksResponse>("api_request", {
         method: "GET",
         endpoint: `/cards/${cardId}/backlinks`,
       });
-      backlinks.value = (data.backlinks as BacklinkItem[]) || [];
+      backlinks.value = data.backlinks || [];
     } catch {
       backlinks.value = [];
     }
