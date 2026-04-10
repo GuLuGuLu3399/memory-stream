@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import type { SysConfig } from "@memory-stream/types/ipc";
 
 export type { SysConfig };
@@ -32,6 +33,7 @@ export const useSysConfigStore = defineStore('sysconfig', () => {
         s3_secret_key: '',
         s3_public_url_base: '',
         s3_use_path_style: false,
+        vault_path: null,
       }
     } finally {
       loading.value = false
@@ -90,6 +92,24 @@ export const useSysConfigStore = defineStore('sysconfig', () => {
     }
   }
 
+  /** 唤起原生文件夹选择器，选定后持久化 vault_path 到配置 */
+  async function selectVaultDirectory(): Promise<string | null> {
+    try {
+      const selected = await open({ directory: true, multiple: false, title: '选择知识库目录' })
+      // open() returns null when user cancels, string for single, string[] for multiple
+      if (!selected) return null
+      const dirPath = typeof selected === 'string' ? selected : selected[0]
+      if (!dirPath) return null
+
+      const updated = await invoke<SysConfig>('set_vault_path', { path: dirPath })
+      config.value = { ...updated }
+      return dirPath
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return null
+    }
+  }
+
   return {
     config,
     loading,
@@ -102,5 +122,6 @@ export const useSysConfigStore = defineStore('sysconfig', () => {
     testApiConnection,
     testS3Connection,
     reloadConfig,
+    selectVaultDirectory,
   }
 })

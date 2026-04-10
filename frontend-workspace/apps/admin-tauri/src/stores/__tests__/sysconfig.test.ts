@@ -7,6 +7,10 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
 
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  open: vi.fn(),
+}))
+
 import { invoke } from '@tauri-apps/api/core'
 
 const mockInvoke = vi.mocked(invoke)
@@ -21,6 +25,7 @@ const defaultConfig: SysConfig = {
   s3_secret_key: '',
   s3_public_url_base: '',
   s3_use_path_style: false,
+  vault_path: null,
 }
 
 const validConfig: SysConfig = {
@@ -33,6 +38,7 @@ const validConfig: SysConfig = {
   s3_secret_key: 'secret456',
   s3_public_url_base: 'https://cdn.example.com',
   s3_use_path_style: false,
+  vault_path: null,
 }
 
 describe('useSysConfigStore', () => {

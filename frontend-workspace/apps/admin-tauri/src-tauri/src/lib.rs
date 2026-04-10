@@ -555,6 +555,21 @@ async fn save_sys_config(app: tauri::AppHandle, config: config::SysConfig) -> Re
     reload_sys_config(app).await
 }
 
+/// 设置本地知识库 (Vault) 目录路径
+///
+/// 接收前端通过 Dialog 选定的目录路径，持久化到 SysConfig 中，
+/// 并通过事件通知前端状态变更。
+#[tauri::command]
+async fn set_vault_path(app: tauri::AppHandle, path: String) -> Result<config::SysConfig, String> {
+    let mut config = config::get_config(&app).await?;
+    config.vault_path = Some(path);
+    config::save_config(&app, &config).await?;
+    app.emit("vault-path-changed", &config.vault_path)
+        .map_err(|e| e.to_string())?;
+    log::info!("Vault path set to: {:?}", config.vault_path);
+    Ok(config)
+}
+
 #[tauri::command]
 async fn test_api_connection(app: tauri::AppHandle) -> Result<(), String> {
     let config = config::get_config(&app).await?;
@@ -914,6 +929,7 @@ pub fn run() {
             get_sys_config,
             save_sys_config,
             reload_sys_config,
+            set_vault_path,
             test_api_connection,
             test_s3_connection,
             // 本地草稿（ms-local-draft）

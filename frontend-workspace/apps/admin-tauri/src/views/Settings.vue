@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSysConfigStore } from '../stores/sysconfig'
 import { useLayoutStore } from '../stores/layout'
-import { Wifi, Database, Shield, X } from 'lucide-vue-next'
+import { Wifi, Database, Shield, FolderOpen, X } from 'lucide-vue-next'
 
 const emit = defineEmits<{ (e: 'close'): void }>()
 
@@ -23,6 +23,7 @@ const form = ref({
   s3_secret_key: '',
   s3_public_url_base: '',
   s3_use_path_style: false,
+  vault_path: null as string | null,
 })
 
 type TestStatus = 'idle' | 'testing' | 'ok' | 'failed'
@@ -45,6 +46,7 @@ watch(isSettingsOpen, async (isOpen) => {
         s3_secret_key: store.config.s3_secret_key ?? '',
         s3_public_url_base: store.config.s3_public_url_base ?? '',
         s3_use_path_style: store.config.s3_use_path_style,
+        vault_path: store.config.vault_path ?? null,
       }
     } else {
       // First run defaults
@@ -58,6 +60,7 @@ watch(isSettingsOpen, async (isOpen) => {
         s3_secret_key: '',
         s3_public_url_base: '',
         s3_use_path_style: false,
+        vault_path: null,
       }
     }
     // Reset test states
@@ -97,6 +100,13 @@ async function testStorage() {
 
 async function testAll() {
   await Promise.all([testNetwork(), testStorage()])
+}
+
+async function selectVaultDir() {
+  const path = await store.selectVaultDirectory()
+  if (path) {
+    form.value.vault_path = path
+  }
 }
 
 const canSave = computed(() => 
@@ -184,6 +194,41 @@ function getStatusColor(status: TestStatus): string {
         <!-- Content -->
         <div class="p-6 space-y-6">
           
+          <!-- VAULT Section -->
+          <div class="border border-ms-border bg-ms-deep">
+            <div class="h-10 flex items-center gap-2 px-4 border-b border-ms-border bg-ms-carbon">
+              <FolderOpen class="w-3.5 h-3.5 text-cyan-400" />
+              <span class="text-cyan-400 text-xs tracking-widest uppercase font-bold font-mono">
+                [ VAULT ]
+              </span>
+            </div>
+            <div class="p-4 space-y-3">
+              <div class="grid grid-cols-[140px_1fr_auto] items-center gap-3">
+                <label class="text-xs text-slate-500 font-mono text-right">知识库目录</label>
+                <div class="flex items-center gap-2 min-w-0">
+                  <span
+                    v-if="form.vault_path"
+                    class="text-xs text-slate-300 font-mono truncate"
+                    :title="form.vault_path"
+                  >
+                    {{ form.vault_path }}
+                  </span>
+                  <span v-else class="text-xs text-slate-600 font-mono italic">
+                    未设置
+                  </span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    @click="selectVaultDir"
+                    class="text-cyan-400 border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-1.5 text-xs font-mono transition-all whitespace-nowrap"
+                  >
+                    {{ form.vault_path ? 'CHANGE' : 'SELECT' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- NETWORK Section -->
           <div class="border border-ms-border bg-ms-deep">
             <div class="h-10 flex items-center gap-2 px-4 border-b border-ms-border bg-ms-carbon">

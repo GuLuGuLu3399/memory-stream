@@ -19,6 +19,9 @@ pub struct SysConfig {
     pub s3_public_url_base: Option<String>,
     #[serde(default)]
     pub s3_use_path_style: bool,
+    /// 本地知识库 (Vault) 根目录路径
+    #[serde(default)]
+    pub vault_path: Option<String>,
 }
 
 impl Default for SysConfig {
@@ -33,6 +36,7 @@ impl Default for SysConfig {
             s3_secret_key: None,
             s3_public_url_base: None,
             s3_use_path_style: false,
+            vault_path: None,
         }
     }
 }
@@ -70,6 +74,7 @@ mod tests {
         assert_eq!(config.s3_region, "us-east-1");
         assert!(!config.s3_use_path_style);
         assert!(config.s3_access_key.is_none());
+        assert!(config.vault_path.is_none());
     }
 
     #[test]

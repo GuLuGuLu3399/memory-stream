@@ -151,7 +151,7 @@ is_healthy: boolean, };
  */
 export type SyncResult = { success: boolean, message: string, synced_count: number, };
 
-export type SysConfig = { api_base_url: string, ws_url: string, s3_endpoint: string, s3_region: string, s3_bucket: string, s3_access_key: string | null, s3_secret_key: string | null, s3_public_url_base: string | null, s3_use_path_style: boolean, };
+export type SysConfig = { api_base_url: string, ws_url: string, s3_endpoint: string, s3_region: string, s3_bucket: string, s3_access_key: string | null, s3_secret_key: string | null, s3_public_url_base: string | null, s3_use_path_style: boolean, vault_path: string | null, };
 
 /**
  * 目录树节点（直接复用 crate 的结构，增加 Serialize）
