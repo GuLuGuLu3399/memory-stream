@@ -18,6 +18,7 @@
 
 .PHONY: all dev build check test install clean \
         frontend dev-frontend build-frontend \
+        web dev-web \
         rust build-rust test-rust \
         go dev-go build-go test-go \
         tauri dev-tauri build-tauri
@@ -42,6 +43,13 @@ check-frontend:
 	cd frontend-workspace && pnpm run check 2>/dev/null || true
 
 # ============================================================================
+# Web Reader (Vite SPA)
+# ============================================================================
+
+dev-web:
+	cd frontend-workspace/apps/web-reader && pnpm dev
+
+# ============================================================================
 # Rust (Cargo workspace)
 # ============================================================================
 
@@ -62,10 +70,10 @@ test-rust:
 # ============================================================================
 
 dev-go:
-	cd go-server && go run ./cmd/server
+	cd go-server && go run ./cmd/api
 
 build-go:
-	cd go-server && go build -o bin/server ./cmd/server
+	cd go-server && go build -o bin/server ./cmd/api
 
 test-go:
 	cd go-server && go test ./...
@@ -84,12 +92,13 @@ build-tauri:
 # 组合命令
 # ============================================================================
 
-## 一键开发：启动 Go 后端 + Tauri 桌面端
+## 一键开发：启动 Go 后端 + Web Reader + Tauri 桌面端
 dev:
 	@echo "🚀 Starting Memory Stream development..."
-	@echo "   Go Server:  http://localhost:8080"
-	@echo "   Tauri App:  launching..."
-	$(MAKE) -j2 dev-go dev-tauri
+	@echo "   Go Server:   http://localhost:8080"
+	@echo "   Web Reader:  http://localhost:5173"
+	@echo "   Tauri App:   launching..."
+	$(MAKE) -j3 dev-go dev-web dev-tauri
 
 ## 生产构建：前端 + Rust + Go
 build: build-rust build-frontend build-go
