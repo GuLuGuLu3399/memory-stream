@@ -106,7 +106,7 @@ function getBadgeClass(relationType: string): string {
                         <span class="text-xs text-gray-300 group-hover:text-neon transition-colors truncate flex-1">
                             {{ bl.source_title }}
                         </span>
-                        <span class="flex-shrink-0 px-1.5 py-0.5 text-[10px] font-mono border rounded-sm"
+                        <span class="flex-shrink-0 px-1.5 py-0.5 text-2xs font-mono border rounded-sm"
                             :class="getBadgeClass(bl.relation_type)">
                             {{ bl.relation_type }}
                         </span>
@@ -114,7 +114,7 @@ function getBadgeClass(relationType: string): string {
 
                     <!-- Context snippet -->
                     <div v-if="bl.context_snippet" class="pl-5 w-full">
-                        <p class="text-[11px] text-gray-500 italic truncate leading-relaxed">
+                        <p class="text-1.5xs text-gray-500 italic truncate leading-relaxed">
                             {{ bl.context_snippet }}
                         </p>
                     </div>

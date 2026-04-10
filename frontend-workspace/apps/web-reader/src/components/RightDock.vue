@@ -27,7 +27,7 @@ const emit = defineEmits<{
 }>();
 
 const ctrlBtnClass = (active: boolean) =>
-    `flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-mono rounded-md transition-all duration-150 whitespace-nowrap ${active
+    `flex items-center gap-1.5 px-2.5 py-1.5 text-1.5xs font-mono rounded-md transition-all duration-150 whitespace-nowrap ${active
         ? "bg-neon/10 text-neon border border-neon/30"
         : "text-gray-500 hover:text-gray-300 border border-transparent hover:border-ms-border"
     }`;
@@ -50,7 +50,7 @@ const ctrlBtnClass = (active: boolean) =>
             <!-- ── 列表视图控制 ── -->
             <template v-if="viewMode === 'list'">
                 <div class="flex flex-col gap-1.5">
-                    <span class="text-[10px] text-gray-600 font-mono">排序</span>
+                    <span class="text-2xs text-gray-600 font-mono">排序</span>
                     <button @click="store.setSortBy('updated')" :class="ctrlBtnClass(sortBy === 'updated')">
                         <Clock :size="12" /> 时间
                     </button>
@@ -60,7 +60,7 @@ const ctrlBtnClass = (active: boolean) =>
                 </div>
                 <div class="h-px bg-ms-border/40" />
                 <div class="flex flex-col gap-1.5">
-                    <span class="text-[10px] text-gray-600 font-mono">密度</span>
+                    <span class="text-2xs text-gray-600 font-mono">密度</span>
                     <button @click="store.setDensity('cozy')" :class="ctrlBtnClass(density === 'cozy')">
                         <LayoutGrid :size="12" /> 舒适
                     </button>
@@ -73,9 +73,9 @@ const ctrlBtnClass = (active: boolean) =>
             <!-- ── 图谱视图控制 ── -->
             <template v-else>
                 <div class="flex flex-col gap-1.5">
-                    <span class="text-[10px] text-gray-600 font-mono">深度</span>
+                    <span class="text-2xs text-gray-600 font-mono">深度</span>
                     <div class="flex items-center gap-1">
-                        <button v-for="d in 3" :key="d" @click="store.setGraphDepth(d)" :class="`w-8 h-8 rounded-md text-[11px] font-mono font-bold transition-all ${graphDepth >= d
+                        <button v-for="d in 3" :key="d" @click="store.setGraphDepth(d)" :class="`w-8 h-8 rounded-md text-1.5xs font-mono font-bold transition-all ${graphDepth >= d
                             ? 'bg-neon/15 text-neon border border-neon/30'
                             : 'text-gray-600 border border-ms-border/50 hover:border-ms-border'
                             }`">
@@ -88,7 +88,7 @@ const ctrlBtnClass = (active: boolean) =>
                     <Spotlight :size="12" /> 聚光灯
                 </button>
                 <button @click="emit('fitView')"
-                    class="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-mono rounded-md text-gray-500 hover:text-gray-300 border border-transparent hover:border-ms-border transition-all whitespace-nowrap">
+                    class="flex items-center gap-1.5 px-2.5 py-1.5 text-1.5xs font-mono rounded-md text-gray-500 hover:text-gray-300 border border-transparent hover:border-ms-border transition-all whitespace-nowrap">
                     <Minimize2 :size="12" /> 归位
                 </button>
             </template>

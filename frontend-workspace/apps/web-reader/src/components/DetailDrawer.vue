@@ -197,7 +197,7 @@ function onProseMouseOut(e: MouseEvent) {
                                             <ArrowLeft :size="10"
                                                 class="flex-shrink-0 text-gray-600 group-hover:text-neon transition-colors" />
                                             <span class="truncate">{{ bl.source_title }}</span>
-                                            <span class="ml-auto flex-shrink-0 text-[10px] text-gray-600 font-mono">
+                                            <span class="ml-auto flex-shrink-0 text-2xs text-gray-600 font-mono">
                                                 {{ bl.relation_type }}
                                             </span>
                                         </button>
@@ -216,10 +216,10 @@ function onProseMouseOut(e: MouseEvent) {
                 <!-- 底部信息栏 -->
                 <div v-if="detail"
                     class="px-6 py-3 border-t border-ms-border flex items-center justify-between flex-shrink-0">
-                    <span class="text-[10px] text-gray-600 font-mono">
+                    <span class="text-2xs text-gray-600 font-mono">
                         {{ detail.id.slice(0, 8) }}
                     </span>
-                    <span class="text-[10px] text-gray-600 font-mono">
+                    <span class="text-2xs text-gray-600 font-mono">
                         {{ detail.updatedAt }}
                     </span>
                 </div>

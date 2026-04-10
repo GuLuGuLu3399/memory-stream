@@ -102,8 +102,8 @@ function scrollToHeading(slug: string) {
                 <!-- 面板头 -->
                 <div class="px-4 pt-3 pb-2 border-b border-ms-border flex-shrink-0">
                     <div class="flex items-center justify-between">
-                        <span class="text-[10px] text-gray-600 font-mono uppercase tracking-widest">目录</span>
-                        <span class="text-[10px] text-neon font-mono">{{ readProgress }}%</span>
+                        <span class="text-2xs text-gray-600 font-mono uppercase tracking-widest">目录</span>
+                        <span class="text-2xs text-neon font-mono">{{ readProgress }}%</span>
                     </div>
                 </div>
 

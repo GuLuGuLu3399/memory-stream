@@ -105,7 +105,7 @@ onUnmounted(() => {
                 <!-- 退出提示 -->
                 <div class="fixed top-4 right-4 z-[1]">
                     <button
-                        class="px-3 py-1.5 text-[11px] font-mono text-gray-600 hover:text-gray-300 bg-ms-panel/80 backdrop-blur border border-ms-border rounded-lg transition-all"
+                        class="px-3 py-1.5 text-1.5xs font-mono text-gray-600 hover:text-gray-300 bg-ms-panel/80 backdrop-blur border border-ms-border rounded-lg transition-all"
                         @click="store.toggleZenMode()">
                         ESC 退出
                     </button>

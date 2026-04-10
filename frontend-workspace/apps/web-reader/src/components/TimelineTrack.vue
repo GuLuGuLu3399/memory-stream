@@ -54,7 +54,7 @@ const enriched = computed(() =>
 
             <!-- Label -->
             <span class="pr-4 transition-all duration-200 whitespace-nowrap" :class="[
-                g.isYear ? 'text-[11px] font-mono font-bold' : 'text-[10px] font-mono',
+                g.isYear ? 'text-1.5xs font-mono font-bold' : 'text-2xs font-mono',
                 g.active ? 'text-neon' : 'text-gray-600 group-hover/tl:text-gray-400',
             ]">
                 {{ g.display }}

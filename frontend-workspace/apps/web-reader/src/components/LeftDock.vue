@@ -105,7 +105,7 @@ const ctrlBtnClass = (active: boolean) =>
                     :title="`WS: ${authenticated ? '已连接 ' + latency + 'ms' : connected ? '认证中...' : '离线'}`">
                     <div class="w-2.5 h-2.5 rounded-full transition-colors duration-300"
                         :class="authenticated ? 'bg-emerald-400/60' : connected ? 'bg-yellow-400/40' : 'bg-red-500/60'" />
-                    <span v-if="authenticated && latency > 0" class="text-[9px] font-mono text-gray-500">{{ latency
+                    <span v-if="authenticated && latency > 0" class="text-3xs font-mono text-gray-500">{{ latency
                         }}ms</span>
                 </div>
             </div>

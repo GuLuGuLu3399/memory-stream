@@ -71,7 +71,9 @@ export default {
                 industrial: '2px',
             },
             fontSize: {
+                '3xs': '9px',
                 '2xs': '10px',
+                '1.5xs': '11px',
             },
             letterSpacing: {
                 'spine': '0.15em',

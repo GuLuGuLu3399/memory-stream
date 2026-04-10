@@ -41,7 +41,7 @@ const viewBtnClass = (active: boolean) =>
 
 // ── 控制面板小按钮样式 ──
 const ctrlBtnClass = (active: boolean) =>
-    `flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-mono rounded-md transition-all duration-150 ${active
+    `flex items-center gap-1 px-2.5 py-1.5 text-1.5xs font-mono rounded-md transition-all duration-150 ${active
         ? "bg-neon/10 text-neon border border-neon/30"
         : "text-gray-500 hover:text-gray-300 border border-transparent hover:border-ms-border"
     }`;
@@ -54,7 +54,7 @@ const ctrlBtnClass = (active: boolean) =>
             class="flex items-center bg-ms-panel/80 backdrop-blur-xl border border-ms-border rounded-sm px-2 py-1.5 shadow-lg shadow-black/30 gap-1">
             <!-- Logo -->
             <div
-                class="w-7 h-7 bg-neon/10 rounded-sm flex items-center justify-center text-neon font-bold text-[10px] mr-2 shrink-0">
+                class="w-7 h-7 bg-neon/10 rounded-sm flex items-center justify-center text-neon font-bold text-2xs mr-2 shrink-0">
                 M
             </div>
 
@@ -74,7 +74,7 @@ const ctrlBtnClass = (active: boolean) =>
 
             <!-- 上下文感知控制面板入口 -->
             <button
-                class="flex items-center gap-1 px-2.5 py-1.5 text-[11px] text-gray-400 hover:text-gray-200 rounded-lg transition-all"
+                class="flex items-center gap-1 px-2.5 py-1.5 text-1.5xs text-gray-400 hover:text-gray-200 rounded-lg transition-all"
                 @click="" title="展示控制">
                 <SlidersHorizontal :size="12" />
             </button>
@@ -88,7 +88,7 @@ const ctrlBtnClass = (active: boolean) =>
                 <template v-if="viewMode === 'list'">
                     <!-- 排序拨片 -->
                     <div class="flex items-center gap-1">
-                        <span class="text-[10px] text-gray-600 font-mono mr-1">排序</span>
+                        <span class="text-2xs text-gray-600 font-mono mr-1">排序</span>
                         <button @click="store.setSortBy('updated')" :class="ctrlBtnClass(sortBy === 'updated')">
                             <Clock :size="10" /> 时间
                         </button>
@@ -101,7 +101,7 @@ const ctrlBtnClass = (active: boolean) =>
 
                     <!-- 密度切换 -->
                     <div class="flex items-center gap-1">
-                        <span class="text-[10px] text-gray-600 font-mono mr-1">密度</span>
+                        <span class="text-2xs text-gray-600 font-mono mr-1">密度</span>
                         <button @click="store.setDensity('cozy')" :class="ctrlBtnClass(density === 'cozy')">
                             <LayoutGrid :size="10" /> 舒适
                         </button>
@@ -115,9 +115,9 @@ const ctrlBtnClass = (active: boolean) =>
                 <template v-else>
                     <!-- 层级深度滑块 -->
                     <div class="flex items-center gap-2">
-                        <span class="text-[10px] text-gray-600 font-mono">深度</span>
+                        <span class="text-2xs text-gray-600 font-mono">深度</span>
                         <div class="flex items-center gap-1">
-                            <button v-for="d in 3" :key="d" @click="store.setGraphDepth(d)" :class="`w-6 h-6 rounded-md text-[11px] font-mono font-bold transition-all ${graphDepth >= d
+                            <button v-for="d in 3" :key="d" @click="store.setGraphDepth(d)" :class="`w-6 h-6 rounded-md text-1.5xs font-mono font-bold transition-all ${graphDepth >= d
                                 ? 'bg-neon/15 text-neon border border-neon/30'
                                 : 'text-gray-600 border border-ms-border/50 hover:border-ms-border'
                                 }`">
@@ -137,7 +137,7 @@ const ctrlBtnClass = (active: boolean) =>
 
                     <!-- 布局重置（emit 给 GraphView） -->
                     <button @click="$emit('fitView')"
-                        class="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-mono rounded-md text-gray-500 hover:text-gray-300 border border-transparent hover:border-ms-border transition-all">
+                        class="flex items-center gap-1 px-2.5 py-1.5 text-1.5xs font-mono rounded-md text-gray-500 hover:text-gray-300 border border-transparent hover:border-ms-border transition-all">
                         <Minimize2 :size="10" /> 归位
                     </button>
                 </template>

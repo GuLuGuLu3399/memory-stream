@@ -6,18 +6,15 @@
  * 点击触发 jump 事件 → 父组件执行 scrollIntoView。
  */
 
+interface TocItem {
+    text: string;
+    slug: string;
+    level: number;
+    children?: TocItem[];
+}
+
 defineProps<{
-    item: {
-        text: string;
-        slug: string;
-        level: number;
-        children?: Array<{
-            text: string;
-            slug: string;
-            level: number;
-            children?: any[];
-        }>;
-    };
+    item: TocItem;
     depth?: number;
     activeSlug?: string;
 }>();

@@ -106,7 +106,7 @@ function onKeydown(e: KeyboardEvent) {
                         <div v-if="loading" class="text-neon text-xs animate-pulse">
                             搜索中...
                         </div>
-                        <kbd v-else class="text-[10px] text-gray-600 bg-ms-carbon px-1.5 py-0.5 rounded border border-ms-border font-mono">
+                        <kbd v-else class="text-2xs text-gray-600 bg-ms-carbon px-1.5 py-0.5 rounded border border-ms-border font-mono">
                             ESC
                         </kbd>
                     </div>
@@ -134,7 +134,7 @@ function onKeydown(e: KeyboardEvent) {
                                 >
                                     {{ item.title }}
                                 </div>
-                                <div v-if="item.excerpt" class="text-[11px] text-gray-600 truncate mt-0.5">
+                                <div v-if="item.excerpt" class="text-1.5xs text-gray-600 truncate mt-0.5">
                                     {{ item.excerpt.slice(0, 100) }}
                                 </div>
                             </div>
@@ -150,7 +150,7 @@ function onKeydown(e: KeyboardEvent) {
                         <p class="text-xs text-gray-600 font-mono">输入关键词搜索知识库</p>
                     </div>
 
-                    <div class="px-5 py-2 border-t border-ms-border text-[10px] text-gray-600 flex gap-3 font-mono">
+                    <div class="px-5 py-2 border-t border-ms-border text-2xs text-gray-600 flex gap-3 font-mono">
                         <span>↑↓ 导航</span>
                         <span>↵ 打开</span>
                         <span>Esc 关闭</span>

@@ -102,7 +102,7 @@ function onKeydown(e: KeyboardEvent) {
                         <input ref="inputRef" v-model="query" type="text" placeholder="搜索卡片标题或内容..."
                             class="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-600 focus:outline-none font-mono" />
                         <kbd
-                            class="text-[10px] text-gray-600 bg-ms-carbon px-1.5 py-0.5 rounded border border-ms-border font-mono">
+                            class="text-2xs text-gray-600 bg-ms-carbon px-1.5 py-0.5 rounded border border-ms-border font-mono">
                             ESC
                         </kbd>
                     </div>
@@ -123,7 +123,7 @@ function onKeydown(e: KeyboardEvent) {
                                 <div class="text-sm truncate" :class="idx === selectedIndex ? 'text-neon' : 'text-gray-200'">
                                     {{ item.title }}
                                 </div>
-                                <div v-if="item.excerpt" class="text-[11px] text-gray-600 truncate mt-0.5">
+                                <div v-if="item.excerpt" class="text-1.5xs text-gray-600 truncate mt-0.5">
                                     {{ item.excerpt.slice(0, 80) }}
                                 </div>
                             </div>
@@ -142,7 +142,7 @@ function onKeydown(e: KeyboardEvent) {
                     </div>
 
                     <!-- 底部快捷键提示 -->
-                    <div class="px-5 py-2 border-t border-ms-border text-[10px] text-gray-600 flex gap-3">
+                    <div class="px-5 py-2 border-t border-ms-border text-2xs text-gray-600 flex gap-3">
                         <span>↑↓ 导航</span>
                         <span>↵ 打开</span>
                         <span>Esc 关闭</span>
