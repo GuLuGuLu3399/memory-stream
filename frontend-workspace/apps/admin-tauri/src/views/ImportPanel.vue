@@ -44,16 +44,16 @@ async function selectMarkdownFiles() {
       multiple: true,
       filters: [{ name: 'Markdown', extensions: ['md'] }]
     })
-    
+
     if (!paths) return
-    
+
     isLoadingFiles.value = true
     const pathArray = Array.isArray(paths) ? paths : [paths]
-    
+
     const cards = await invoke<ImportCard[]>('import_markdown_files', {
       paths: pathArray
     })
-    
+
     await processImportedCards(cards)
   } catch (e) {
     knowledgeStore.addToast('文件选择失败: ' + String(e), 'error')
@@ -68,13 +68,13 @@ async function selectZipArchive() {
       multiple: false,
       filters: [{ name: 'ZIP', extensions: ['zip'] }]
     })
-    
+
     if (!path) return
-    
+
     isLoadingFiles.value = true
-    
+
     const cards = await invoke<ImportCard[]>('import_zip_archive', { path })
-    
+
     await processImportedCards(cards)
   } catch (e) {
     knowledgeStore.addToast('ZIP 解压失败: ' + String(e), 'error')
@@ -85,12 +85,12 @@ async function selectZipArchive() {
 
 async function processImportedCards(cards: ImportCard[]) {
   const existingTitles = new Set<string>()
-  
+
   const allCards = [...knowledgeStore.orphanCards, ...knowledgeStore.recentCards]
   allCards.forEach(card => {
     if (card.title) existingTitles.add(card.title.toLowerCase())
   })
-  
+
   previewCards.value = cards.map((card, idx) => ({
     ...card,
     id: `import-${idx}`,
@@ -106,27 +106,27 @@ function toggleSkip(cardId: string) {
   }
 }
 
-const cardsToImport = computed(() => 
+const cardsToImport = computed(() =>
   previewCards.value.filter(c => !c.skip)
 )
 
-const duplicateCount = computed(() => 
+const duplicateCount = computed(() =>
   previewCards.value.filter(c => c.status === 'duplicate' && !c.skip).length
 )
 
 async function importCards() {
   if (cardsToImport.value.length === 0) return
-  
+
   isImporting.value = true
-  
+
   try {
     let importedCount = 0
     let errorCount = 0
-    
+
     for (const card of cardsToImport.value) {
       try {
         const renderResult = await invoke<RenderResult>('process_markdown', { content: card.body_md })
-        
+
         let tocData: TocNodeDto[] | null = null
         try {
           tocData = await invoke<TocNodeDto[]>('extract_toc', {
@@ -135,7 +135,7 @@ async function importCards() {
         } catch (e) {
           console.warn('[ImportPanel] extract_toc failed:', e)
         }
-        
+
         await invoke('api_request', {
           method: 'POST',
           endpoint: '/cards',
@@ -149,22 +149,22 @@ async function importCards() {
             relation_type: null
           }
         })
-        
+
         importedCount++
       } catch (e) {
         console.error(`[ImportPanel] Failed to import "${card.title}":`, e)
         errorCount++
       }
     }
-    
+
     await knowledgeStore.refreshWorkspace()
-    
+
     const message = errorCount > 0
       ? `导入完成: ${importedCount} 张卡片成功, ${errorCount} 张失败`
       : `已导入 ${importedCount} 张卡片`
-    
+
     knowledgeStore.addToast(message, importedCount > 0 ? 'success' : 'error')
-    
+
     if (importedCount > 0) {
       close()
     }
@@ -196,7 +196,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       @click.self="close"
     >
       <div class="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-ms-panel border border-ms-border shadow-2xl">
-        
+
         <div class="h-14 flex items-center justify-between px-6 border-b border-ms-border bg-ms-carbon shrink-0">
           <div class="flex items-center gap-3">
             <span class="text-neon text-lg">◆</span>
@@ -215,11 +215,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
         </div>
 
         <div class="p-6 space-y-6">
-          
+
           <div class="border border-ms-border bg-ms-deep">
             <div class="h-10 flex items-center gap-2 px-4 border-b border-ms-border bg-ms-carbon">
-              <FileText class="w-3.5 h-3.5 text-cyan-400" />
-              <span class="text-cyan-400 text-xs tracking-widest uppercase font-bold font-mono">
+              <FileText class="w-3.5 h-3.5 text-brass" />
+              <span class="text-brass text-xs tracking-widest uppercase font-bold font-mono">
                 [ SOURCE ]
               </span>
             </div>
@@ -228,7 +228,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                 <button
                   @click="selectMarkdownFiles"
                   :disabled="isLoadingFiles || isImporting"
-                  class="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-mono transition-all border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-mono transition-all border border-brass/30 bg-brass/10 hover:bg-brass/20 text-brass disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FileText class="w-4 h-4" />
                   IMPORT MARKDOWN
@@ -236,7 +236,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                 <button
                   @click="selectZipArchive"
                   :disabled="isLoadingFiles || isImporting"
-                  class="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-mono transition-all border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-mono transition-all border border-brass/30 bg-brass/10 hover:bg-brass/20 text-brass disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FileArchive class="w-4 h-4" />
                   IMPORT ZIP
@@ -246,7 +246,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
           </div>
 
           <div v-if="isLoadingFiles" class="flex items-center justify-center py-8">
-            <Loader2 class="w-6 h-6 text-neon animate-spin" />
+            <Loader2 class="w-6 h-6 text-brass animate-spin" />
             <span class="ml-3 text-sm font-mono text-slate-400">正在解析文件...</span>
           </div>
 
@@ -274,7 +274,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                   <tr
                     v-for="card in previewCards"
                     :key="card.id"
-                    class="border-b border-ms-border/50 hover:bg-ms-panel/30 transition-colors"
+                    class="border-b border-ms-border/50 hover:bg-ms-panel/30 transition-colors hover:shadow-brass-glow-sm"
                     :class="{ 'bg-amber-500/5': card.status === 'duplicate' }"
                   >
                     <td class="px-4 py-2 text-slate-400 truncate max-w-[200px]">
@@ -289,9 +289,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                     <td class="px-4 py-2 text-center">
                       <span
                         class="px-2 py-0.5 text-2xs tracking-wider uppercase"
-                        :class="card.status === 'duplicate' 
-                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
-                          : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'"
+                        :class="card.status === 'duplicate'
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          : 'bg-brass/20 text-brass-light border border-brass/30'"
                       >
                         {{ card.status }}
                       </span>
@@ -334,12 +334,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
             <button
               @click="importCards"
               :disabled="cardsToImport.length === 0 || isImporting"
-              class="flex items-center gap-2 px-6 py-2 text-xs font-mono transition-all"
+              class="relative flex items-center gap-2 px-6 py-2 text-xs font-mono transition-all overflow-hidden"
               :class="cardsToImport.length > 0 && !isImporting
-                ? 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
+                ? 'bg-brass/10 border border-brass/30 text-brass hover:bg-brass/20'
                 : 'bg-ms-surface border border-ms-border text-slate-600 opacity-30 cursor-not-allowed'"
             >
-              <Loader2 v-if="isImporting" class="w-3.5 h-3.5 animate-spin" />
+              <!-- Brass progress bar -->
+              <div
+                v-if="isImporting"
+                class="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-brass to-transparent animate-pulse"
+              />
+              <Loader2 v-if="isImporting" class="w-3.5 h-3.5 animate-spin text-brass" />
               <span v-else class="text-neon">◆</span>
               {{ isImporting ? 'IMPORTING...' : `IMPORT ${cardsToImport.length} CARDS` }}
             </button>

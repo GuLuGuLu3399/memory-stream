@@ -2,54 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── 极客工业风 Markdown 排版引擎 ── */
-/* ── 深炭灰基底 · 霓虹青点缀 · Fira Code 代码 ── */
+/* ── 血肉神殿排版引擎 ── */
+/* ── 玄色基底 · 血珀点缀 · Noto Serif SC 经文 ── */
 
 @layer components {
 
   /* ── 字体层级规范 ──
-   * H1: text-2xl (24px) / font-weight 700 / gray-100
-   * H2: text-xl  (20px) / font-weight 600 / gray-100
-   * H3: text-lg  (18px) / font-weight 500 / gray-200
-   * 正文: base   (16px) / font-weight 400 / gray-300
-   * 辅助: text-sm (14px) / font-weight 400 / gray-500
+   * H1: text-2xl (24px) / font-weight 700 / ms-ivory
+   * H2: text-xl  (20px) / font-weight 600 / ms-bone
+   * H3: text-lg  (18px) / font-weight 500 / ms-bone-dim
+   * 正文: base   (16px) / font-weight 400 / ms-bone-dim
+   * 辅助: text-sm (14px) / font-weight 400 / ms-ash
    */
   .prose h1 {
-    @apply text-2xl font-bold text-gray-100 mb-3 tracking-tight;
+    @apply text-2xl font-bold mb-3 tracking-tight font-serif;
+    color: theme('colors.ms-ivory');
   }
 
   .prose h2 {
-    @apply text-xl font-semibold text-gray-100 mb-2 mt-6 border-b border-ms-border pb-2 tracking-tight;
+    @apply text-xl font-semibold mb-2 mt-6 pb-2 tracking-tight font-serif;
+    color: theme('colors.ms-bone');
+    border-bottom: 1px solid theme('colors.ms-copper');
   }
 
   .prose h3 {
-    @apply text-lg font-medium text-gray-200 mb-2 tracking-normal;
+    @apply text-lg font-medium mb-2 tracking-normal font-serif;
+    color: theme('colors.ms-bone-dim');
   }
 
   .prose h4 {
-    @apply text-base font-medium text-gray-200 mb-2 tracking-normal;
+    @apply text-base font-medium mb-2 tracking-normal font-serif;
+    color: theme('colors.ms-bone-dim');
   }
 
   .prose p {
-    @apply mb-4 leading-relaxed text-gray-300 text-base font-normal;
+    @apply mb-4 text-base font-normal font-serif;
+    color: theme('colors.ms-bone-dim');
+    line-height: 1.85;
   }
 
-  /* ── 内联代码：霓虹青着色 ── */
+  /* ── 内联代码：血珀淡底 ── */
   .prose code {
-    font-family: "Fira Code", Consolas, monospace;
+    font-family: "JetBrains Mono", Consolas, monospace;
     font-size: 0.875em;
-    background: rgba(0, 229, 255, 0.06);
+    background: rgba(166, 38, 38, 0.12);
     padding: 0.15em 0.4em;
     border-radius: 2px;
-    color: theme('colors.neon.DEFAULT');
+    color: theme('colors.xuepo.600');
   }
 
-  /* ── 代码块：深炭灰底 + 微弱边框 ── */
+  /* ── 代码块：墨色底 + 铜锈边框 ── */
   .prose pre {
-    font-family: "Fira Code", Consolas, monospace;
-    background: theme('colors.ms-deep');
-    border: 1px solid theme('colors.ms-border');
-    border-radius: 2px;
+    font-family: "JetBrains Mono", Consolas, monospace;
+    background: theme('colors.ms-mo');
+    border: 1px solid theme('colors.ms-copper');
+    border-radius: 3px;
     padding: 1rem;
     overflow-x: auto;
     margin-bottom: 1rem;
@@ -62,83 +69,91 @@
   }
 
   .prose ul {
-    @apply list-disc list-inside mb-4 space-y-1 text-gray-300;
+    @apply list-disc list-inside mb-4 space-y-1 font-serif;
+    color: theme('colors.ms-bone-dim');
   }
 
   .prose ol {
-    @apply list-decimal list-inside mb-4 space-y-1 text-gray-300;
+    @apply list-decimal list-inside mb-4 space-y-1 font-serif;
+    color: theme('colors.ms-bone-dim');
   }
 
-  /* ── 块引用：霓虹青左侧高亮边框 ── */
+  /* ── 块引用：血珀左侧边框 ── */
   .prose blockquote {
-    border-left: 3px solid theme('colors.neon.DEFAULT');
+    border-left: 3px solid theme('colors.xuepo.DEFAULT');
     padding-left: 1rem;
     margin: 1rem 0;
-    background: rgba(0, 229, 255, 0.03);
-    color: #94a3b8;
+    background: rgba(166, 38, 38, 0.06);
+    color: theme('colors.ms-ash');
   }
 
   .prose a {
-    @apply text-neon hover:underline;
+    color: theme('colors.xuepo.600');
+  }
+  .prose a:hover {
+    color: theme('colors.xuepo.700');
+    text-decoration: underline;
   }
 
   .prose strong {
-    @apply text-gray-100 font-semibold;
+    @apply font-semibold;
+    color: theme('colors.ms-bone');
   }
 
-  /* ── 表格：深色工业风 ── */
+  /* ── 表格 ── */
   .prose table {
     @apply w-full border-collapse mb-4;
   }
 
   .prose th {
-    @apply text-left text-xs font-mono text-gray-400 uppercase tracking-wider;
-    background: theme('colors.ms-carbon');
+    @apply text-left text-xs font-mono uppercase tracking-wider;
+    color: theme('colors.ms-ash');
+    background: theme('colors.ms-mo');
     padding: 8px 12px;
-    border-bottom: 2px solid theme('colors.ms-border');
+    border-bottom: 2px solid theme('colors.ms-copper');
   }
 
   .prose td {
     padding: 8px 12px;
-    border-bottom: 1px solid theme('colors.ms-panel');
-    color: #d4d4d8;
+    border-bottom: 1px solid theme('colors.ms-copper-light');
+    color: theme('colors.ms-bone-dim');
   }
 
   .prose tr:hover td {
-    background: rgba(0, 229, 255, 0.03);
+    background: rgba(166, 38, 38, 0.04);
   }
 
   /* ── 分割线 ── */
   .prose hr {
     border: none;
-    border-top: 1px solid theme('colors.ms-border');
+    border-top: 1px solid theme('colors.ms-copper');
     margin: 2rem 0;
   }
 
   /* ── 图片 ── */
   .prose img {
-    border-radius: 2px;
-    border: 1px solid theme('colors.ms-border');
+    border-radius: 3px;
+    border: 1px solid theme('colors.ms-copper');
     margin: 1rem 0;
   }
-  
-  
-  
-  /* 霓虹发光 hover 效果 */
-  .neon-glow-hover {
-      transition: box-shadow 0.2s ease;
+
+  /* 血珀辉 hover 效果 */
+  .altar-glow-hover {
+    transition: box-shadow 0.3s ease;
   }
-  .neon-glow-hover:hover {
-      box-shadow: 0 0 8px rgba(0, 229, 255, 0.3), 0 0 20px rgba(0, 229, 255, 0.1);
-  }
-  
-  
-  
-  .terminal-input {
-      @apply border-0 border-b border-ms-border bg-transparent rounded-none outline-none focus:border-neon/50;
+  .altar-glow-hover:hover {
+    box-shadow: 0 0 8px rgba(166, 38, 38, 0.2), 0 0 20px rgba(166, 38, 38, 0.08);
   }
 
-  /* ── 精细滚动条（抽屉/面板内滚动区） ── */
+  .terminal-input {
+    @apply border-0 border-b bg-transparent rounded-none outline-none;
+    border-color: theme('colors.ms-copper');
+  }
+  .terminal-input:focus {
+    border-color: rgba(166, 38, 38, 0.5);
+  }
+
+  /* ── 精细滚动条 ── */
   .scrollbar-thin::-webkit-scrollbar {
     width: 4px;
   }
@@ -148,32 +163,54 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: theme('colors.ms-border');
+    background: theme('colors.ms-copper');
     border-radius: 2px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: theme('colors.gray.600');
+    background: theme('colors.ms-smoke');
   }
 }
 
 /* ── 全局基础样式 ── */
 body {
-  background: theme('colors.ms-deep');
-  color: #d4d4d8;
-  font-family: "JetBrains Mono", "Fira Code", Consolas, Monaco, monospace;
+  background: theme('colors.ms-xuan');
+  color: theme('colors.ms-bone');
+  font-family: "Noto Serif SC", Georgia, serif;
+}
+
+/* ── 经脉纹理叠加 ── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* ── 殿内暗角 ── */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.3;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(10, 8, 6, 0.6) 100%);
 }
 
 /* ── 选中文本高亮 ── */
 ::selection {
-  background: rgba(0, 229, 255, 0.2);
-  color: theme('colors.neon.DEFAULT');
+  background: rgba(166, 38, 38, 0.25);
+  color: theme('colors.ms-ivory');
 }
 
-/* ── 全局滚动条（shadcn/ui 风格） ── */
+/* ── 全局滚动条（暗色） ── */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  scrollbar-color: rgba(232, 223, 208, 0.1) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -186,7 +223,7 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(232, 223, 208, 0.1);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
@@ -194,7 +231,7 @@ body {
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: rgba(232, 223, 208, 0.2);
   border: 2px solid transparent;
   background-clip: content-box;
 }

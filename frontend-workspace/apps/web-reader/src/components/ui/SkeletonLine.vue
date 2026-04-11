@@ -1,17 +1,13 @@
 <script setup lang="ts">
 /**
- * 🌟 SkeletonLine — 深色微光骨架屏原子组件
+ * SkeletonLine — 血肉神殿骨架屏原子组件
  *
- * 使用 shimmer 动画模拟加载态。
- * 配合 v-for 渲染出不同形状的骨架占位。
+ * 暗色 shimmer 动画模拟加载态。
  */
 
 defineProps<{
-    /** 宽度，支持 CSS 值如 "60%"、"200px" */
     width?: string;
-    /** 高度，支持 CSS 值如 "14px"、"1rem" */
     height?: string;
-    /** 是否为圆形（用于头像占位） */
     rounded?: boolean;
 }>();
 </script>
@@ -23,7 +19,7 @@ defineProps<{
 
 <style scoped>
 .skeleton-line {
-    background: linear-gradient(90deg, theme('colors.ms-panel') 25%, theme('colors.ms-surface') 50%, theme('colors.ms-panel') 75%);
+    background: linear-gradient(90deg, theme('colors.ms-mo') 25%, rgb(166, 38, 38, 0.08) 50%, theme('colors.ms-mo') 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
     border-radius: 4px;

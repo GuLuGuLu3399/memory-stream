@@ -136,7 +136,7 @@ async function handlePaste(event: ClipboardEvent) {
 
                 if (hasTauri) {
                     // 🚀 桌面端：调用 Rust 进行极致压缩
-                    const { invoke } = await import('@tauri-apps/api/core');
+                    const { invoke } = await import(/* @vite-ignore */ '@tauri-apps/api/core');
 
                     console.time("Rust WebP 压缩耗时");
                     const webpBytes = await invoke<number[]>('compress_image_to_webp', { rawBytes });

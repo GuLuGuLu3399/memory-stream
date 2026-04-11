@@ -15,9 +15,16 @@ export default {
                 'ms-carbon': '#141414',       // 内容区
                 'ms-panel': '#1a1a1a',        // 面板色
                 'ms-surface': '#222222',      // 表面色（hover 态）
-                'ms-border': '#1e1e1e',       // 结构线（极暗，明确分隔）
-                'ms-border-light': '#2a2a2a', // 高亮边框（交互元素）
-                'ms-border-active': '#333333',// 活跃态边框
+
+                // ── 新增层次 ──
+                'ms-deep-hover': '#181818',   // deep 的悬浮态
+                'ms-surface-raised': '#2a2a2a', // 浮起面板
+                'ms-engrave': '#333333',      // 蚀刻/凹陷
+
+                // ── 边框 ──
+                'ms-border': '#1e1e1e',       // 结构线
+                'ms-border-light': '#2a2a2a', // 高亮边框
+                'ms-border-active': '#333333', // 活跃态边框
 
                 // ── 霓虹青高亮系 ──
                 'neon': {
@@ -32,6 +39,14 @@ export default {
                     '700': '#008a99',
                     '800': '#005c66',
                     '900': '#002e33',
+                },
+
+                // ── 新增: 黄铜辅助系 ──
+                'brass': {
+                    DEFAULT: '#b8860b',
+                    'light': '#d4a853',
+                    'dim': '#b8860b80',
+                    'ghost': '#b8860b20',
                 },
 
                 // ── 语义色 ──
@@ -71,9 +86,19 @@ export default {
                 'spine': '0.15em',
             },
             boxShadow: {
-                'neon-glow': '0 0 8px rgba(0, 229, 255, 0.3), 0 0 20px rgba(0, 229, 255, 0.1)',
-                'neon-glow-sm': '0 0 4px rgba(0, 229, 255, 0.2)',
-                'neon-glow-lg': '0 0 12px rgba(0, 229, 255, 0.4), 0 0 30px rgba(0, 229, 255, 0.15)',
+                // ── 霓虹辉（保留） ──
+                'neon-glow': '0 0 8px rgba(0,229,255,0.3), 0 0 20px rgba(0,229,255,0.1)',
+                'neon-glow-sm': '0 0 4px rgba(0,229,255,0.2)',
+                'neon-glow-lg': '0 0 12px rgba(0,229,255,0.4), 0 0 30px rgba(0,229,255,0.15)',
+
+                // ── 新增: 黄铜辉 ──
+                'brass-glow': '0 0 8px rgba(184,134,11,0.2), 0 0 20px rgba(184,134,11,0.08)',
+                'brass-glow-sm': '0 0 4px rgba(184,134,11,0.15)',
+
+                // ── 新增: 机械浮雕 ──
+                'mech-raised': '0 2px 4px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3)',
+                'mech-raised-md': '0 4px 16px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3)',
+                'mech-inset': 'inset 0 1px 3px rgba(0,0,0,0.4), inset 0 -1px 0 rgba(255,255,255,0.03)',
             },
             spacing: {
                 'titlebar': '36px',

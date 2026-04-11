@@ -10,42 +10,52 @@ export default {
     theme: {
         extend: {
             colors: {
-                // ── 深炭灰基底（与 admin-tauri 统一）──
-                "ms-deep": "#0d0d0d",
-                "ms-carbon": "#141414",
-                "ms-panel": "#222222",
-                "ms-surface": "#2a2a2a",
-                "ms-border": "#333333",
-                "ms-void": "#050505",
-                "ms-border-light": "#2a2a2a",
-                "ms-border-active": "#333333",
+                // ── 血肉神殿基底 ──
+                'ms-xuan': '#0a0806',         // 玄色（最深/主背景）
+                'ms-mo': '#12100c',            // 墨色（内容区）
+                'ms-xiang': '#1c1814',         // 香灰（面板/卡片）
+                'ms-zhu': '#2a2218',           // 烛影（悬浮/激活）
+                'ms-copper': '#3a3228',        // 铜锈（边框/分隔）
+                'ms-copper-light': '#4a4238',  // 铜锈亮态
+                'ms-smoke': '#5a4f3e',         // 烟烬（次要文字）
+                'ms-ash': '#8a7e6e',           // 香灰淡（辅助文字）
+                'ms-bone': '#e8dfd0',          // 骨白（主文字）
+                'ms-bone-dim': '#c8bfa8',      // 骨白暗（次文字）
+                'ms-ivory': '#f5ead0',         // 象牙（高亮文字/标题）
 
-                // ── 霓虹青高亮系 ──
-                neon: {
-                    DEFAULT: "#00e5ff",
-                    50: "#e0faff",
-                    100: "#b3f5ff",
-                    200: "#80eeff",
-                    300: "#4de6ff",
-                    400: "#1adeff",
-                    500: "#00e5ff",
-                    600: "#00b8cc",
-                    700: "#008a99",
-                    800: "#005c66",
-                    900: "#002e33",
+                // ── 血珀红强调系 ──
+                xuepo: {
+                    DEFAULT: '#a62626',
+                    50: '#2a0e0e',
+                    100: '#3a1212',
+                    200: '#551818',
+                    300: '#6b1616',
+                    400: '#8a1e1e',
+                    500: '#a62626',
+                    600: '#c23616',
+                    700: '#d44a4a',
+                    800: '#e07070',
+                    900: '#f0a0a0',
                 },
 
-                // ── 图谱专属色（保留）──
-                "ms-spine": "#6366f1",
-                "ms-spine-active": "#818cf8",
-                "ms-branch": "#a1a1aa",
+                // ── 金缮辅助色 ──
+                'ms-gold': '#c9a84c',
+                'ms-gold-dim': '#c9a84c66',
+
+                // ── 铜绿三级色 ──
+                'ms-patina': '#4a7c6f',
+
+                // ── 图谱专属 ──
+                'ms-spine': '#a62626',         // 经脉（序列边）
+                'ms-spine-active': '#c23616',  // 灵穴（激活节点）
+                'ms-branch': '#5a4f3e',        // 引渡（引用边）
 
                 // ── 语义色 ──
-                "ms-primary": "#00e5ff",
-                "ms-primary-hover": "#1adeff",
-                "ms-danger": "#ff4444",
-                "ms-warning": "#ffaa00",
-                "ms-success": "#00e676",
+                'ms-primary': '#a62626',
+                'ms-primary-hover': '#c23616',
+                'ms-danger': '#d44040',
+                'ms-warning': '#d4a040',
+                'ms-success': '#5a9c60',
             },
             zIndex: {
                 'base': '0',
@@ -62,13 +72,14 @@ export default {
             },
             fontFamily: {
                 mono: ['"JetBrains Mono"', '"Fira Code"', "Consolas", "Monaco", "monospace"],
-                body: ['"JetBrains Mono"', '"Fira Code"', "Consolas", "Monaco", "monospace"],
-                display: ['"Space Grotesk"', '"Inter"', "system-ui", "sans-serif"],
+                body: ['"Noto Serif SC"', '"Source Han Serif SC"', "Georgia", "serif"],
+                display: ['"Noto Serif SC"', "Georgia", "serif"],
                 serif: ['"Noto Serif SC"', '"Playfair Display"', "Georgia", "serif"],
             },
             borderRadius: {
                 sharp: '0px',
                 industrial: '2px',
+                altar: '3px',
             },
             fontSize: {
                 '3xs': '9px',
@@ -79,25 +90,23 @@ export default {
                 'spine': '0.15em',
             },
             boxShadow: {
-                'neon-glow': '0 0 8px rgba(0, 229, 255, 0.3), 0 0 20px rgba(0, 229, 255, 0.1)',
-                'neon-glow-sm': '0 0 4px rgba(0, 229, 255, 0.2)',
-                'neon-glow-lg': '0 0 12px rgba(0, 229, 255, 0.4), 0 0 30px rgba(0, 229, 255, 0.15)',
+                // ── 血珀辉（altar-glow） ──
+                'altar-glow': '0 0 8px rgba(166,38,38,0.2), 0 0 20px rgba(166,38,38,0.08)',
+                'altar-glow-sm': '0 0 4px rgba(166,38,38,0.15)',
+                'altar-glow-lg': '0 0 12px rgba(166,38,38,0.25), 0 0 30px rgba(166,38,38,0.1)',
+                'altar-glow-active': '0 0 8px rgba(166,38,38,0.3)',
 
-                // ── White glow (spine nodes) ──
-                'white-glow': '0 0 10px rgba(255, 255, 255, 0.6)',
-                'white-glow-sm': '0 0 8px rgba(255, 255, 255, 0.3)',
-                'white-glow-lg': '0 0 12px rgba(255, 255, 255, 0.5)',
+                // ── 浮雕（raised） ──
+                'raised': '0 2px 8px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3)',
+                'raised-sm': '0 1px 4px rgba(0,0,0,0.3)',
+                'raised-md': '0 4px 16px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.3)',
+                'raised-lg': '0 8px 32px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.4)',
 
-                // ── Neon glow variants ──
-                'neon-glow-xs': '0 0 6px rgba(0, 229, 255, 0.3)',
-                'neon-glow-soft': '0 0 8px rgba(0, 229, 255, 0.3)',
-                'neon-glow-active': '0 0 8px rgba(0, 229, 255, 0.5)',
-                'neon-glow-ball': '0 0 16px rgba(0, 229, 255, 0.3)',
-                'neon-glow-btn': '0 0 8px rgba(0, 229, 255, 0.2)',
-                'neon-glow-subtle': '0 0 12px rgba(0, 229, 255, 0.15)',
+                // ── 烛光（candle） ──
+                'candle': '0 0 20px rgba(201,168,76,0.08), 0 4px 12px rgba(0,0,0,0.3)',
 
                 // ── Card state ──
-                'card-active': '0 0 12px rgba(0, 229, 255, 0.06), 0 4px 20px rgba(0, 0, 0, 0.25)',
+                'card-active': '0 2px 8px rgba(166,38,38,0.15), 0 4px 16px rgba(0,0,0,0.4)',
             },
             spacing: {
                 '4.5': '18px',

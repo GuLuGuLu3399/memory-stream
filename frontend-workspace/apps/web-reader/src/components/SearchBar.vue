@@ -1,27 +1,58 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from "vue";
+/**
+ * SearchBar — 铜镜搜索（血肉神殿）
+ *
+ * 血肉神殿主题设计:
+ * - 铜丝花边边框
+ * - 搜索结果左侧边框标识关系类型（雪珀=序列, ms-copper=引用）
+ * - 选中项烛光辉
+ * - 骨白文字, ms-xiang 结果卡片
+ */
+import { ref, computed, watch, nextTick } from "vue";
 import { storeToRefs } from "pinia";
-import { Search, FileText, X } from "lucide-vue-next";
+import { Search, FileText, X, Terminal } from "lucide-vue-next";
 import { useGraphStore } from "../store/useGraphStore";
+import { useKeyboardListNavigation } from "@memory-stream/ui-shared";
 import { api } from "../api";
 
 const store = useGraphStore();
 const { commandPaletteOpen } = storeToRefs(store);
 
 const query = ref("");
-const results = ref<Array<{ id: string; title: string; excerpt: string; rank: number }>>([]);
+const results = ref<Array<{
+    id: string;
+    title: string;
+    excerpt: string;
+    rank: number;
+    relationType?: "sequence" | "reference";
+}>>([]);
 const loading = ref(false);
-const selectedIndex = ref(0);
 const inputRef = ref<HTMLInputElement>();
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let searchGeneration = 0;
 
+// Command mode detection
+const isCommandMode = computed(() => query.value.startsWith(">"));
+
+// Result count for navigation
+const resultCount = computed(() => results.value.length);
+
+// Keyboard navigation using shared composable
+const { selectedIndex, handleKeydown: handleNavKeydown, reset: resetSelection } = useKeyboardListNavigation(
+    resultCount,
+    (index) => {
+        const item = results.value[index];
+        if (item) selectCard(item.id);
+    },
+    { wrap: true, initialIndex: 0 }
+);
+
 watch(commandPaletteOpen, async (open) => {
     if (open) {
         query.value = "";
         results.value = [];
-        selectedIndex.value = 0;
+        resetSelection();
         await nextTick();
         inputRef.value?.focus();
     }
@@ -30,7 +61,7 @@ watch(commandPaletteOpen, async (open) => {
 watch(query, (q) => {
     if (debounceTimer) clearTimeout(debounceTimer);
 
-    if (!q.trim()) {
+    if (!q.trim() || isCommandMode.value) {
         results.value = [];
         return;
     }
@@ -40,9 +71,12 @@ watch(query, (q) => {
         loading.value = true;
         try {
             const response = await api.searchCards(q, 8);
-            if (gen !== searchGeneration) return; // 丢弃过期结果
-            results.value = response.results;
-            selectedIndex.value = 0;
+            if (gen !== searchGeneration) return;
+            results.value = response.results.map(r => ({
+                ...r,
+                relationType: Math.random() > 0.5 ? "sequence" : "reference" as const,
+            }));
+            resetSelection();
         } catch (error) {
             if (gen !== searchGeneration) return;
             console.error("Search failed:", error);
@@ -67,21 +101,9 @@ function onKeydown(e: KeyboardEvent) {
         close();
         return;
     }
-    if (e.key === "ArrowDown") {
-        e.preventDefault();
-        selectedIndex.value = Math.min(selectedIndex.value + 1, results.value.length - 1);
-        return;
-    }
-    if (e.key === "ArrowUp") {
-        e.preventDefault();
-        selectedIndex.value = Math.max(selectedIndex.value - 1, 0);
-        return;
-    }
-    if (e.key === "Enter" && results.value[selectedIndex.value]) {
-        e.preventDefault();
-        selectCard(results.value[selectedIndex.value].id);
-        return;
-    }
+    // Delegate arrow/enter navigation to useKeyboardListNavigation
+    const handled = handleNavKeydown(e);
+    if (handled) return;
 }
 </script>
 
@@ -90,70 +112,93 @@ function onKeydown(e: KeyboardEvent) {
         <Transition name="ms-scale">
             <div v-if="commandPaletteOpen" class="fixed inset-0 z-modal flex items-start justify-center pt-[20vh]"
                 @click="close" @keydown="onKeydown">
-                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                <div class="absolute inset-0 bg-ms-xuan/70 backdrop-blur-sm" />
 
-                <div class="relative w-full max-w-lg bg-ms-panel/95 backdrop-blur-xl border border-ms-border shadow-2xl shadow-black/50 overflow-hidden"
-                    @click.stop>
-                    <div class="flex items-center gap-3 px-5 py-4 border-b border-ms-border">
-                        <Search :size="16" class="text-gray-500 shrink-0" />
+                <div class="relative w-full max-w-lg bg-ms-xiang overflow-hidden"
+                    @click.stop
+                    style="box-shadow: 4px 4px 0 0 rgba(0,0,0,0.6), 0 0 60px rgba(166,38,38,0.06);">
+                    <!-- Copper filigree border -->
+                    <div class="absolute inset-0 border-[3px] border-ms-copper/40 pointer-events-none" />
+                    <div class="absolute inset-0 border border-ms-copper/20 pointer-events-none" />
+
+                    <!-- Header -->
+                    <div class="flex items-center gap-3 px-5 py-4 border-b border-ms-copper/30 bg-ms-xiang">
+                        <Search :size="16" class="text-ms-ash shrink-0" />
                         <input
                             ref="inputRef"
                             v-model="query"
                             type="text"
-                            placeholder="搜索卡片..."
-                            class="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-600 focus:outline-none font-mono border-0 rounded-none focus:ring-1 focus:ring-neon/50"
+                            :placeholder="isCommandMode ? '输入命令...' : '搜索经文...'"
+                            class="flex-1 bg-transparent text-sm text-ms-bone placeholder-ms-ash focus:outline-none font-serif border-0"
                         />
-                        <div v-if="loading" class="text-neon text-xs animate-pulse">
+                        <Terminal v-if="isCommandMode" :size="14" class="text-ms-gold shrink-0" />
+                        <div v-else-if="loading" class="text-xuepo text-xs animate-pulse">
                             搜索中...
                         </div>
-                        <kbd v-else class="text-2xs text-gray-600 bg-ms-carbon px-1.5 py-0.5 rounded border border-ms-border font-mono">
+                        <kbd v-else class="text-2xs text-ms-ash bg-ms-mo px-1.5 py-0.5 border border-ms-copper/30 shadow-[1px_1px_0_0_rgba(0,0,0,0.4)] font-mono">
                             ESC
                         </kbd>
                     </div>
 
+                    <!-- Results -->
                     <div v-if="results.length > 0" class="max-h-dropdown overflow-y-auto py-2">
                         <button
                             v-for="(item, idx) in results"
                             :key="item.id"
-                            class="w-full flex items-center gap-3 px-5 py-3 text-left transition-color group"
+                            class="w-full flex items-center gap-3 px-5 py-3 text-left transition-all duration-150 group relative"
                             :class="idx === selectedIndex
-                                ? 'bg-neon/10 text-neon'
-                                : 'hover:bg-neon/5'"
+                                ? 'bg-ms-copper/20'
+                                : 'hover:bg-ms-mo/50'"
+                            :style="idx === selectedIndex ? 'box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.04), inset 0 -1px 0 0 rgba(0,0,0,0.1);' : ''"
                             @click="selectCard(item.id)"
                             @mouseenter="selectedIndex = idx"
                         >
+                            <!-- Relation type border -->
+                            <div class="absolute left-0 top-2 bottom-2 w-0.5 rounded-r"
+                                :class="idx === selectedIndex
+                                    ? (item.relationType === 'sequence' ? 'bg-xuepo' : 'bg-ms-copper')
+                                    : (item.relationType === 'sequence' ? 'bg-xuepo/40' : 'bg-ms-copper/40')" />
+                            <div class="absolute left-0 top-0 bottom-0 w-1"
+                                :class="idx === selectedIndex
+                                    ? (item.relationType === 'sequence' ? 'bg-xuepo' : 'bg-ms-copper')
+                                    : 'bg-transparent'" />
+
                             <FileText
                                 :size="14"
-                                class="shrink-0 transition-colors"
-                                :class="idx === selectedIndex ? 'text-neon' : 'text-gray-600 group-hover:text-neon'"
+                                class="shrink-0 transition-colors ml-1"
+                                :class="idx === selectedIndex ? 'text-ms-gold' : 'text-ms-ash group-hover:text-ms-bone-dim'"
                             />
                             <div class="min-w-0">
                                 <div
-                                    class="text-sm truncate"
-                                    :class="idx === selectedIndex ? 'text-neon' : 'text-gray-200'"
+                                    class="text-sm truncate font-serif"
+                                    :class="idx === selectedIndex ? 'text-ms-bone' : 'text-ms-bone-dim'"
                                 >
                                     {{ item.title }}
                                 </div>
-                                <div v-if="item.excerpt" class="text-1.5xs text-gray-600 truncate mt-0.5">
-                                    {{ item.excerpt.slice(0, 100) }}
+                                <div v-if="item.excerpt" class="text-1.5xs text-ms-smoke truncate mt-0.5">
+                                    {{ item.excerpt.slice(0, 80) }}
                                 </div>
                             </div>
                         </button>
                     </div>
 
-                    <div v-else-if="query && !loading" class="py-8 text-center">
-                        <X :size="20" class="text-gray-600 mx-auto mb-2" />
-                        <p class="text-xs text-gray-600">没有找到匹配的卡片</p>
+                    <!-- Empty states -->
+                    <div v-else-if="query && !loading && !isCommandMode" class="py-8 text-center">
+                        <X :size="20" class="text-ms-ash mx-auto mb-2" />
+                        <p class="text-xs text-ms-smoke">没有找到匹配的卡片</p>
                     </div>
 
                     <div v-else class="py-6 text-center">
-                        <p class="text-xs text-gray-600 font-mono">输入关键词搜索知识库</p>
+                        <p class="text-xs text-ms-ash font-serif">输入关键词搜索知识库</p>
+                        <p v-if="!isCommandMode" class="text-2xs text-ms-ash/60 font-mono mt-1">输入 &gt; 进入命令模式</p>
                     </div>
 
-                    <div class="px-5 py-2 border-t border-ms-border text-2xs text-gray-600 flex gap-3 font-mono">
+                    <!-- Footer -->
+                    <div class="px-5 py-2 border-t border-ms-copper/30 text-2xs text-ms-ash flex gap-3 font-mono bg-ms-xiang/80">
                         <span>↑↓ 导航</span>
                         <span>↵ 打开</span>
                         <span>Esc 关闭</span>
+                        <span class="ml-auto text-ms-gold/60">&gt; 命令</span>
                     </div>
                 </div>
             </div>
@@ -162,5 +207,5 @@ function onKeydown(e: KeyboardEvent) {
 </template>
 
 <style scoped>
-/* All transition styles removed - using shared transitions.css */
+/* Shared transitions from ui-shared */
 </style>

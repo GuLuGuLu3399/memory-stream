@@ -27,12 +27,6 @@ export const useGraphStore = defineStore("graph", () => {
   /** 分类过滤：null = 全部 */
   const categoryFilter = ref<string | null>(null);
 
-  // ── 图谱视图控制 ──
-  /** 图谱发散深度 (1-3) */
-  const graphDepth = ref(3);
-  /** 聚光灯模式：仅高亮 hover 节点及其直接连线 */
-  const spotlightMode = ref(false);
-
   // ── 全局 UI 状态 ──
   /** 禅模式：全屏阅读 + TOC */
   const zenMode = ref(false);
@@ -68,14 +62,6 @@ export const useGraphStore = defineStore("graph", () => {
     categoryFilter.value = cat;
   }
 
-  function setGraphDepth(depth: number) {
-    graphDepth.value = Math.max(1, Math.min(3, depth));
-  }
-
-  function toggleSpotlight() {
-    spotlightMode.value = !spotlightMode.value;
-  }
-
   function toggleZenMode() {
     zenMode.value = !zenMode.value;
   }
@@ -109,9 +95,6 @@ export const useGraphStore = defineStore("graph", () => {
     sortBy,
     density,
     categoryFilter,
-    // 图谱控制
-    graphDepth,
-    spotlightMode,
     // UI 状态
     zenMode,
     commandPaletteOpen,
@@ -123,8 +106,6 @@ export const useGraphStore = defineStore("graph", () => {
     setSortBy,
     setDensity,
     setCategoryFilter,
-    setGraphDepth,
-    toggleSpotlight,
     toggleZenMode,
     toggleCommandPalette,
   };

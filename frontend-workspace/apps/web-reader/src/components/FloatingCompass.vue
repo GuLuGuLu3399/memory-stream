@@ -1,13 +1,10 @@
 <script setup lang="ts">
 /**
- * 🌟 FloatingCompass — 悬浮阅读罗盘
+ * FloatingCompass — 罗盘导航（血肉神殿）
  *
  * 双态交互：
- * - 收起态：右下角 36×36 圆形胶囊，显示阅读进度 + 霓虹进度环
- * - 展开态：向左展开 240px 毛玻璃面板，递归 TOC 树
- *
- * 点击 TOC 项 → scrollIntoView 平滑跳转
- * IntersectionObserver 驱动当前项高亮（由父组件传入 activeSlug）
+ * - 收起态：右下角圆形胶囊，双环进度 + 罗盘指针
+ * - 展开态：向左展开 240px 面板，递归 TOC 树
  */
 
 import { ref, computed } from "vue";
@@ -19,18 +16,34 @@ const props = defineProps<{
     tocItems: TocItem[];
     activeSlug: string;
     containerEl: HTMLElement | undefined;
-    readProgress: number; // 真实滚动进度（0~100），由父组件通过 @scroll 计算
+    readProgress: number;
 }>();
 
 const expanded = ref(false);
 
-// ── SVG 进度环参数 ──
-const circumference = 2 * Math.PI * 14; // r=14
-const strokeDashoffset = computed(() => {
-    return circumference - (props.readProgress / 100) * circumference;
+// 内环：阅读进度 (r=12)
+const innerCircumference = 2 * Math.PI * 12;
+const innerStrokeDashoffset = computed(() => {
+    return innerCircumference - (props.readProgress / 100) * innerCircumference;
 });
 
-// ── 点击跳转：手动 scrollTo，避免 scrollIntoView 在 fixed 遮罩层下乱跳 ──
+// 外环：章节进度 (r=16)
+const chapterProgress = computed(() => {
+    if (props.tocItems.length === 0) return 0;
+    const activeIndex = props.tocItems.findIndex(item => item.slug === props.activeSlug);
+    return activeIndex >= 0 ? ((activeIndex + 1) / props.tocItems.length) * 100 : 0;
+});
+
+const outerCircumference = 2 * Math.PI * 16;
+const outerStrokeDashoffset = computed(() => {
+    return outerCircumference - (chapterProgress.value / 100) * outerCircumference;
+});
+
+// 罗盘指针旋转
+const needleRotation = computed(() => {
+    return props.readProgress * 3.6;
+});
+
 function scrollToHeading(slug: string) {
     const container = props.containerEl;
     if (!container) return;
@@ -38,14 +51,11 @@ function scrollToHeading(slug: string) {
     function tryScroll() {
         const c = container!;
         if (!c) return;
-        // 1. 精确匹配 id
         let el = c.querySelector(`[id="${slug}"]`) as HTMLElement | null;
-        // 2. Fallback：slug 中可能含特殊字符，尝试转义
         if (!el) {
             const escaped = CSS.escape(slug);
             el = c.querySelector(`[id="${escaped}"]`) as HTMLElement | null;
         }
-        // 3. Fallback：按 heading 文本内容模糊匹配
         if (!el) {
             const headings = c.querySelectorAll("h1, h2, h3, h4");
             for (const h of headings) {
@@ -58,52 +68,79 @@ function scrollToHeading(slug: string) {
         }
         if (!el) return;
 
-        // 🎯 关键修复：手动计算目标相对于滚动容器的偏移量
-        // 避免使用 scrollIntoView（会意外触发 body 滚动）
         let targetOffset = 0;
         let current: HTMLElement | null = el;
         while (current && current !== c) {
             targetOffset += current.offsetTop;
             current = current.offsetParent as HTMLElement | null;
         }
-        const paddingTop = 48; // 预留顶部间距，避免标题贴边
+        const paddingTop = 48;
         c.scrollTo({
             top: targetOffset - paddingTop,
             behavior: "smooth",
         });
     }
 
-    // 延迟一帧确保 DOM 就绪
     requestAnimationFrame(tryScroll);
+}
+
+function onCompassClick() {
+    if (expanded.value) {
+        // 已展开时，点击滚动到顶部
+        const container = props.containerEl;
+        if (container) {
+            container.scrollTo({ top: 0, behavior: "smooth" });
+        }
+    } else {
+        expanded.value = true;
+    }
 }
 </script>
 
 <template>
     <div v-if="tocItems.length > 0" class="relative" @mouseenter="expanded = true" @mouseleave="expanded = false">
-        <!-- ── 收起态：进度胶囊 ── -->
+        <!-- ── 收起态：双环进度胶囊 ── -->
         <button
-            class="relative w-9 h-9 flex items-center justify-center rounded-full bg-ms-carbon/80 backdrop-blur-xl border border-ms-border shadow-lg shadow-black/30 transition-all duration-300 hover:border-neon/40 hover:shadow-neon/10"
-            :class="{ 'opacity-0 scale-75 pointer-events-none': expanded }" @click="expanded = true">
-            <!-- 进度环 -->
+            class="relative w-9 h-9 flex items-center justify-center rounded-full bg-ms-xiang border border-ms-copper shadow-raised transition-all duration-300 hover:border-xuepo/60 hover:shadow-altar-glow"
+            :class="{ 'opacity-0 scale-75 pointer-events-none': expanded }"
+            @click="onCompassClick">
+            <!-- 外环：章节进度 (xuepo/60) -->
             <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" stroke-width="2"
-                    class="text-gray-800" />
-                <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" stroke-width="2"
-                    :stroke-dasharray="circumference" :stroke-dashoffset="strokeDashoffset" stroke-linecap="round"
-                    class="text-neon transition-all duration-500" />
+                <!-- 外环底色 -->
+                <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" stroke-width="1.5"
+                    class="text-ms-copper/30" />
+                <!-- 外环进度 -->
+                <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" stroke-width="1.5"
+                    :stroke-dasharray="outerCircumference" :stroke-dashoffset="outerStrokeDashoffset" stroke-linecap="round"
+                    class="text-xuepo/60 transition-all duration-500" />
+
+                <!-- 内环：阅读进度 (ms-gold) -->
+                <circle cx="18" cy="18" r="12" fill="none" stroke="currentColor" stroke-width="2"
+                    class="text-ms-copper" />
+                <circle cx="18" cy="18" r="12" fill="none" stroke="currentColor" stroke-width="2"
+                    :stroke-dasharray="innerCircumference" :stroke-dashoffset="innerStrokeDashoffset" stroke-linecap="round"
+                    class="text-ms-gold transition-all duration-500" />
             </svg>
-            <Compass :size="14" class="text-gray-400" />
+
+            <!-- 罗盘指针 -->
+            <svg class="absolute inset-0 w-full h-full" viewBox="0 0 36 36">
+                <g :transform="`rotate(${needleRotation}, 18, 18)`" class="transition-transform duration-300 ease-out">
+                    <polygon points="18,6 15,18 18,15 21,18" fill="currentColor" class="text-ms-gold/80" />
+                </g>
+            </svg>
+
+            <Compass :size="14" class="text-ms-smoke opacity-20" />
         </button>
 
-        <!-- ── 展开态：玻璃 TOC 面板 ── -->
+        <!-- ── 展开态：TOC 面板 ── -->
         <Transition name="compass-expand">
             <div v-if="expanded"
-                class="absolute bottom-0 right-12 w-60 max-h-[60vh] bg-ms-carbon/85 backdrop-blur-xl border border-ms-border rounded-sm shadow-2xl shadow-black/40 overflow-hidden flex flex-col">
+                class="absolute bottom-0 right-12 w-60 max-h-[60vh] bg-ms-xiang border border-ms-copper rounded-altar shadow-raised-lg overflow-hidden flex flex-col">
                 <!-- 面板头 -->
-                <div class="px-4 pt-3 pb-2 border-b border-ms-border flex-shrink-0">
+                <div class="px-4 pt-3 pb-2 border-b border-ms-copper flex-shrink-0">
                     <div class="flex items-center justify-between">
-                        <span class="text-2xs text-gray-600 font-mono uppercase tracking-widest">目录</span>
-                        <span class="text-2xs text-neon font-mono">{{ readProgress }}%</span>
+                        <span class="text-2xs text-ms-ash font-mono uppercase tracking-widest">目录</span>
+                        <span class="text-2xs text-ms-gold font-mono">{{ Math.round(readProgress) }}%</span>
                     </div>
                 </div>
 
@@ -120,10 +157,9 @@ function scrollToHeading(slug: string) {
 </template>
 
 <style scoped>
-/* ── 面板展开/收起动画 ── */
 .compass-expand-enter-active,
 .compass-expand-leave-active {
-    transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 250ms cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .compass-expand-enter-from,
@@ -131,5 +167,4 @@ function scrollToHeading(slug: string) {
     opacity: 0;
     transform: translateX(12px) scale(0.95);
 }
-
 </style>

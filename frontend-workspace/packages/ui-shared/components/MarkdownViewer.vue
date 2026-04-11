@@ -35,10 +35,57 @@ async function getShikiHighlighter() {
         const { createHighlighter } = await import('shiki');
         highlighter = await createHighlighter({
             themes: ['vitesse-dark', 'vitesse-light'],
-            langs: ['rust', 'go', 'javascript', 'typescript', 'vue', 'html', 'css', 'json', 'bash', 'markdown']
+            langs: [
+                // 核心语言
+                'rust', 'go', 'javascript', 'typescript', 'vue', 'html', 'css', 'json', 'bash', 'markdown',
+                // 扩展语言
+                'python', 'java', 'c', 'cpp', 'sql', 'yaml', 'toml', 'shell', 'diff',
+                'dockerfile', 'protobuf', 'regex', 'xml', 'lua', 'nix', 'ini',
+            ]
         });
     }
     return highlighter;
+}
+
+// 代码块语言别名映射（用户常用名 → Shiki 内部名）
+const LANG_ALIASES: Record<string, string> = {
+    js: 'javascript',
+    ts: 'typescript',
+    py: 'python',
+    sh: 'shell',
+    shell: 'bash',
+    yml: 'yaml',
+    rb: 'ruby',
+    'c++': 'cpp',
+    golang: 'go',
+    makefile: 'make',
+    docker: 'dockerfile',
+    proto: 'protobuf',
+};
+
+function resolveLang(raw: string): string {
+    const lower = raw.toLowerCase();
+    return LANG_ALIASES[lower] ?? lower;
+}
+
+// 解析代码块元数据中的行高亮范围，如 `{1,3-5}` → Set(1,3,4,5)
+function parseHighlightLines(meta: string): Set<number> {
+    const lines = new Set<number>();
+    const match = meta.match(/\{([^}]+)\}/);
+    if (!match) return lines;
+    for (const part of match[1].split(',')) {
+        const trimmed = part.trim();
+        const range = trimmed.match(/^(\d+)-(\d+)$/);
+        if (range) {
+            const start = parseInt(range[1], 10);
+            const end = parseInt(range[2], 10);
+            for (let i = start; i <= end; i++) lines.add(i);
+        } else {
+            const n = parseInt(trimmed, 10);
+            if (!isNaN(n)) lines.add(n);
+        }
+    }
+    return lines;
 }
 
 // ========== 富文本后处理钩子 ==========
@@ -70,10 +117,15 @@ async function applyRichTextRendering(container: HTMLElement) {
 
             codeBlocks.forEach((el) => {
                 const codeEl = el as HTMLElement;
-                const match = codeEl.className.match(/language-([a-zA-Z0-9]+)/);
-                let lang = match ? match[1].toLowerCase() : 'text';
+                const match = codeEl.className.match(/language-([a-zA-Z0-9+]+)/);
+                const rawLang = match ? match[1] : '';
+                let lang = rawLang ? resolveLang(rawLang) : 'text';
 
-                if (lang === 'mermaid') return;
+                if (rawLang.toLowerCase() === 'mermaid') return;
+
+                // 提取 data-meta 中的行高亮信息
+                const meta = codeEl.getAttribute('data-meta') || '';
+                const highlightLines = parseHighlightLines(meta);
 
                 if (!loadedLangs.includes(lang)) {
                     lang = 'text';
@@ -81,15 +133,46 @@ async function applyRichTextRendering(container: HTMLElement) {
 
                 const code = codeEl.textContent || '';
                 try {
-                    const html = shiki.codeToHtml(code, {
+                    let highlighted = shiki.codeToHtml(code, {
                         lang,
                         theme: 'vitesse-dark'
                     });
+
+                    // 后处理：为每一行添加行号和高亮标记
+                    let lineNum = 0;
+                    highlighted = highlighted.replace(
+                        /(<span class="line")/g,
+                        () => {
+                            lineNum++;
+                            const isHighlighted = highlightLines.has(lineNum);
+                            return `<span class="line${isHighlighted ? ' highlighted' : ''}" data-line="${lineNum}"`;
+                        }
+                    );
+
+                    const hasLineNumbers = meta.includes('showLineNumbers') || meta.includes('ln');
+                    const wrapperClass = `code-block-wrapper${hasLineNumbers ? ' show-line-numbers' : ''}`;
+                    const label = rawLang ? rawLang.toLowerCase() : '';
+                    const wrapped = `<div class="${wrapperClass}" data-lang="${label}">
+                        <div class="code-block-header">
+                            <span class="code-block-lang">${label}</span>
+                            <button class="code-copy-btn" title="复制代码" data-code="">复制</button>
+                        </div>
+                        ${highlighted}
+                    </div>`;
                     if (codeEl.parentElement) {
-                        codeEl.parentElement.outerHTML = html;
+                        codeEl.parentElement.outerHTML = wrapped;
                     }
                 } catch (err) {
                     console.error(`Shiki 渲染 [${lang}] 时崩溃:`, err);
+                }
+            });
+
+            // 设置复制按钮的 data-code 属性（从高亮后的 code 元素提取纯文本）
+            container.querySelectorAll('.code-block-wrapper').forEach((wrapper) => {
+                const codeEl = wrapper.querySelector('code') || wrapper.querySelector('pre');
+                const btn = wrapper.querySelector('.code-copy-btn');
+                if (codeEl && btn) {
+                    btn.setAttribute('data-code', codeEl.textContent || '');
                 }
             });
         } catch (e) {
@@ -137,8 +220,28 @@ async function applyRichTextRendering(container: HTMLElement) {
     }
 }
 
-// ========== 锚点跳转拦截 ==========
-function handleViewerClick(e: MouseEvent) {
+// ========== 锚点跳转拦截 & 复制按钮 ==========
+async function handleViewerClick(e: MouseEvent) {
+    // 复制按钮处理
+    const copyBtn = (e.target as HTMLElement).closest('.code-copy-btn');
+    if (copyBtn) {
+        const code = (copyBtn as HTMLElement).getAttribute('data-code') || '';
+        try {
+            await navigator.clipboard.writeText(code);
+            copyBtn.textContent = '已复制';
+            copyBtn.classList.add('copied');
+            setTimeout(() => {
+                copyBtn.textContent = '复制';
+                copyBtn.classList.remove('copied');
+            }, 2000);
+        } catch {
+            copyBtn.textContent = '失败';
+            setTimeout(() => { copyBtn.textContent = '复制'; }, 2000);
+        }
+        return;
+    }
+
+    // 锚点跳转处理
     const target = (e.target as HTMLElement).closest('a');
     if (!target) return;
 
@@ -190,7 +293,34 @@ onUnmounted(() => {
    data-v- attributes, so scoped selectors would not match rendered markdown elements.
    All styles are class-scoped via .markdown-body / .prose to prevent global leakage. */
 
-/* KaTeX MathML 辅助文本（屏幕阅读器用，视觉上已由 KaTeX 自身隐藏） */
+/* KaTeX: 隐藏 CSS 视觉层，仅保留 MathML 语义渲染 */
+.markdown-body .katex-html {
+    display: none !important;
+}
+/* 行内公式：MathML 必须保持 inline，否则会破坏文本流 */
+.markdown-body .katex-mathml {
+    display: inline !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: auto !important;
+    position: static !important;
+    clip: auto !important;
+}
+/* 块级公式：独立居中显示 */
+.markdown-body .katex-display .katex-mathml {
+    display: block !important;
+    text-align: center !important;
+}
+.markdown-body .katex {
+    font-size: 1.1em;
+}
+/* 确保行内公式不产生额外间距 */
+.markdown-body .math-inline .katex {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    vertical-align: baseline;
+}
 
 /* ==================== 排版基石 ==================== */
 .markdown-body {
@@ -233,8 +363,43 @@ onUnmounted(() => {
 }
 
 /* ==================== 代码块 ==================== */
+.code-block-wrapper {
+    @apply relative my-6 rounded-xl border border-zinc-800 bg-[#121212] shadow-2xl overflow-hidden;
+}
+
+.code-block-wrapper pre.shiki {
+    @apply p-4 text-sm overflow-x-auto;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none;
+}
+
+.code-block-header {
+    @apply flex items-center justify-between px-4 py-1.5 border-b border-zinc-800/60 bg-zinc-900/40;
+}
+
+.code-block-lang {
+    @apply text-xs font-medium text-zinc-500 tracking-wide uppercase select-none;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+
+.code-copy-btn {
+    @apply text-xs text-zinc-500 hover:text-zinc-300 px-2 py-0.5 rounded transition-colors cursor-pointer bg-transparent border-none;
+    font-family: system-ui, sans-serif;
+}
+
+.code-copy-btn:hover {
+    @apply bg-zinc-800;
+}
+
+.code-copy-btn.copied {
+    @apply text-emerald-400;
+}
+
 .prose pre.shiki {
-    @apply relative p-4 rounded-xl border border-zinc-800 bg-[#121212] my-6 text-sm shadow-2xl overflow-x-auto;
+    @apply relative p-4 rounded-xl border border-zinc-800 bg-[#121212] text-sm shadow-2xl overflow-x-auto;
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
 
@@ -255,7 +420,37 @@ onUnmounted(() => {
 }
 
 .prose code:not(pre code) {
-    @apply bg-zinc-800/70 text-indigo-300 px-1.5 py-0.5 rounded text-sm font-medium;
+    background: rgba(166, 38, 38, 0.12);
+    color: #f0b429;
+    padding: 2px 6px;
+    margin: 0 2px;
+    border-radius: 3px;
+    border: 1px solid rgba(201, 168, 76, 0.15);
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    font-weight: 500;
+    box-shadow: 1px 1px 0 0 rgba(0, 0, 0, 0.3);
+}
+
+/* 行高亮 */
+.code-block-wrapper .line.highlighted {
+    @apply bg-indigo-500/10 border-l-2 border-indigo-400 -ml-1 pl-1;
+    display: inline-block;
+    width: calc(100% + 8px);
+    margin-left: -8px;
+    padding-left: 7px;
+}
+
+/* 行号 */
+.code-block-wrapper.show-line-numbers pre {
+    counter-reset: line;
+}
+
+.code-block-wrapper.show-line-numbers .line::before {
+    counter-increment: line;
+    content: counter(line);
+    @apply inline-block w-8 mr-4 text-right text-zinc-600 select-none;
+    font-variant-numeric: tabular-nums;
 }
 
 /* ==================== 引用块 ==================== */
@@ -339,5 +534,47 @@ onUnmounted(() => {
 /* ==================== 分割线 ==================== */
 .prose hr {
     @apply border-zinc-800 my-8;
+}
+
+/* ==================== 脚注 ==================== */
+.prose sup.footnote-ref a {
+    @apply text-indigo-400 no-underline text-xs font-medium;
+}
+
+.prose sup.footnote-ref a:hover {
+    @apply text-indigo-300 underline;
+}
+
+.prose section.footnote-def {
+    @apply my-4 p-4 border border-zinc-800 rounded-lg bg-zinc-900/30 text-sm text-zinc-400;
+}
+
+.prose section.footnote-def .footnote-back-ref {
+    @apply float-right my-0;
+}
+
+.prose section.footnote-def .footnote-back-ref a {
+    @apply text-zinc-500 no-underline text-xs;
+}
+
+.prose section.footnote-def .footnote-back-ref a:hover {
+    @apply text-zinc-300;
+}
+
+/* ==================== 定义列表 ==================== */
+.prose dl {
+    @apply my-6 border-l-4 border-zinc-700 pl-6;
+}
+
+.prose dt {
+    @apply font-semibold text-zinc-200 mt-4;
+}
+
+.prose dt:first-child {
+    @apply mt-0;
+}
+
+.prose dd {
+    @apply text-zinc-400 mt-1 ml-0;
 }
 </style>

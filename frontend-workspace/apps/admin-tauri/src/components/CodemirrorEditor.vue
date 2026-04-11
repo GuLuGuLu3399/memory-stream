@@ -5,6 +5,9 @@ import { EditorState, Extension } from '@codemirror/state'
 import { markdown } from '@codemirror/lang-markdown'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { wikilinkHighlight } from '../composables/wikilinkHighlight'
+import { createTheme } from './editor/createTheme'
+import { useGutterDecorations } from './editor/useGutterDecorations'
+import { formatMarkdown } from '../composables/useMdFormatter'
 
 // Props
 interface Props {
@@ -26,71 +29,31 @@ const emit = defineEmits<{
 const editorContainer = ref<HTMLDivElement | null>(null)
 const editorView = shallowRef<EditorView | null>(null)
 
+// Initialize gutter decorations composable
+const { createGutterDecorationsPlugin } = useGutterDecorations()
 
-// Theme for dark mode matching ms-deep/ms-carbon palette
-const editorTheme = EditorView.theme({
-  '&': {
-    height: '100%',
-    fontSize: '14px',
-    backgroundColor: 'transparent',
-  },
-  '.cm-scroller': {
-    fontFamily: '"JetBrains Mono", "Fira Code", Consolas, Monaco, monospace',
-    lineHeight: '1.625',
-    overflow: 'auto',
-  },
-  '.cm-content': {
-    padding: '24px',
-    caretColor: '#00e5ff',
-    color: '#94a3b8', // slate-400
-  },
-  '.cm-cursor': {
-    borderLeftColor: '#00e5ff',
-  },
-  '&.cm-focused .cm-cursor': {
-    borderLeftColor: '#00e5ff',
-  },
-  '.cm-gutters': {
-    backgroundColor: 'transparent',
-    color: '#475569', // slate-600
-    border: 'none',
-    paddingRight: '8px',
-  },
-  '.cm-activeLineGutter': {
-    backgroundColor: 'rgba(0, 229, 255, 0.05)',
-    color: '#00e5ff',
-  },
-  '.cm-activeLine': {
-    backgroundColor: 'rgba(0, 229, 255, 0.03)',
-  },
-  '.cm-line': {
-    padding: '0 4px',
-  },
-  '.cm-placeholder': {
-    color: '#475569', // slate-600
-    fontStyle: 'italic',
-    padding: '0 4px',
-  },
-  // Selection
-  '.cm-selectionBackground': {
-    backgroundColor: 'rgba(0, 229, 255, 0.15) !important',
-  },
-  '&.cm-focused .cm-selectionBackground': {
-    backgroundColor: 'rgba(0, 229, 255, 0.25) !important',
-  },
-  // Search highlight
-  '.cm-searchMatch': {
-    backgroundColor: 'rgba(0, 229, 255, 0.2)',
-    outline: '1px solid rgba(0, 229, 255, 0.4)',
-  },
-  '.cm-searchMatch-selected': {
-    backgroundColor: 'rgba(0, 229, 255, 0.35)',
-  },
-})
+// Create Mechanical Altar theme
+const editorTheme = createTheme()
 
 // Placeholder extension
 function createPlaceholder(text: string): Extension {
   return EditorView.contentAttributes.of({ 'data-placeholder': text })
+}
+
+// Format handler — async, returns true to consume the key
+async function handleFormat(): Promise<boolean> {
+  const view = editorView.value
+  if (!view) return false
+
+  const raw = view.state.doc.toString()
+  const formatted = await formatMarkdown(raw)
+
+  if (formatted !== raw) {
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: formatted },
+    })
+  }
+  return true
 }
 
 // Save keymap handler
@@ -99,6 +62,13 @@ const saveKeymap = keymap.of([
     key: 'Mod-s',
     run: () => {
       emit('save')
+      return true
+    },
+  },
+  {
+    key: 'Mod-Shift-f',
+    run: () => {
+      handleFormat()
       return true
     },
   },
@@ -115,6 +85,7 @@ function createExtensions(): Extension[] {
     history(),
     markdown(),
     wikilinkHighlight(),
+    createGutterDecorationsPlugin(),
     editorTheme,
     saveKeymap,
     createPlaceholder(props.placeholder),
@@ -170,9 +141,10 @@ watch(
   }
 )
 
-// Expose editor view for parent component (image paste)
+// Expose editor view + format for parent component
 defineExpose({
   editorView,
+  format: handleFormat,
 })
 </script>
 

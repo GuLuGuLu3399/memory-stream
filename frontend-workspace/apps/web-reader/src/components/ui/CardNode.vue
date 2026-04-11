@@ -1,366 +1,375 @@
 <script setup lang="ts">
 /**
- * 🌟 CardNode — 统一的卡片渲染原子组件
+ * CardNode — 墨玉符牌（血肉神殿）
  *
- * 支持：
- * - Handle 锚点：Left(target) / Right(source) 水平数据流
- * - Sequence 节点：深色细边框 + 霓虹青光晕
- * - Reference 节点：zinc 虚线边框 + 半透明背景
- * - 热度角标：右上角 font-mono（暗色主题协调）
- * - 三级语义缩放：outline / summary / detail
- * - 选中状态：霓虹呼吸发光（GPU 加速）
+ * 设计理念：每个节点是一块深色玉牌，烛光穿透，余烬明灭。
+ *   - 顶部辉光条区分类型（经脉=血珀红 · 引渡=金缮金）
+ *   - 悬停时烛光辉映（暖色径向渐变增强）
+ *   - 选中时左侧血珀脉动条
+ *   - 孤岛节点如幽灵碎玉，若隐若现
+ *
+ * 物理接口：Left (target) ← node → Right (source) — 匹配 Dagre LR
+ * 容错机制：title 缺失显示 "无标题"，min-width/min-height 保底
  */
 
-import { computed, ref } from "vue";
-import { storeToRefs } from "pinia";
+import { computed, ref, inject, type Ref } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import { useGraphStore } from "../../store/useGraphStore";
+import { useOblivionHeatmap } from "../../composables/useOblivionHeatmap";
 
+/** 节点数据接口 */
 interface CardNodeData {
-    title: string;
+    title?: string;
     date?: string;
-    type?: string; // "sequence" | "reference"
+    type?: string;
     heat?: number;
-    preview?: string; // Markdown 预览文本
-    isOrphan?: boolean; // 孤岛标记：无任何边连接的节点
+    preview?: string;
+    isOrphan?: boolean;
 }
 
 const props = defineProps<{
     data: CardNodeData;
     id: string;
     selected?: boolean;
-    highlighted?: boolean;
 }>();
 
-// ── 从 Pinia Store 获取 tier 和 selectedId ──
-const graphStore = useGraphStore();
-const { selectedId, semanticTier } = storeToRefs(graphStore);
-
-const isSequence = computed(() => props.data.type === "sequence");
-const isSelected = computed(() => selectedId.value === props.id);
-const isHighlighted = computed(() => graphStore.highlightedId === props.id);
-const tier = computed(() => semanticTier.value || "summary");
-
-// 语义缩放：根据 tier 切换显示内容
-const showOutline = computed(() => tier.value === "outline");
-const showSummary = computed(() => tier.value === "summary");
-const showDetail = computed(() => tier.value === "detail");
-
-// 悬停状态
 const isHovered = ref(false);
+const isDragOver = ref(false);
+
+// ── 遗忘热力学：CardNode 自管理衰减 opacity ──
+const heatmapEnabled = inject<Ref<boolean>>("heatmapEnabled", { value: true } as Ref<boolean>);
+const { getDecay } = useOblivionHeatmap();
+
+const decayOpacity = computed(() => {
+    if (!heatmapEnabled.value) return 1;
+    return getDecay(props.id);
+});
+
+const displayTitle = computed(() => props.data?.title?.trim() || "无标题");
+const isSequence = computed(() => props.data?.type === "sequence");
+const heatGlow = computed(() => {
+    const h = props.data?.heat || 0;
+    if (h <= 3) return 0.2;
+    if (h <= 7) return 0.35;
+    return 0.5;
+});
 </script>
 
 <template>
-    <div class="card-node" :class="{
-        'card-sequence': isSequence && !data.isOrphan,
-        'card-reference': !isSequence && !data.isOrphan,
-        'card-orphan': data.isOrphan,
-        'card-outline': showOutline,
-        'card-detail': showDetail,
-        'card-selected': isSelected,
-        'card-highlighted': isHighlighted,
-        'card-hovered': isHovered,
-    }" @mouseenter="isHovered = true" @mouseleave="isHovered = false">
-        <!-- ── 左侧入锚点 (target) ── -->
-        <Handle type="target" :position="Position.Left" class="handle-node handle-target" />
+    <div
+        class="jade"
+        :class="{
+            'jade-sequence': isSequence && !data?.isOrphan,
+            'jade-reference': !isSequence && !data?.isOrphan,
+            'jade-orphan': data?.isOrphan,
+            'jade-selected': selected,
+            'jade-hovered': isHovered,
+        }"
+        :style="{
+            '--heat': `rgba(201,168,76,${heatGlow})`,
+            '--decay-opacity': decayOpacity,
+        }"
+        @mouseenter="isHovered = true"
+        @mouseleave="isHovered = false"
+        @dragover.prevent="isDragOver = true"
+        @dragleave="isDragOver = false"
+        @drop="isDragOver = false"
+    >
+        <!-- Target handle (left) -->
+        <Handle
+            type="target"
+            :position="Position.Left"
+            class="copper-ring"
+            :class="{ 'ring-lit': isDragOver }"
+        />
 
-        <!-- 热度角标 -->
-        <span v-if="data.heat && !showOutline" class="heat-badge font-mono">
-            🔥 {{ data.heat }}
-        </span>
+        <!-- Top accent line -->
+        <div class="accent-line" />
 
-        <!-- Outline 模式：仅显示分类标题 -->
-        <template v-if="showOutline">
-            <div class="node-title text-xs truncate">{{ data.title }}</div>
-        </template>
+        <!-- Selected pulse bar -->
+        <div v-if="selected" class="pulse-bar" />
 
-        <!-- Summary 模式：标题 + 日期 -->
-        <template v-else-if="showSummary">
-            <div class="node-title">{{ data.title }}</div>
-            <div v-if="data.date" class="node-date">{{ data.date }}</div>
-        </template>
+        <!-- Content -->
+        <div class="jade-body">
+            <span class="jade-title">{{ displayTitle }}</span>
+            <span v-if="data?.date" class="jade-date">{{ data.date }}</span>
+        </div>
 
-        <!-- Detail 模式：标题 + 日期 + Markdown 预览 -->
-        <template v-else>
-            <div class="node-title text-sm">{{ data.title }}</div>
-            <div v-if="data.date" class="node-date">{{ data.date }}</div>
-            <div v-if="data.preview" class="node-preview">{{ data.preview }}</div>
-        </template>
+        <!-- Heat ember -->
+        <span v-if="data?.heat" class="ember font-mono">{{ Math.round(data.heat) }}</span>
 
-        <!-- 悬停 Popover（Phase W-2 进阶） -->
-        <Transition name="popover">
-            <div v-if="isHovered && data.preview && !showOutline" class="card-popover">
-                <p class="text-xs text-gray-400 line-clamp-3">{{ data.preview }}</p>
-            </div>
-        </Transition>
-
-        <!-- ── 右侧出锚点 (source) ── -->
-        <Handle type="source" :position="Position.Right" class="handle-node handle-source" />
+        <!-- Source handle (right) -->
+        <Handle
+            type="source"
+            :position="Position.Right"
+            class="copper-ring"
+            :class="{ 'ring-lit': isDragOver }"
+        />
     </div>
 </template>
 
 <style scoped>
-/* ── Design Tokens (via Tailwind theme) ── */
-.card-node {
-    /* 颜色 tokens — 统一引用 tailwind.config.js */
-    --c-border: theme('colors.ms-border');
-    --c-carbon: theme('colors.ms-carbon');
-    --c-panel: theme('colors.ms-panel');
-    --c-neon: theme('colors.neon.DEFAULT');
-    --c-text: theme('colors.gray.200');
-    --c-text-dim: theme('colors.gray.500');
-    --c-text-muted: theme('colors.gray.400');
-    --c-zinc-500: theme('colors.zinc.500');
-    --c-zinc-600: theme('colors.zinc.600');
-    --c-handle-bg: theme('colors.ms-border');
-    --c-handle-border: theme('colors.gray.600');
-
-    /* RGB 分量用于 box-shadow / gradient 中的 alpha 组合 */
-    --neon-rgb: 0, 229, 255;
-    --carbon-rgb: 26, 26, 26;
-    --panel-rgb: 34, 34, 34;
+/* ═══ Tokens ═══ */
+.jade {
+    --bg: #1c1814;
+    --bg-warm: #2a2218;
+    --border: #3a3228;
+    --border-bright: #4a4238;
+    --bone: #e8dfd0;
+    --bone-dim: #c8bfa8;
+    --copper: #3a3228;
+    --copper-light: #4a4238;
+    --ash: #8a7e6e;
+    --smoke: #5a4f3e;
+    --xuepo: #a62626;
+    --xuepo-rgb: 166, 38, 38;
+    --gold: #c9a84c;
+    --gold-rgb: 201, 168, 76;
+    --heat: rgba(201, 168, 76, 0.2);
+    --decay-opacity: 1;
 }
 
-/* ── 基础卡片 ── */
-.card-node {
+/* ═══ Base: dark jade — optical elevation, no soft blur ═══ */
+.jade {
     position: relative;
     min-width: 180px;
-    max-width: 280px;
-    padding: 12px 16px;
-    border-radius: 2px;
+    min-height: 48px;
+    padding: 12px 18px;
+    border-radius: 3px;
     cursor: pointer;
-    border: 1px solid var(--c-border);
-    background: var(--c-carbon);
+    opacity: var(--decay-opacity);
+
+    background:
+        radial-gradient(ellipse at 25% 0%, rgba(var(--gold-rgb), 0.04) 0%, transparent 50%),
+        #12100c;
+
+    border: 1px solid var(--border);
+
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+        2px 2px 0 0 rgba(0, 0, 0, 0.6);
+
     transition:
-        min-width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-        max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-        padding 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-        box-shadow 0.3s ease,
-        border-color 0.3s ease,
-        transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        opacity 0.4s ease,
+        box-shadow 0.15s ease,
+        border-color 0.25s ease,
+        transform 0.15s ease,
+        background 0.3s ease;
     will-change: transform, box-shadow;
     transform: translateZ(0);
-    backface-visibility: hidden;
 }
 
-/* ── Hover 态：霓虹青向外晕染 ── */
-.card-node:hover,
-.card-hovered {
-    border-color: rgba(var(--neon-rgb), 0.3);
+/* ═══ Hover: candlelight warms the jade — mechanical lift ═══ */
+.jade:hover,
+.jade-hovered {
+    border-color: var(--border-bright);
+    transform: translate(-1px, -1px);
+
+    background:
+        radial-gradient(ellipse at 30% 0%, rgba(var(--gold-rgb), 0.09) 0%, transparent 50%),
+        var(--bg-warm);
+
     box-shadow:
-        0 0 16px rgba(var(--neon-rgb), 0.2),
-        0 0 32px rgba(var(--neon-rgb), 0.08);
-    transform: scale(1.03);
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+        3px 3px 0 0 rgba(0, 0, 0, 0.6);
 }
 
-/* ── Sequence 节点：左侧霓虹微光标识线 ── */
-.card-sequence {
-    box-shadow: 0 2px 12px rgba(var(--neon-rgb), 0.08);
-}
-
-.card-sequence::after {
-    content: "";
+/* ═══ Top accent line — type identifier ═══ */
+.accent-line {
     position: absolute;
-    left: 0;
-    top: 20%;
-    bottom: 20%;
-    width: 2px;
-    background: linear-gradient(to bottom,
-            transparent,
-            rgba(var(--neon-rgb), 0.6),
-            transparent);
-    border-radius: 1px;
+    top: -1px;
+    left: 16px;
+    right: 16px;
+    height: 1px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
-.card-sequence:hover {
-    box-shadow:
-        0 0 20px rgba(var(--neon-rgb), 0.25),
-        0 0 40px rgba(var(--neon-rgb), 0.1);
+/* Sequence: blood-amber */
+.jade-sequence .accent-line {
+    background: linear-gradient(90deg, transparent, var(--xuepo) 30%, var(--xuepo) 70%, transparent);
+    opacity: 0.5;
 }
 
-/* ── Reference 节点：zinc 虚线 + 半透明 ── */
-.card-reference {
-    background: rgba(var(--carbon-rgb), 0.5);
-    border: 1px dashed var(--c-zinc-500);
+.jade-sequence {
+    border-left: 2px solid rgba(var(--xuepo-rgb), 0.2);
 }
 
-.card-reference:hover {
-    border-color: var(--c-text-muted);
-    background: rgba(var(--carbon-rgb), 0.7);
+.jade-sequence:hover {
+    border-left-color: rgba(var(--xuepo-rgb), 0.4);
 }
 
-/* ── ☄️ 孤岛星尘 (Orphan Stardust) ── */
-.card-orphan {
+/* Reference: gold */
+.jade-reference .accent-line {
+    background: linear-gradient(90deg, transparent, var(--gold) 30%, var(--gold) 70%, transparent);
+    opacity: 0.35;
+}
+
+.jade-reference {
+    border: 1px dashed var(--border);
+}
+
+.jade-reference:hover {
+    border-color: rgba(var(--gold-rgb), 0.5);
+}
+
+/* Hover intensifies accent */
+.jade:hover .accent-line,
+.jade-hovered .accent-line {
+    opacity: 0.8;
+}
+
+/* ═══ Orphan: ghost jade ═══ */
+.jade-orphan {
     min-width: 120px;
     max-width: 180px;
     padding: 8px 12px;
-    background: rgba(var(--carbon-rgb), 0.3);
-    border: 1px dashed var(--c-zinc-600);
-    opacity: 0.5;
+    background: rgba(18, 16, 12, 0.4);
+    border: 1px dashed rgba(74, 66, 56, 0.3);
+    opacity: 0.55;
     transform: scale(0.7);
-    transform-origin: center center;
+    transform-origin: center;
+    animation: ghostBreath 4s ease-in-out infinite;
 }
 
-.card-orphan .node-title {
+@keyframes ghostBreath {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.7; }
+}
+
+.jade-orphan:hover {
+    opacity: 1;
+    transform: scale(0.85);
+    border-color: var(--border);
+    background: rgba(28, 24, 20, 0.9);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.03),
+        2px 2px 0 0 rgba(0, 0, 0, 0.5);
+}
+
+.jade-orphan .jade-title {
     font-size: 11px;
-    color: var(--c-text-muted);
+    color: var(--ash);
 }
 
-.card-orphan:hover,
-.card-orphan.card-hovered {
-    opacity: 1;
-    border-color: rgba(var(--neon-rgb), 0.3);
-    background: rgba(var(--carbon-rgb), 0.7);
-    transform: scale(0.85);
-    box-shadow:
-        0 0 12px rgba(var(--neon-rgb), 0.15),
-        0 0 24px rgba(var(--neon-rgb), 0.05);
-}
-
-.card-orphan.card-selected {
-    transform: scale(0.85);
-}
-
-.card-orphan .handle-node {
-    width: 6px;
-    height: 6px;
-    opacity: 0.3;
-}
-
-.card-orphan:hover .handle-node {
-    opacity: 1;
-}
-
-/* ── 选中状态：霓虹呼吸发光 ── */
-.card-selected {
-    border-color: var(--c-neon) !important;
+/* ═══ Selected: blood-amber pulse — hard entity shadow ═══ */
+.jade-selected {
+    border-color: var(--xuepo) !important;
     border-style: solid !important;
+    border-left-width: 3px !important;
     box-shadow:
-        0 0 16px rgba(var(--neon-rgb), 0.35),
-        0 0 32px rgba(var(--neon-rgb), 0.15) !important;
-    animation: neon-breathe 2s ease-in-out infinite;
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+        0 0 8px rgba(var(--xuepo-rgb), 0.15),
+        2px 2px 0 0 rgba(0, 0, 0, 0.6) !important;
 }
 
-/* ── 高亮状态（双向悬停） ── */
-.card-highlighted {
-    border-color: var(--c-neon) !important;
-    box-shadow: 0 0 20px rgba(var(--neon-rgb), 0.35) !important;
+.pulse-bar {
+    position: absolute;
+    left: 0;
+    top: 18%;
+    bottom: 18%;
+    width: 3px;
+    background: var(--xuepo);
+    border-radius: 1px;
+    animation: bloodPulse 2s ease-in-out infinite;
 }
 
-@keyframes neon-breathe {
-
-    0%,
-    100% {
-        box-shadow:
-            0 0 16px rgba(var(--neon-rgb), 0.35),
-            0 0 32px rgba(var(--neon-rgb), 0.15);
+@keyframes bloodPulse {
+    0%, 100% {
+        opacity: 0.4;
+        box-shadow: 0 0 4px rgba(var(--xuepo-rgb), 0.15);
     }
-
     50% {
-        box-shadow:
-            0 0 24px rgba(var(--neon-rgb), 0.5),
-            0 0 48px rgba(var(--neon-rgb), 0.2);
+        opacity: 1;
+        box-shadow: 0 0 10px rgba(var(--xuepo-rgb), 0.35);
     }
 }
 
-/* ── Outline 缩小模式 ── */
-.card-outline {
-    min-width: 100px;
-    max-width: 140px;
-    padding: 6px 10px;
+/* ═══ Typography ═══ */
+.jade-body {
+    position: relative;
+    z-index: 1;
 }
 
-/* ── Detail 展开模式 ── */
-.card-detail {
-    min-width: 240px;
-    max-width: 360px;
-}
-
-/* ── 文字样式 ── */
-.node-title {
+.jade-title {
+    display: block;
+    color: var(--bone);
     font-weight: 600;
     font-size: 13px;
-    color: var(--c-text);
-    line-height: 1.4;
-}
-
-.node-date {
-    font-size: 11px;
-    color: var(--c-text-dim);
-    margin-top: 4px;
-}
-
-.node-preview {
-    font-size: 12px;
-    color: var(--c-text-muted);
-    margin-top: 6px;
-    line-height: 1.5;
-    max-height: 60px;
+    line-height: 1.45;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
 }
 
-/* ── 热度角标（暗色主题协调） ── */
-.heat-badge {
-    position: absolute;
-    top: -6px;
-    right: -6px;
+.jade-date {
+    display: block;
     font-size: 10px;
-    background: rgba(249, 115, 22, 0.15);
-    color: theme('colors.orange.400');
-    border: 1px solid rgba(249, 115, 22, 0.25);
-    padding: 2px 6px;
-    border-radius: 10px;
-    line-height: 1;
+    color: var(--ash);
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
 }
 
-/* ── Handle 锚点样式 ── */
-.handle-node {
+/* ═══ Heat ember — glowing corner badge ═══ */
+.ember {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    font-size: 9px;
+    line-height: 1;
+    padding: 3px 6px;
+    border-radius: 10px;
+    color: var(--gold);
+    background: var(--heat);
+    border: 1px solid rgba(var(--gold-rgb), 0.15);
+    box-shadow: 0 0 6px var(--heat);
+    transition: box-shadow 0.3s ease;
+    z-index: 2;
+}
+
+.jade:hover .ember {
+    box-shadow: 0 0 12px var(--heat);
+}
+
+/* ═══ Handles: copper rings hidden until hover ═══ */
+.copper-ring {
     width: 8px;
     height: 8px;
-    background: var(--c-handle-bg);
-    border: 2px solid var(--c-handle-border);
-    transition: all 0.2s ease;
-}
-
-.handle-node:hover {
-    background: var(--c-neon);
-    border-color: var(--c-neon);
-    box-shadow: 0 0 8px rgba(var(--neon-rgb), 0.5);
-}
-
-.card-selected .handle-node {
-    background: var(--c-neon);
-    border-color: var(--c-neon);
-}
-
-/* ── 悬停 Popover ── */
-.card-popover {
-    position: absolute;
-    left: calc(100% + 12px);
-    top: 0;
-    width: 240px;
-    padding: 12px;
-    background: rgba(var(--panel-rgb), 0.9);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--c-border);
-    border-radius: 2px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    z-index: 50;
-    pointer-events: none;
-}
-
-.popover-enter-active,
-.popover-leave-active {
-    transition: opacity 150ms ease, transform 150ms ease;
-}
-
-.popover-enter-from,
-.popover-leave-to {
+    background: var(--copper-light);
+    border: 2px solid var(--copper);
     opacity: 0;
-    transform: translateX(-8px);
+    transition:
+        opacity 200ms ease,
+        background 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.jade:hover .copper-ring {
+    opacity: 1;
+}
+
+.copper-ring:hover {
+    background: var(--xuepo);
+    border-color: var(--xuepo);
+    box-shadow: 0 0 6px rgba(var(--xuepo-rgb), 0.3);
+}
+
+.ring-lit {
+    background: var(--xuepo) !important;
+    border-color: var(--xuepo) !important;
+    box-shadow: 0 0 8px rgba(var(--xuepo-rgb), 0.4) !important;
+    opacity: 1 !important;
+}
+
+.jade-orphan .copper-ring {
+    width: 6px;
+    height: 6px;
+    opacity: 0.15;
+}
+
+.jade-orphan:hover .copper-ring {
+    opacity: 1;
 }
 </style>

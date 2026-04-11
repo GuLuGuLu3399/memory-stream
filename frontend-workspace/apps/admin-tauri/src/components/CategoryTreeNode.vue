@@ -49,44 +49,55 @@ function toggleExpand() {
   emit("select", props.node.id);
 }
 
-// 计算左侧缩进
-const indentStyle = computed(() => ({
-  paddingLeft: `${props.depth * 20}px`,
-}));
+// 计算左侧缩进和树连接线
+const treeLineStyle = computed(() => {
+  const basePadding = 8;
+  const indentPerLevel = 16;
+  return {
+    paddingLeft: `${basePadding + props.depth * indentPerLevel}px`,
+    borderLeft: props.depth > 0 ? `1px solid rgba(184, 134, 11, 0.3)` : 'none',
+  };
+});
 </script>
 
 <template>
   <div class="tree-node">
     <!-- Node row -->
     <div
-      class="flex items-center gap-1.5 py-1.5 px-2 rounded-sm cursor-pointer group transition-colors duration-150"
+      class="flex items-center gap-1.5 py-1.5 px-2 cursor-pointer group transition-all duration-150 relative"
       :class="[
         activeId === node.id
-          ? 'border-l-2 border-neon bg-neon/10'
-          : 'border-l-2 border-transparent hover:bg-ms-surface',
+          ? 'bg-brass/5 shadow-brass-glow-sm'
+          : 'hover:bg-neon/5',
       ]"
-      :style="indentStyle"
+      :style="treeLineStyle"
       @click="toggleExpand"
     >
+      <!-- Active indicator border -->
+      <div
+        v-if="activeId === node.id"
+        class="absolute left-0 top-0 bottom-0 w-0.5 bg-brass shadow-brass-glow-sm"
+      />
+
       <!-- Arrow or dot indicator -->
       <ChevronDown
         v-if="hasChildren && expanded"
         :size="14"
-        class="text-slate-400 transition-transform duration-200"
+        class="text-slate-400 transition-transform duration-200 shrink-0"
       />
       <ChevronRight
         v-else-if="hasChildren"
         :size="14"
-        class="text-slate-400 transition-transform duration-200"
+        class="text-slate-400 transition-transform duration-200 shrink-0"
       />
-      <div v-else class="w-3.5 h-3.5 flex items-center justify-center">
+      <div v-else class="w-3.5 h-3.5 flex items-center justify-center shrink-0">
         <div class="w-1.5 h-1.5 bg-slate-600" />
       </div>
 
       <!-- Name -->
       <span
         class="text-xs truncate flex-1 transition-colors duration-150"
-        :class="activeId === node.id ? 'text-neon font-medium' : 'text-slate-300'"
+        :class="activeId === node.id ? 'text-brass font-medium' : 'text-slate-300'"
       >
         {{ node.name }}
       </span>
@@ -95,21 +106,21 @@ const indentStyle = computed(() => ({
       <div class="hidden group-hover:flex items-center gap-0.5">
         <button
           @click.stop="$emit('create-child', node.id)"
-          class="p-1 rounded-sm text-slate-500 hover:text-neon hover:bg-neon/10 transition-colors"
+          class="p-1 rounded-sharp text-slate-500 hover:text-neon hover:bg-neon/10 transition-colors"
           title="添加子分类"
         >
           <Plus :size="12" />
         </button>
         <button
           @click.stop="$emit('edit', node.id, node.name)"
-          class="p-1 rounded-sm text-slate-500 hover:text-neon hover:bg-neon/10 transition-colors"
+          class="p-1 rounded-sharp text-slate-500 hover:text-neon hover:bg-neon/10 transition-colors"
           title="编辑"
         >
           <Pencil :size="12" />
         </button>
         <button
           @click.stop="$emit('delete', node.id, node.name)"
-          class="p-1 rounded-sm text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+          class="p-1 rounded-sharp text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
           title="删除"
         >
           <Trash2 :size="12" />

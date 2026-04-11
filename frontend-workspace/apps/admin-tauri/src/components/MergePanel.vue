@@ -82,9 +82,12 @@ const canShowBlastRadius = computed(() => {
   return selectedSurvivor.value !== null && selectedVictims.value.length > 0;
 });
 
-/** Progress bar width percentage */
-const progressWidth = computed(() => {
-  return `${holdProgress.value}%`;
+/** Circumference for the circular progress ring (radius 16) */
+const CIRCUMFERENCE = 2 * Math.PI * 16;
+
+/** Circular progress offset for SVG ring */
+const progressOffset = computed(() => {
+  return CIRCUMFERENCE - (holdProgress.value / 100) * CIRCUMFERENCE;
 });
 
 /** Warning message for bottom bar */
@@ -335,10 +338,16 @@ async function retryFileWrite(file: string) {
     <div class="flex-1 flex min-h-0">
       <!-- Column 1: SACRIFICES (Victims) -->
       <div class="w-80 border-r border-ms-border flex flex-col bg-ms-void">
-        <!-- Section Header -->
-        <div class="h-10 flex items-center justify-between px-3 border-b border-ms-border shrink-0">
+        <!-- Section Header with Rivet Dots -->
+        <div class="h-10 flex items-center justify-between px-3 border-b border-ms-border shrink-0 relative">
+          <!-- Rivet corners -->
+          <span class="absolute top-1.5 left-1.5 w-1 h-1 bg-brass/60 rounded-full"></span>
+          <span class="absolute top-1.5 right-1.5 w-1 h-1 bg-brass/60 rounded-full"></span>
+          <span class="absolute bottom-1.5 left-1.5 w-1 h-1 bg-brass/60 rounded-full"></span>
+          <span class="absolute bottom-1.5 right-1.5 w-1 h-1 bg-brass/60 rounded-full"></span>
+
           <div class="flex items-center gap-2">
-            <span class="text-2xs font-mono uppercase tracking-widest text-amber-400">
+            <span class="text-2xs font-mono uppercase tracking-widest text-brass">
               SACRIFICES
             </span>
             <span class="text-2xs text-slate-600 font-mono">(祭品)</span>
@@ -365,7 +374,7 @@ async function retryFileWrite(file: string) {
             v-model="victimSearchQuery"
             type="text"
             placeholder="搜索祭品..."
-            class="w-full bg-ms-deep border border-ms-border px-2 py-1.5 text-xs text-slate-300 font-mono outline-none focus:border-amber-500/50 placeholder-slate-600"
+            class="w-full bg-ms-deep border border-ms-border px-2 py-1.5 text-xs text-slate-300 font-mono outline-none focus:border-brass/50 placeholder-slate-600"
           />
         </div>
 
@@ -384,7 +393,7 @@ async function retryFileWrite(file: string) {
             class="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors border-b border-ms-border/30"
             :class="
               selectedVictims.includes(card.id)
-                ? 'bg-amber-500/10 text-amber-300'
+                ? 'bg-brass/10 text-brass-light'
                 : 'hover:bg-ms-panel/50 text-slate-400'
             "
           >
@@ -409,9 +418,15 @@ async function retryFileWrite(file: string) {
 
       <!-- Column 2: BLAST RADIUS (Impact Preview) -->
       <div class="flex-1 flex flex-col bg-ms-panel">
-        <!-- Section Header -->
-        <div class="h-10 flex items-center px-3 border-b border-ms-border shrink-0">
-          <span class="text-2xs font-mono uppercase tracking-widest text-cyan-400">
+        <!-- Section Header with Rivet Dots -->
+        <div class="h-10 flex items-center px-3 border-b border-ms-border shrink-0 relative">
+          <!-- Rivet corners -->
+          <span class="absolute top-1.5 left-1.5 w-1 h-1 bg-neon/60 rounded-full"></span>
+          <span class="absolute top-1.5 right-1.5 w-1 h-1 bg-neon/60 rounded-full"></span>
+          <span class="absolute bottom-1.5 left-1.5 w-1 h-1 bg-neon/60 rounded-full"></span>
+          <span class="absolute bottom-1.5 right-1.5 w-1 h-1 bg-neon/60 rounded-full"></span>
+
+          <span class="text-2xs font-mono uppercase tracking-widest text-neon">
             BLAST RADIUS
           </span>
           <span class="text-2xs text-slate-600 font-mono ml-2">(爆炸半径)</span>
@@ -452,7 +467,7 @@ async function retryFileWrite(file: string) {
           <div v-else-if="impactResult" class="space-y-4">
             <!-- Stats Grid -->
             <div class="grid grid-cols-2 gap-4">
-              <div class="border border-ms-border bg-ms-deep p-4">
+              <div class="border border-ms-border bg-ms-deep p-4 hover:shadow-brass-glow-sm transition-shadow">
                 <div class="text-3xs text-slate-500 uppercase tracking-wider mb-1 font-mono">
                   受影响链接
                 </div>
@@ -460,11 +475,11 @@ async function retryFileWrite(file: string) {
                   {{ impactResult.total_wikilinks }}
                 </div>
               </div>
-              <div class="border border-ms-border bg-ms-deep p-4">
+              <div class="border border-ms-border bg-ms-deep p-4 hover:shadow-brass-glow-sm transition-shadow">
                 <div class="text-3xs text-slate-500 uppercase tracking-wider mb-1 font-mono">
                   待修改文件
                 </div>
-                <div class="text-2xl text-amber-400 font-bold font-mono">
+                <div class="text-2xl text-brass font-bold font-mono">
                   {{ impactResult.files_to_modify }}
                 </div>
               </div>
@@ -479,10 +494,10 @@ async function retryFileWrite(file: string) {
                 <div
                   v-for="file in impactResult.affected_files"
                   :key="file.path"
-                  class="flex items-center justify-between text-xs font-mono px-3 py-2 bg-ms-deep border border-ms-border"
+                  class="flex items-center justify-between text-xs font-mono px-3 py-2 bg-ms-deep border border-ms-border hover:shadow-brass-glow-sm transition-shadow"
                 >
                   <span class="text-slate-300 truncate flex-1">{{ file.path }}</span>
-                  <span class="text-amber-400/60 text-2xs ml-3 shrink-0">
+                  <span class="text-brass/60 text-2xs ml-3 shrink-0">
                     {{ file.link_count }} 链接
                   </span>
                 </div>
@@ -501,9 +516,15 @@ async function retryFileWrite(file: string) {
 
       <!-- Column 3: SURVIVOR -->
       <div class="w-72 border-l border-ms-border flex flex-col bg-ms-void">
-        <!-- Section Header -->
-        <div class="h-10 flex items-center px-3 border-b border-ms-border shrink-0">
-          <span class="text-2xs font-mono uppercase tracking-widest text-emerald-400">
+        <!-- Section Header with Rivet Dots -->
+        <div class="h-10 flex items-center px-3 border-b border-ms-border shrink-0 relative">
+          <!-- Rivet corners -->
+          <span class="absolute top-1.5 left-1.5 w-1 h-1 bg-brass-light/60 rounded-full"></span>
+          <span class="absolute top-1.5 right-1.5 w-1 h-1 bg-brass-light/60 rounded-full"></span>
+          <span class="absolute bottom-1.5 left-1.5 w-1 h-1 bg-brass-light/60 rounded-full"></span>
+          <span class="absolute bottom-1.5 right-1.5 w-1 h-1 bg-brass-light/60 rounded-full"></span>
+
+          <span class="text-2xs font-mono uppercase tracking-widest text-brass-light">
             SURVIVOR
           </span>
           <span class="text-2xs text-slate-600 font-mono ml-2">(主节点)</span>
@@ -515,13 +536,13 @@ async function retryFileWrite(file: string) {
             v-model="survivorSearchQuery"
             type="text"
             placeholder="搜索主节点..."
-            class="w-full bg-ms-deep border border-ms-border px-2 py-1.5 text-xs text-slate-300 font-mono outline-none focus:border-emerald-500/50 placeholder-slate-600"
+            class="w-full bg-ms-deep border border-ms-border px-2 py-1.5 text-xs text-slate-300 font-mono outline-none focus:border-brass-light/50 placeholder-slate-600"
           />
         </div>
 
         <!-- Selected Survivor Display -->
-        <div v-if="selectedSurvivor" class="px-3 py-2 border-b border-ms-border bg-emerald-500/5">
-          <div class="text-3xs text-emerald-400 font-mono mb-1">已选定</div>
+        <div v-if="selectedSurvivor" class="px-3 py-2 border-b border-ms-border bg-brass-light/5">
+          <div class="text-3xs text-brass-light font-mono mb-1">已选定</div>
           <div class="text-xs text-slate-300 font-mono truncate">
             {{ cards.find(c => c.id === selectedSurvivor)?.title || "无标题" }}
           </div>
@@ -535,7 +556,7 @@ async function retryFileWrite(file: string) {
             class="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors border-b border-ms-border/30"
             :class="
               selectedSurvivor === card.id
-                ? 'bg-emerald-500/10 text-emerald-300'
+                ? 'bg-brass-light/10 text-brass-light'
                 : 'hover:bg-ms-panel/50 text-slate-400'
             "
           >
@@ -576,31 +597,57 @@ async function retryFileWrite(file: string) {
         </div>
       </div>
 
-      <!-- Long-Press Initiate Button -->
+      <!-- Long-Press Initiate Button with Circular Progress Ring -->
       <button
         @pointerdown="handlePointerDown"
         @pointerup="handlePointerUp"
         @pointerleave="handlePointerLeave"
         :disabled="!canShowBlastRadius || isExecuting"
-        class="relative h-10 min-w-merge-btn overflow-hidden transition-colors select-none"
+        class="relative h-10 min-w-merge-btn overflow-hidden transition-all select-none rounded-sharp"
         :class="
           canShowBlastRadius && !isExecuting
-            ? 'bg-red-500/10 border border-red-500/30 cursor-pointer'
+            ? 'bg-brass/5 border border-brass/30 cursor-pointer'
             : 'bg-ms-surface/50 border border-ms-border cursor-not-allowed opacity-50'
         "
       >
-        <!-- Progress Bar Background -->
-        <div
+        <!-- SVG Circular Progress Ring -->
+        <svg
           v-if="isHolding"
-          class="absolute inset-0 bg-red-500/30 transition-none"
-          :style="{ width: progressWidth }"
-        />
+          class="absolute inset-0 w-full h-full pointer-events-none"
+          viewBox="0 0 56 40"
+        >
+          <!-- Background circle -->
+          <circle
+            cx="28"
+            cy="20"
+            r="16"
+            fill="none"
+            stroke="currentColor"
+            :stroke-width="2"
+            class="text-brass/10"
+          />
+          <!-- Progress circle -->
+          <circle
+            cx="28"
+            cy="20"
+            r="16"
+            fill="none"
+            stroke="currentColor"
+            :stroke-width="2"
+            :stroke-dasharray="CIRCUMFERENCE"
+            :stroke-dashoffset="progressOffset"
+            :stroke-opacity="0.3 + (holdProgress / 100) * 0.7"
+            class="text-brass transition-all duration-75"
+            :class="{ 'shadow-brass-glow': holdProgress > 50 }"
+            style="transform-origin: 28px 20px; transform: rotate(-90deg);"
+          />
+        </svg>
 
         <!-- Button Text -->
         <div class="relative z-10 flex items-center justify-center gap-2 px-4">
           <span
             class="text-xs font-mono uppercase tracking-wider"
-            :class="canShowBlastRadius && !isExecuting ? 'text-red-400' : 'text-slate-600'"
+            :class="canShowBlastRadius && !isExecuting ? 'text-brass' : 'text-slate-600'"
           >
             <template v-if="isExecuting">执行中...</template>
             <template v-else-if="isHolding">按住 {{ Math.ceil((100 - holdProgress) / 100 * 3) }}s — 启动坍缩</template>
@@ -614,7 +661,7 @@ async function retryFileWrite(file: string) {
     <Transition name="ms-slide-up">
       <div
         v-if="showSuccessToast"
-        class="fixed bottom-20 right-4 z-toast bg-emerald-500/10 border border-emerald-500/30 px-4 py-2 font-mono text-xs text-emerald-400"
+        class="fixed bottom-20 right-4 z-toast bg-brass/10 border border-brass/30 px-4 py-2 font-mono text-xs text-brass"
       >
         合并完成 — 所有文件写入成功
       </div>
@@ -655,13 +702,13 @@ async function retryFileWrite(file: string) {
   border-radius: 1px;
 }
 
-/* Custom checkbox */
+/* Brass-themed checkbox */
 .victim-checkbox {
   appearance: none;
   -webkit-appearance: none;
   width: 12px;
   height: 12px;
-  border: 1px solid #333;
+  border: 1px solid rgba(184, 134, 11, 0.4);
   background: #0d0d0d;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -670,8 +717,8 @@ async function retryFileWrite(file: string) {
 }
 
 .victim-checkbox:checked {
-  background: #f59e0b;
-  border-color: #f59e0b;
+  background: #b8860b;
+  border-color: #b8860b;
 }
 
 .victim-checkbox:checked::after {
@@ -685,16 +732,17 @@ async function retryFileWrite(file: string) {
 }
 
 .victim-checkbox:hover {
-  border-color: #f59e0b;
+  border-color: #b8860b;
+  box-shadow: 0 0 4px rgba(184, 134, 11, 0.2);
 }
 
-/* Custom radio */
+/* Brass-themed radio */
 .survivor-radio {
   appearance: none;
   -webkit-appearance: none;
   width: 12px;
   height: 12px;
-  border: 1px solid #333;
+  border: 1px solid rgba(184, 134, 11, 0.4);
   background: #0d0d0d;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -703,8 +751,8 @@ async function retryFileWrite(file: string) {
 }
 
 .survivor-radio:checked {
-  background: #10b981;
-  border-color: #10b981;
+  background: #0d0d0d;
+  border-color: #b8860b;
 }
 
 .survivor-radio:checked::after {
@@ -712,12 +760,14 @@ async function retryFileWrite(file: string) {
   display: block;
   width: 4px;
   height: 4px;
-  background: #0d0d0d;
+  background: #b8860b;
   border-radius: 50%;
   margin: 3px;
+  box-shadow: 0 0 4px rgba(184, 134, 11, 0.3);
 }
 
 .survivor-radio:hover {
-  border-color: #10b981;
+  border-color: #b8860b;
+  box-shadow: 0 0 4px rgba(184, 134, 11, 0.2);
 }
 </style>

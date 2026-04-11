@@ -20,7 +20,6 @@ import { connectedComponents } from "graphology-components";
 import dagre from "dagre";
 import potpack from "potpack";
 import type { Node, Edge } from "@vue-flow/core";
-import { Position } from "@vue-flow/core";
 
 // ── 布局常量 ──
 const NODE_WIDTH = 220;
@@ -311,8 +310,6 @@ export function layoutMultiComponent(nodes: Node[], edges: Edge[]): Node[] {
 
   return nodes.map((n) => ({
     ...n,
-    targetPosition: Position.Left,
-    sourcePosition: Position.Right,
     position: positions[n.id] ?? n.position ?? { x: 0, y: 0 },
   }));
 }
@@ -342,8 +339,6 @@ export async function layoutMultiComponentAsync(
 
   return nodes.map((n) => ({
     ...n,
-    targetPosition: Position.Left,
-    sourcePosition: Position.Right,
     position: positions[n.id] ?? n.position ?? { x: 0, y: 0 },
   }));
 }
@@ -367,47 +362,4 @@ function runLayoutWorker(
     };
     worker.postMessage({ nodes, edges });
   });
-}
-
-// ── 聚光灯模式 ──
-
-/**
- * 获取聚光灯模式下 N 度邻居的节点 ID 集合
- */
-export function getSpotlightNeighbors(
-  nodes: Node[],
-  edges: Edge[],
-  focusId: string,
-  depth: number,
-): Set<string> {
-  const adjacency = new Map<string, Set<string>>();
-  for (const node of nodes) {
-    adjacency.set(node.id, new Set());
-  }
-  for (const edge of edges) {
-    adjacency.get(edge.source)?.add(edge.target);
-    adjacency.get(edge.target)?.add(edge.source);
-  }
-
-  const visited = new Set<string>();
-  const queue: Array<{ id: string; d: number }> = [{ id: focusId, d: 0 }];
-  visited.add(focusId);
-  let head = 0;
-
-  while (head < queue.length) {
-    const { id, d } = queue[head++];
-    if (d >= depth) continue;
-
-    const neighbors = adjacency.get(id);
-    if (neighbors) {
-      for (const neighborId of neighbors) {
-        if (!visited.has(neighborId)) {
-          visited.add(neighborId);
-          queue.push({ id: neighborId, d: d + 1 });
-        }
-      }
-    }
-  }
-
-  return visited;
 }

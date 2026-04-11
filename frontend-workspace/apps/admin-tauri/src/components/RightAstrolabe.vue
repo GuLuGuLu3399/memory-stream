@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from "vue";
 import { VueFlow, useVueFlow, type Connection } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
@@ -95,31 +95,6 @@ const flowNodes = computed(() => {
     const card = allCards.find(c => c.id === n.id);
     const catColor = card?.category_id ? categoryColorMap.value.get(card.category_id) : null;
 
-    const baseStyle: Record<string, string> = {
-      fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
-      fontSize: "11px",
-      padding: "6px 10px",
-      borderRadius: "2px",
-      cursor: "pointer",
-    };
-
-    if (isActive) {
-      baseStyle.background = "rgba(0, 229, 255, 0.05)";
-      baseStyle.color = "#00e5ff";
-      baseStyle.fontWeight = "bold";
-      baseStyle.border = "1px solid #00e5ff";
-      baseStyle.boxShadow = "0 0 8px rgba(0, 229, 255, 0.2)";
-    } else if (catColor) {
-      baseStyle.background = `rgba(${parseInt(catColor.slice(1,3),16)},${parseInt(catColor.slice(3,5),16)},${parseInt(catColor.slice(5,7),16)},0.05)`;
-      baseStyle.color = catColor;
-      baseStyle.border = `1px solid ${catColor}`;
-      baseStyle.boxShadow = `0 0 6px ${catColor}33`;
-    } else {
-      baseStyle.background = "rgba(42, 42, 42, 0.3)";
-      baseStyle.color = "#cbd5e1";
-      baseStyle.border = "1px solid #2a2a2a";
-    }
-
     const fallbackX = (idx % 5) * 180;
     const fallbackY = Math.floor(idx / 5) * 100;
 
@@ -127,7 +102,13 @@ const flowNodes = computed(() => {
       id: n.id,
       label: n.title.length > 12 ? n.title.slice(0, 12) + "..." : n.title,
       position: nodePos ? { x: nodePos.x - 70, y: nodePos.y - 18 } : { x: fallbackX, y: fallbackY },
-      style: baseStyle,
+      class: [
+        'astrolabe-node',
+        isActive ? 'astrolabe-node--active' : '',
+        catColor && !isActive ? 'astrolabe-node--category' : '',
+        !isActive && !catColor ? 'astrolabe-node--default' : '',
+      ].filter(Boolean).join(' '),
+      style: catColor && !isActive ? { '--cat-color': catColor } as Record<string, string> : {},
     };
   });
 });
@@ -174,6 +155,7 @@ const flowEdges = computed(() => {
         selectable: true,
         // 不用 Vue Flow animated（底层是 animated stroke-dasharray，导致主干变虚线）
         animated: false,
+        class: e.relation === "sequence" ? 'astrolabe-edge--sequence' : '',
         style: {
           stroke,
           strokeWidth,
@@ -277,6 +259,24 @@ function closeContextMenu() {
   contextMenu.value = null;
 }
 
+// ===== Double-click empty canvas → open summon panel =====
+function onPaneDblClick() {
+  showSummon.value = true;
+  // Focus search input after panel opens
+  setTimeout(() => {
+    const input = document.querySelector('.summon-panel input') as HTMLInputElement;
+    input?.focus();
+  }, 50);
+}
+
+// ===== Click outside to close summon panel =====
+function handleSummonPanelClick(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  // Close if clicking outside the panel content
+  if (target.closest('.summon-panel-content')) return;
+  showSummon.value = false;
+}
+
 // ===== Keyboard shortcuts: Delete/Backspace =====
 function handleKeydown(e: KeyboardEvent) {
   if ((e.key === "Delete" || e.key === "Backspace") && selectedEdge.value) {
@@ -289,6 +289,7 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === "Escape") {
     selectedEdge.value = null;
     closeContextMenu();
+    showSummon.value = false;
   }
 }
 
@@ -305,16 +306,16 @@ onUnmounted(() => {
 
     <div class="h-12 flex items-center px-4 border-b border-ms-border bg-ms-carbon shrink-0">
       <span class="font-bold text-slate-400 text-xs font-mono tracking-wider">局部拓扑</span>
-      <span class="ml-2 text-2xs text-slate-600 font-mono">点击节点跳转 · 右击连线操作</span>
+      <span class="ml-2 text-2xs text-slate-600 font-mono">双击空白召唤 · 右击连线操作</span>
       <span v-if="selectedEdge" class="ml-auto text-xs bg-neon/10 text-neon px-2 py-0.5 rounded-sm">
         已选中连线
       </span>
     </div>
     <div class="flex-1 relative" @click="closeContextMenu">
       <!-- 空状态保护：有节点才渲染 VueFlow -->
-      <VueFlow v-if="flowNodes.length > 0" :nodes="flowNodes" :edges="flowEdges" fit-view-on-init class="bg-ms-deep"
+      <VueFlow v-if="flowNodes.length > 0" :nodes="flowNodes" :edges="flowEdges" fit-view-on-init class="astrolabe-canvas"
         @node-click="onNodeClick" @edge-click="onEdgeClick" @edge-context-menu="onEdgeContextMenu"
-        @pane-click="onPaneClick">
+        @pane-click="onPaneClick" @pane-dbl-click="onPaneDblClick">
         <Background pattern-color="#333" :gap="16" />
         <Controls />
       </VueFlow>
@@ -323,40 +324,57 @@ onUnmounted(() => {
       </div>
       <div class="absolute top-4 right-4 z-10 flex gap-1.5">
         <!-- Summon button -->
-        <div class="relative">
-          <button @click.stop="showSummon = !showSummon" title="召唤节点至画布"
-            class="flex items-center justify-center w-8 h-8 bg-ms-carbon/90 backdrop-blur border border-ms-border rounded-sm shadow-sm text-slate-500 hover:text-neon hover:border-neon/30 transition-all">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </button>
-          <div v-if="showSummon" @click.stop
-            class="absolute right-0 top-10 w-64 bg-ms-carbon rounded-sm shadow-xl border border-ms-border p-2 z-20">
-            <input v-model="summonQuery" placeholder="搜索卡片..."
-              class="w-full text-sm px-3 py-1.5 border border-ms-border rounded-sm outline-none focus:border-neon bg-ms-deep text-slate-300" />
-            <div class="max-h-48 overflow-y-auto mt-1">
-              <button v-for="card in summonableCards" :key="card.id" @click="summonNode(card)"
-                class="w-full text-left px-3 py-2 text-sm rounded-sm hover:bg-neon/10 text-slate-400 truncate transition">
+        <button @click.stop="showSummon = !showSummon" title="召唤节点至画布"
+          class="flex items-center justify-center w-8 h-8 bg-ms-carbon/90 backdrop-blur border border-ms-border rounded-sm shadow-sm text-slate-500 hover:text-neon hover:border-neon/30 transition-all">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Summon Panel Dropdown -->
+      <Teleport to="body">
+        <div v-if="showSummon" class="summon-panel fixed z-dropdown" @click="handleSummonPanelClick">
+          <div class="summon-panel-content absolute right-[382px] top-1/2 -translate-y-1/2 w-72 bg-ms-carbon rounded-sm shadow-2xl border border-ms-border overflow-hidden"
+            style="margin-right: 20px;">
+            <!-- Search input -->
+            <div class="p-3 border-b border-ms-border bg-ms-deep">
+              <input
+                v-model="summonQuery"
+                placeholder="搜索卡片..."
+                class="summon-search w-full text-sm px-3 py-2 border border-ms-border rounded-sm outline-none bg-ms-panel text-slate-300 placeholder-slate-600 font-mono"
+              />
+            </div>
+            <!-- Card list -->
+            <div class="max-h-64 overflow-y-auto p-2">
+              <button
+                v-for="card in summonableCards"
+                :key="card.id"
+                @click="summonNode(card)"
+                class="summon-card w-full text-left px-3 py-2.5 text-sm rounded-sm text-slate-400 truncate transition font-mono"
+              >
                 {{ card.title || "无标题" }}
               </button>
-              <div v-if="summonableCards.length === 0" class="text-xs text-slate-500 px-3 py-2">无可召唤的卡片</div>
+              <div v-if="summonableCards.length === 0" class="summon-empty text-xs text-slate-600 px-3 py-4 text-center font-mono">
+                无可召唤的卡片
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </Teleport>
 
     </div>
 
     <!-- Edge Context Menu (teleported to body for correct positioning) -->
     <Teleport to="body">
       <div v-if="contextMenu"
-        class="fixed z-dropdown bg-ms-carbon rounded-sm shadow-xl border border-ms-border py-1 min-w-[160px]"
+        class="astrolabe-context-menu fixed z-dropdown bg-ms-carbon rounded-sm shadow-xl border border-ms-border py-1 min-w-[160px]"
         :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }" @click.stop>
         <button @click="setEdgeType('sequence')"
           class="w-full text-left px-3 py-2 text-sm hover:bg-ms-surface flex items-center gap-2 transition"
-          :class="contextMenu.edge.relation === 'sequence' ? 'text-neon font-medium' : 'text-slate-400'">
-          <span class="w-2 h-2 rounded-full bg-neon"></span>
+          :class="contextMenu.edge.relation === 'sequence' ? 'astrolabe-context-item--active' : 'text-slate-400'">
+          <span class="w-2 h-2 rounded-sm bg-neon"></span>
           设为主干 (Sequence)
         </button>
         <!-- Reference edge setting removed: reference edges are not user-configurable -->
@@ -372,9 +390,127 @@ onUnmounted(() => {
       </div>
     </Teleport>
     <!-- 连线类型图例 -->
-    <div class="px-3 pb-2 text-2xs text-slate-600 font-mono">
-      <div>━━ 实线 = 主干（手动连接）</div>
-      <div>╌╌ 虚线 = 参考（[[链接]] 自动生成）</div>
+    <div class="px-3 pb-2 text-2xs font-mono">
+      <div class="legend-item">━━ 实线 = 主干（手动连接）</div>
+      <div class="legend-item">╌╌ 虚线 = 参考（[[链接]] 自动生成）</div>
     </div>
   </aside>
 </template>
+
+<style scoped>
+/* ===== Brushed-metal canvas ===== */
+.astrolabe-canvas {
+  background-color: #0d0d0d;
+  background-image:
+    radial-gradient(ellipse at 20% 30%, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(201, 168, 76, 0.015) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 229, 255, 0.01) 0%, transparent 70%);
+}
+
+/* ===== Node base styles ===== */
+.astrolabe-node {
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 11px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.astrolabe-node--default {
+  background-color: rgba(42, 42, 42, 0.3);
+  color: #cbd5e1;
+  border: 1px solid #2a2a2a;
+}
+
+.astrolabe-node--active {
+  background-color: rgba(0, 229, 255, 0.05);
+  color: #00e5ff;
+  font-weight: bold;
+  border: 1px solid #00e5ff;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.2), 0 0 16px rgba(0, 229, 255, 0.1);
+}
+
+.astrolabe-node--category {
+  background-color: rgba(var(--cat-rgb, 200, 200, 200), 0.05);
+  border: 1px solid var(--cat-color, #666);
+  box-shadow: 0 0 6px var(--cat-color-alpha, #66633);
+}
+
+/* ===== Neon flowing edge animation ===== */
+.astrolabe-edge--sequence {
+  animation: edgeFlow 1.5s linear infinite;
+}
+
+@keyframes edgeFlow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* ===== Edge type legend (brass color scheme) ===== */
+.legend-item {
+  color: #c9a84c;
+  opacity: 0.7;
+}
+
+/* ===== Summon panel ===== */
+.summon-search {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.summon-search:focus {
+  border-color: #c9a84c;
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.1);
+}
+
+.summon-card {
+  transition: background-color 0.15s ease;
+}
+
+.summon-card:hover {
+  background-color: rgba(0, 229, 255, 0.1);
+  color: #00e5ff;
+}
+
+.summon-empty {
+  transition: color 0.2s ease;
+}
+
+/* ===== Edge context menu ===== */
+.astrolabe-context-item--active {
+  color: #00e5ff;
+  font-weight: 500;
+}
+
+.astrolabe-context-menu {
+  position: relative;
+}
+
+.astrolabe-context-menu::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #c9a84c, transparent);
+  opacity: 0.5;
+}
+
+.astrolabe-context-menu::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #c9a84c, transparent);
+  opacity: 0.3;
+}
+
+/* ===== Category color parsing for node styles ===== */
+/* Note: CSS custom properties for RGB values are set inline via style attribute */
+</style>

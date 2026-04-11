@@ -1,12 +1,6 @@
 <script setup lang="ts">
 /**
- * 🌟 FloatingCommandBar — 浮动指挥岛
- *
- * 顶部中央胶囊组件，包含：
- * 1. Segmented View Switcher：列表 / 图谱 切换
- * 2. 上下文感知控制面板：根据 viewMode 动态切换
- *    - 列表模式：排序 / 密度 / 分类过滤
- *    - 图谱模式：深度滑块 / 聚光灯 / 布局重置
+ * 🌟 FloatingCommandBar — 浮动指挥岛（血肉神殿）
  */
 
 import { storeToRefs } from "pinia";
@@ -17,7 +11,6 @@ import {
     Clock,
     LayoutGrid,
     AlignJustify,
-    Spotlight,
     Minimize2,
     SlidersHorizontal,
 } from "lucide-vue-next";
@@ -28,38 +21,35 @@ const {
     viewMode,
     sortBy,
     density,
-    graphDepth,
-    spotlightMode,
 } = storeToRefs(store);
 
-// ── 视图切换按钮样式 ──
+// ── 视图切换按钮样式 — 新粗野主义 ──
 const viewBtnClass = (active: boolean) =>
-    `flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${active
-        ? "bg-neon/15 text-neon font-bold shadow-neon-glow-subtle"
-        : "text-gray-500 hover:text-gray-300"
+    `flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-all duration-150 ${active
+        ? "bg-xuepo/15 text-xuepo font-bold border border-xuepo/40 shadow-[2px_2px_0_0_rgba(0,0,0,0.6)]"
+        : "text-ms-smoke border border-transparent hover:text-ms-bone hover:border-ms-copper hover:shadow-[1px_1px_0_0_rgba(0,0,0,0.4)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
     }`;
 
-// ── 控制面板小按钮样式 ──
+// ── 控制面板小按钮样式 — 新粗野主义 ──
 const ctrlBtnClass = (active: boolean) =>
-    `flex items-center gap-1 px-2.5 py-1.5 text-1.5xs font-mono rounded-md transition-all duration-200 ${active
-        ? "bg-neon/10 text-neon border border-neon/30"
-        : "text-gray-500 hover:text-gray-300 border border-transparent hover:border-ms-border"
+    `flex items-center gap-1 px-2.5 py-1.5 text-1.5xs font-mono transition-all duration-150 ${active
+        ? "bg-xuepo/10 text-xuepo border border-xuepo/30 shadow-[2px_2px_0_0_rgba(0,0,0,0.5)]"
+        : "text-ms-smoke border border-ms-copper/40 shadow-[1px_1px_0_0_rgba(0,0,0,0.4)] hover:text-ms-bone hover:border-ms-copper hover:shadow-[2px_2px_0_0_rgba(0,0,0,0.5)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
     }`;
 </script>
 
 <template>
     <div class="fixed top-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
-        <!-- ── 主胶囊：Logo + 视图切换 ── -->
+        <!-- ── 主胶囊 — 新粗野主义面板 ── -->
         <div
-            class="flex items-center bg-ms-panel/80 backdrop-blur-xl border border-ms-border rounded-sm px-2 py-1.5 shadow-lg shadow-black/30 gap-1">
-            <!-- Logo -->
+            class="flex items-center bg-ms-xuan/95 border border-ms-copper px-2 py-1.5 shadow-[3px_3px_0_0_rgba(0,0,0,0.6)] gap-1 hover:shadow-[4px_4px_0_0_rgba(0,0,0,0.5)] transition-shadow duration-150">
+            <!-- Logo — metal stamp -->
             <div
-                class="w-7 h-7 bg-neon/10 rounded-sm flex items-center justify-center text-neon font-bold text-2xs mr-2 shrink-0">
+                class="w-7 h-7 bg-xuepo/15 border border-xuepo/30 flex items-center justify-center text-xuepo font-bold text-2xs mr-2 shrink-0 font-serif shadow-[1px_1px_0_0_rgba(0,0,0,0.4)]">
                 M
             </div>
 
-            <!-- 分隔线 -->
-            <div class="w-px h-5 bg-ms-border/60" />
+            <div class="w-px h-5 bg-ms-copper/60" />
 
             <!-- 视图切换 -->
             <button @click="store.setViewMode('list')" :class="viewBtnClass(viewMode === 'list')">
@@ -69,12 +59,10 @@ const ctrlBtnClass = (active: boolean) =>
                 <Network :size="13" /> 图谱
             </button>
 
-            <!-- 分隔线 -->
-            <div class="w-px h-5 bg-ms-border/60" />
+            <div class="w-px h-5 bg-ms-copper/60" />
 
-            <!-- 上下文感知控制面板入口 -->
             <button
-                class="flex items-center gap-1 px-2.5 py-1.5 text-1.5xs text-gray-400 hover:text-gray-200 rounded-lg transition-all"
+                class="flex items-center gap-1 px-2.5 py-1.5 text-1.5xs text-ms-smoke border border-transparent hover:text-ms-bone hover:border-ms-copper/50 hover:shadow-[1px_1px_0_0_rgba(0,0,0,0.3)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all duration-150"
                 title="展示控制">
                 <SlidersHorizontal :size="12" />
             </button>
@@ -83,12 +71,11 @@ const ctrlBtnClass = (active: boolean) =>
         <!-- ── 上下文感知控制面板 ── -->
         <Transition name="slideDown">
             <div
-                class="flex items-center bg-ms-panel/70 backdrop-blur-xl border border-ms-border rounded-sm px-3 py-2 shadow-lg shadow-black/20 gap-2 flex-wrap justify-center">
-                <!-- ===== 列表视图控制 ===== -->
+                class="flex items-center bg-ms-xuan/90 border border-ms-copper px-3 py-2 shadow-[2px_2px_0_0_rgba(0,0,0,0.5)] gap-2 flex-wrap justify-center">
+                <!-- 列表视图控制 -->
                 <template v-if="viewMode === 'list'">
-                    <!-- 排序拨片 -->
                     <div class="flex items-center gap-1">
-                        <span class="text-2xs text-gray-600 font-mono mr-1">排序</span>
+                        <span class="text-2xs text-ms-ash font-mono mr-1">排序</span>
                         <button @click="store.setSortBy('updated')" :class="ctrlBtnClass(sortBy === 'updated')">
                             <Clock :size="10" /> 时间
                         </button>
@@ -97,11 +84,10 @@ const ctrlBtnClass = (active: boolean) =>
                         </button>
                     </div>
 
-                    <div class="w-px h-4 bg-ms-border/40" />
+                    <div class="w-px h-4 bg-ms-copper/40" />
 
-                    <!-- 密度切换 -->
                     <div class="flex items-center gap-1">
-                        <span class="text-2xs text-gray-600 font-mono mr-1">密度</span>
+                        <span class="text-2xs text-ms-ash font-mono mr-1">密度</span>
                         <button @click="store.setDensity('cozy')" :class="ctrlBtnClass(density === 'cozy')">
                             <LayoutGrid :size="10" /> 舒适
                         </button>
@@ -111,33 +97,10 @@ const ctrlBtnClass = (active: boolean) =>
                     </div>
                 </template>
 
-                <!-- ===== 图谱视图控制 ===== -->
+                <!-- 图谱视图控制 -->
                 <template v-else>
-                    <!-- 层级深度滑块 -->
-                    <div class="flex items-center gap-2">
-                        <span class="text-2xs text-gray-600 font-mono">深度</span>
-                        <div class="flex items-center gap-1">
-                            <button v-for="d in 3" :key="d" @click="store.setGraphDepth(d)" :class="`w-6 h-6 rounded-md text-1.5xs font-mono font-bold transition-all ${graphDepth >= d
-                                ? 'bg-neon/15 text-neon border border-neon/30'
-                                : 'text-gray-600 border border-ms-border/50 hover:border-ms-border'
-                                }`">
-                                {{ d }}
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="w-px h-4 bg-ms-border/40" />
-
-                    <!-- 聚光灯模式 -->
-                    <button @click="store.toggleSpotlight()" :class="ctrlBtnClass(spotlightMode)">
-                        <Spotlight :size="10" /> 聚光灯
-                    </button>
-
-                    <div class="w-px h-4 bg-ms-border/40" />
-
-                    <!-- 布局重置（emit 给 GraphView） -->
                     <button @click="$emit('fitView')"
-                        class="flex items-center gap-1 px-2.5 py-1.5 text-1.5xs font-mono rounded-md text-gray-500 hover:text-gray-300 border border-transparent hover:border-ms-border transition-all">
+                        class="flex items-center gap-1 px-2.5 py-1.5 text-1.5xs font-mono text-ms-smoke border border-ms-copper/40 shadow-[1px_1px_0_0_rgba(0,0,0,0.4)] hover:text-ms-bone hover:border-ms-copper hover:shadow-[2px_2px_0_0_rgba(0,0,0,0.5)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all duration-150">
                         <Minimize2 :size="10" /> 归位
                     </button>
                 </template>
@@ -153,10 +116,9 @@ export default {
 </script>
 
 <style scoped>
-/* 控制面板滑入 */
 .slideDown-enter-active,
 .slideDown-leave-active {
-    transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .slideDown-enter-from,

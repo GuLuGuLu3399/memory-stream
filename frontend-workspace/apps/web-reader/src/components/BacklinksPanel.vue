@@ -1,30 +1,31 @@
 <script setup lang="ts">
 /**
- * 📎 BacklinksPanel — 反向引用面板
+ * BacklinksPanel — 引渡经幡（血肉神殿）
  *
- * 显示指向当前卡片的所有反向引用（Backlinks）。
- * 只读展示，无编辑/删除功能。
+ * 显示指向当前卡片的所有反向引用。
  *
- * 设计：
- * - relation_type 徽章：sequence=青色，reference=灰色
- * - source_title 可点击跳转
- * - context_snippet 灰色斜体截断显示
+ * Features:
+ * - Copper-green (ms-patina) title with decorative underline
+ * - altar-glow-sm hover effect on backlink cards
+ * - Inline BacklinkCard component with:
+ *   - Left arrow icon (xuepo on hover)
+ *   - Title in ms-bone-dim → xuepo on hover
+ *   - Relation badge with dynamic styling
+ *   - Context snippet in italic ms-smoke
+ * - Smooth expand/collapse with ms-slide-down transition
  */
 
 import { ref, watch } from "vue";
-import { ArrowLeft } from "lucide-vue-next";
+import { ArrowLeft, Link2, ChevronDown, ChevronUp } from "lucide-vue-next";
 import { api } from "../api";
 import { useGraphStore } from "../store/useGraphStore";
 
-// ── Props ──
 const props = defineProps<{
     cardId: string;
 }>();
 
-// ── Store ──
 const store = useGraphStore();
 
-// ── State ──
 interface BacklinkItem {
     source_id: string;
     source_title: string;
@@ -36,7 +37,6 @@ const backlinks = ref<BacklinkItem[]>([]);
 const loading = ref(false);
 const isOpen = ref(false);
 
-// ── Fetch backlinks ──
 async function fetchBacklinks() {
     if (!props.cardId) {
         backlinks.value = [];
@@ -54,72 +54,248 @@ async function fetchBacklinks() {
     }
 }
 
-// ── Watch cardId changes ──
 watch(() => props.cardId, fetchBacklinks, { immediate: true });
 
-// ── Navigate to source card ──
 function navigateToCard(cardId: string) {
     store.selectNode(cardId);
 }
 
-// ── Badge color based on relation type ──
 function getBadgeClass(relationType: string): string {
     if (relationType === "sequence") {
-        return "text-neon bg-neon/10 border-neon/30";
+        return "text-xuepo bg-xuepo/10 border-xuepo/30";
     }
-    // reference or other types
-    return "text-gray-400 bg-gray-500/10 border-gray-500/30";
+    return "text-ms-smoke bg-ms-smoke/10 border-ms-smoke/30";
 }
 </script>
 
 <template>
-    <div v-if="backlinks.length > 0 || loading" class="mt-8 pt-5 border-t border-ms-border/50">
-        <!-- Header -->
+    <div v-if="backlinks.length > 0 || loading" class="backlinks-panel">
+        <!-- Header with Copper-green Title -->
         <button
-            class="flex items-center gap-2 text-xs text-gray-400 hover:text-neon transition-colors duration-200 mb-3"
+            class="backlinks-panel__header"
             @click="isOpen = !isOpen">
-            <ArrowLeft :size="12" />
-            <span class="font-medium">被引用</span>
-            <span v-if="loading"
-                class="inline-block w-3 h-3 border border-gray-500 border-t-neon rounded-full animate-spin" />
-            <span v-else class="text-gray-600">({{ backlinks.length }})</span>
-            <svg class="w-3 h-3 transition-transform duration-200" :class="{ 'rotate-180': isOpen }" viewBox="0 0 12 12"
-                fill="none">
-                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                    stroke-linejoin="round" />
-            </svg>
+            <div class="flex items-center gap-2">
+                <Link2 :size="12" class="backlinks-panel__icon" />
+                <span class="backlinks-panel__title">被引用</span>
+                <span v-if="loading"
+                    class="backlinks-panel__spinner" />
+                <span v-else class="backlinks-panel__count">({{ backlinks.length }})</span>
+            </div>
+            <ChevronDown
+                v-if="!isOpen"
+                :size="14"
+                class="backlinks-panel__chevron" />
+            <ChevronUp
+                v-else
+                :size="14"
+                class="backlinks-panel__chevron backlinks-panel__chevron--open" />
         </button>
 
-        <!-- Backlinks List -->
-        <Transition name="ms-slide-up">
-            <div v-if="isOpen" class="space-y-2">
-                <button v-for="bl in backlinks" :key="bl.source_id"
-                    class="w-full flex flex-col items-start gap-1.5 px-3 py-2.5 rounded-md text-left transition-all duration-150 group"
-                    :class="[
-                        'hover:bg-neon/5'
-                    ]"
-                    @click="navigateToCard(bl.source_id)">
-                    <!-- Title row with badge -->
-                    <div class="flex items-center gap-2 w-full">
-                        <ArrowLeft :size="10"
-                            class="flex-shrink-0 text-gray-600 group-hover:text-neon transition-colors" />
-                        <span class="text-xs text-gray-300 group-hover:text-neon transition-colors truncate flex-1">
-                            {{ bl.source_title }}
-                        </span>
-                        <span class="flex-shrink-0 px-1.5 py-0.5 text-2xs font-mono border rounded-sm"
-                            :class="getBadgeClass(bl.relation_type)">
-                            {{ bl.relation_type }}
-                        </span>
-                    </div>
+        <!-- Decorative Copper Line -->
+        <div class="backlinks-panel__line" />
 
-                    <!-- Context snippet -->
-                    <div v-if="bl.context_snippet" class="pl-5 w-full">
-                        <p class="text-1.5xs text-gray-500 italic truncate leading-relaxed">
+        <!-- Backlinks List with Slide Down Transition -->
+        <Transition name="ms-slide-down">
+            <div v-if="isOpen" class="backlinks-panel__list">
+                <button
+                    v-for="bl in backlinks"
+                    :key="bl.source_id"
+                    class="backlink-card"
+                    @click="navigateToCard(bl.source_id)">
+                    <ArrowLeft :size="10" class="backlink-card__arrow" />
+                    <div class="backlink-card__content">
+                        <div class="backlink-card__title-row">
+                            <span class="backlink-card__title">{{ bl.source_title }}</span>
+                            <span
+                                class="backlink-card__badge"
+                                :class="getBadgeClass(bl.relation_type)">
+                                {{ bl.relation_type }}
+                            </span>
+                        </div>
+                        <p v-if="bl.context_snippet" class="backlink-card__snippet">
                             {{ bl.context_snippet }}
                         </p>
                     </div>
                 </button>
             </div>
- </Transition>
+        </Transition>
     </div>
 </template>
+
+<style scoped>
+.backlinks-panel {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid theme('colors.ms-copper');
+}
+
+/* Header */
+.backlinks-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 200ms ease;
+}
+
+.backlinks-panel__header:hover .backlinks-panel__title {
+    color: theme('colors.xuepo.DEFAULT');
+}
+
+.backlinks-panel__header:hover .backlinks-panel__icon {
+    color: theme('colors.xuepo.DEFAULT');
+}
+
+.backlinks-panel__icon {
+    color: theme('colors.ms-patina');
+    transition: color 200ms ease;
+}
+
+.backlinks-panel__title {
+    font-size: 12px;
+    font-weight: 500;
+    color: theme('colors.ms-patina');
+    transition: color 200ms ease;
+    letter-spacing: 0.04em;
+}
+
+.backlinks-panel__count {
+    font-size: 11px;
+    color: theme('colors.ms-ash');
+    font-family: "JetBrains Mono", monospace;
+}
+
+.backlinks-panel__spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid theme('colors.ms-ash');
+    border-top-color: theme('colors.xuepo.DEFAULT');
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.backlinks-panel__chevron {
+    color: theme('colors.ms-patina');
+    transition: transform 200ms ease, color 200ms ease;
+}
+
+.backlinks-panel__chevron--open {
+    transform: rotate(180deg);
+}
+
+.backlinks-panel__header:hover .backlinks-panel__chevron {
+    color: theme('colors.xuepo.DEFAULT');
+}
+
+/* Decorative Copper Line */
+.backlinks-panel__line {
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        theme('colors.ms-patina') 15%,
+        theme('colors.ms-patina') 85%,
+        transparent 100%
+    );
+    margin-top: 8px;
+    opacity: 0.6;
+}
+
+/* List */
+.backlinks-panel__list {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Backlink Card */
+.backlink-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    text-align: left;
+    background: theme('colors.ms-xiang');
+    border: 1px solid theme('colors.ms-copper');
+    transition: all 200ms ease;
+    cursor: pointer;
+}
+
+.backlink-card:hover {
+    border-color: theme('colors.xuepo.DEFAULT');
+    box-shadow: 0 0 4px rgba(166, 38, 38, 0.15);
+}
+
+.backlink-card__arrow {
+    flex-shrink: 0;
+    color: theme('colors.ms-ash');
+    transition: color 200ms ease;
+    margin-top: 2px;
+}
+
+.backlink-card:hover .backlink-card__arrow {
+    color: theme('colors.xuepo.DEFAULT');
+}
+
+.backlink-card__content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.backlink-card__title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.backlink-card__title {
+    font-size: 12px;
+    color: theme('colors.ms-bone-dim');
+    transition: color 200ms ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.backlink-card:hover .backlink-card__title {
+    color: theme('colors.xuepo.DEFAULT');
+}
+
+.backlink-card__badge {
+    flex-shrink: 0;
+    padding: 2px 6px;
+    font-size: 9px;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid;
+    border-radius: 2px;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+}
+
+.backlink-card__snippet {
+    font-size: 11px;
+    color: theme('colors.ms-smoke');
+    font-style: italic;
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 0;
+    padding-left: 20px;
+}
+</style>

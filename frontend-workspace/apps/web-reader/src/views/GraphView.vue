@@ -1,20 +1,18 @@
 <script setup lang="ts">
 /**
- * 🌌 GraphView — 多连通分量星图（孤岛与断裂子图同屏呈现）
+ * GraphView — 图谱渲染主组件（重铸版）
  *
- * 布局策略：
- * 1. 全量快照拉取所有节点和边
- * 2. graphology 切割连通分量
- * 3. 每个分量独立 Dagre 布局
- * 4. potpack 矩阵打包到同一画布
+ * 三大基石：
+ * 1. 显式插槽映射 #node-card → CardNode
+ * 2. 语义化边（sequence=青色smoothstep, reference=灰色虚线bezier）
+ * 3. Dagre LR 布局仅在 onNodesInitialized 后执行
  *
- * 聚光灯模式：
- * - 点击节点 → 按 graphDepth 高亮 N 度邻居
- * - 点击空白 → 恢复全景
+ * 扩展功能：
+ * - 遗忘热力学：节点 opacity 按浏览时间衰减
+ * - 拓扑潜流：右键提取 SEQ 链，FlowReader 线性阅读
  */
 
-import { ref, shallowRef, onMounted, onUnmounted, watch, nextTick, type Ref } from "vue";
-import { storeToRefs } from "pinia";
+import { shallowRef, ref, computed, onMounted, nextTick, provide } from "vue";
 import {
     VueFlow,
     useVueFlow,
@@ -25,28 +23,22 @@ import {
 } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
-import { Sparkles, Zap, RefreshCw, Network } from "lucide-vue-next";
+import { Eye, Flame, Crosshair, RotateCw } from "lucide-vue-next";
 
 import CardNode from "../components/ui/CardNode.vue";
+import FlowReader from "../components/FlowReader.vue";
 import { useGraph } from "../composables/useGraph";
-import { useGraphSync, type MinimalNode, type MinimalEdge } from "../composables/useGraphSync";
 import { useGraphStore } from "../store/useGraphStore";
-import { layoutMultiComponentAsync, getSpotlightNeighbors } from "../utils/graphLayout";
+import { layoutMultiComponent } from "../utils/graphLayout";
+import { useOblivionHeatmap } from "../composables/useOblivionHeatmap";
+import { extractSeqChain, isInSeqChain } from "../utils/seqTraversal";
 
-// Vue Flow 样式
+// VueFlow 样式
 import "@vue-flow/core/dist/style.css";
 import "@vue-flow/core/dist/theme-default.css";
 import "@vue-flow/controls/dist/style.css";
 
-// ── Pinia Store ──
-const store = useGraphStore();
-const { graphDepth } = storeToRefs(store);
-
-// ── Vue Flow ──
-const { onNodesInitialized, fitView, setNodes, getNodes, setEdges, getEdges, onPaneClick } =
-    useVueFlow();
-
-// ── 数据 ──
+// ── 数据层 ──
 const {
     nodes: apiNodes,
     edges: apiEdges,
@@ -59,238 +51,224 @@ const {
 const nodes = shallowRef<Node[]>([]);
 const edges = shallowRef<Edge[]>([]);
 
-// ── WS 实时增量同步（缩窄类型为最小约束接口，避免 VueFlow 泛型深度实例化） ──
-const { connect: connectWS, disconnect: disconnectWS } = useGraphSync(
-    nodes as Ref<MinimalNode[]>,
-    edges as Ref<MinimalEdge[]>,
-);
+// ── VueFlow 钩子 ──
+const { onNodesInitialized, fitView, getNodes, getEdges, onPaneClick } = useVueFlow();
 
-// ── 聚光灯状态 ──
-const spotlightId = ref<string | null>(null);
-const spotlightSet = ref<Set<string>>(new Set());
+// ── Store（驱动 DetailDrawer 抽屉） ──
+const store = useGraphStore();
 
-/**
- * 应用聚光灯效果：非邻居节点 opacity 降低
- */
-function setNodeClass(id: string, cls: string) {
-    const idx = nodes.value.findIndex((n) => n.id === id);
-    if (idx >= 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (nodes.value[idx] as any).class = cls;
-    }
-}
+// ── 遗忘热力学 ──
+const { recordView } = useOblivionHeatmap();
+const heatmapEnabled = ref(true);
+provide("heatmapEnabled", heatmapEnabled);
 
-function applySpotlight(focusId: string | null) {
-    const currentNodes = getNodes.value;
+// ── 拓扑潜流 ──
+const flowReaderOpen = ref(false);
+const flowChainIds = ref<string[]>([]);
+const flowCurrentNodeId = ref<string | null>(null);
 
-    if (!focusId) {
-        spotlightId.value = null;
-        spotlightSet.value = new Set();
-        nodes.value = [...currentNodes] as Node[];
-        nodes.value.forEach((n) => {
-            setNodeClass(n.id, (n.data as any)?.isOrphan ? "is-orphan" : "");
-        });
-        return;
-    }
+// ── 右键菜单 ──
+const contextMenu = ref<{ x: number; y: number; nodeId: string } | null>(null);
 
-    spotlightId.value = focusId;
-    const neighbors = getSpotlightNeighbors(
-        currentNodes,
-        getEdges.value,
-        focusId,
-        graphDepth.value,
-    );
-    spotlightSet.value = neighbors;
-
-    nodes.value = [...currentNodes] as Node[];
-    nodes.value.forEach((n) => {
-        const inSpotlight = neighbors.has(n.id);
-        const isOrphan = (n.data as any)?.isOrphan;
-        let cls = "";
-        if (!inSpotlight) cls = "spotlight-dimmed";
-        if (isOrphan && inSpotlight) cls = "is-orphan";
-        if (isOrphan && !inSpotlight) cls = "is-orphan spotlight-dimmed";
-        setNodeClass(n.id, cls);
-    });
-
-    const currentEdges = getEdges.value as Edge[];
-    const updatedEdges: Edge[] = currentEdges.map((e) => {
-        const sourceIn = neighbors.has(e.source);
-        const targetIn = neighbors.has(e.target);
-        const isActive = sourceIn && targetIn;
-        return {
-            ...e,
-            class: isActive ? "spotlight-active" : "",
-        } as Edge;
-    });
-    edges.value = updatedEdges;
-}
-
-// ── 深度变化 → 更新聚光灯范围（不重新拉取数据） ──
-watch(graphDepth, () => {
-    if (spotlightId.value) {
-        applySpotlight(spotlightId.value);
-    }
-});
-
-// ── 边样式 ──
-function enforceEdgePositions(edges: Edge[]): Edge[] {
-    return edges.map((edge) => ({
-        ...edge,
-        sourcePosition: Position.Right,
-        targetPosition: Position.Left,
-        type: (edge.data as { type?: string })?.type === "sequence"
-            ? "smoothstep"
-            : "default",
-        animated: (edge.data as { type?: string })?.type === "sequence",
-    }));
-}
-
-// ── 暴露 fitView 给父组件 ──
-function fitViewPublic() {
-    fitView({ padding: 0.2, duration: 800 });
-}
-defineExpose({ fitView: fitViewPublic });
-
-// ── 初始化 ──
-onMounted(async () => {
-    await loadFullGraph();
-    nodes.value = (apiNodes.value as Node[]).map((n) => ({ ...n, style: { visibility: "hidden" } }));
-    edges.value = apiEdges.value as Edge[];
-    connectWS();
-});
-
-onUnmounted(() => {
-    disconnectWS();
-    if (layoutTimer) {
-        clearTimeout(layoutTimer);
-        layoutTimer = null;
-    }
-});
-
-// 🌟 关键：等节点真正渲染后，执行多连通分量布局
-onNodesInitialized(async () => {
-    const layouted = await layoutMultiComponentAsync(getNodes.value as Node[], getEdges.value as Edge[]) as Node[];
-    nodes.value = layouted.map((n) => ({ ...n, style: { visibility: "visible" } }));
-    await nextTick();
-    edges.value = enforceEdgePositions(getEdges.value as Edge[]) as Edge[];
-    window.requestAnimationFrame(() => {
-        fitView({ padding: 0.2, duration: 800 });
-    });
-});
-
-// ── 缩放事件 → 更新语义层级 ──
-function handleViewportChange({ zoom }: { zoom: number }) {
-    store.setZoomLevel(zoom);
-}
-
-// ── 节点点击 → 聚光灯模式 ──
 function onNodeClick(event: NodeMouseEvent) {
+    // 记录浏览时间
+    recordView(event.node.id);
     store.selectNode(event.node.id);
-    applySpotlight(event.node.id);
 }
 
-// ── 画布空白点击 → 退出聚光灯 ──
 onPaneClick(() => {
     store.selectNode(null);
-    applySpotlight(null);
+    contextMenu.value = null;
 });
 
-// ── 一键归位 ──
-const isLayouting = ref(false);
-let layoutTimer: ReturnType<typeof setTimeout> | null = null;
+// ── 右键菜单：提取潜流 ──
+function onNodeContextMenu(event: NodeMouseEvent) {
+    event.event.preventDefault();
+    const nodeId = event.node.id;
+    const vfEdges = getEdges.value as Edge[];
 
-const layout = async () => {
-    if (isLayouting.value) return;
-    isLayouting.value = true;
+    if (isInSeqChain(nodeId, vfEdges)) {
+        contextMenu.value = {
+            x: (event.event as MouseEvent).clientX,
+            y: (event.event as MouseEvent).clientY,
+            nodeId,
+        };
+    }
+}
 
-    const currentNodes = getNodes.value;
-    const currentEdges = getEdges.value;
+function openFlowReader() {
+    if (!contextMenu.value) return;
 
-    const edgesOff = currentEdges.map((e) => ({ ...e, animated: false }));
-    setEdges(edgesOff);
+    const vfEdges = getEdges.value as Edge[];
+    const chain = extractSeqChain(contextMenu.value.nodeId, vfEdges);
 
-    const layoutedNodes = await layoutMultiComponentAsync(currentNodes, currentEdges);
-    setNodes(layoutedNodes);
+    if (chain.length > 0) {
+        flowChainIds.value = chain;
+        flowCurrentNodeId.value = contextMenu.value.nodeId;
+        flowReaderOpen.value = true;
+    }
 
-    layoutTimer = setTimeout(() => {
-        const edgesOn = getEdges.value.map((e) => ({
-            ...e,
-            animated:
-                (e.data as { type?: string })?.type === "sequence",
-        }));
-        setEdges(edgesOn);
-        fitView({ padding: 0.2, duration: 400 });
-        isLayouting.value = false;
-        layoutTimer = null;
-    }, 500);
-};
+    contextMenu.value = null;
+}
+
+function closeFlowReader() {
+    flowReaderOpen.value = false;
+    flowChainIds.value = [];
+    flowCurrentNodeId.value = null;
+}
+
+function onFlowNavigate(nodeId: string) {
+    recordView(nodeId);
+}
+
+function resetViewport() {
+    fitView({ padding: 0.2, duration: 800, maxZoom: 1.2 });
+}
+
+function resetLayout() {
+    try {
+        const measuredNodes = getNodes.value as Node[];
+        const currentEdges = getEdges.value as Edge[];
+        const layouted = layoutMultiComponent(measuredNodes, currentEdges);
+        nodes.value = layouted;
+    } catch (err) {
+        console.error("❌ Dagre 重置布局失败:", err);
+    }
+
+    nextTick(() => {
+        fitView({ padding: 0.2, duration: 800, maxZoom: 1.2 });
+    });
+}
+
+// ── Dagre 布局锁（防重入） ──
+let layoutDone = false;
+
+onNodesInitialized(() => {
+    if (layoutDone) return;
+    layoutDone = true;
+
+    try {
+        const measuredNodes = getNodes.value as Node[];
+        const currentEdges = getEdges.value as Edge[];
+        const layouted = layoutMultiComponent(measuredNodes, currentEdges);
+        nodes.value = layouted;
+    } catch (err) {
+        console.error("❌ Dagre 布局失败:", err);
+    }
+
+    nextTick(() => {
+        fitView({ padding: 0.2, duration: 800, maxZoom: 1.2 });
+    });
+});
+
+// ── 加载数据 + 构建语义化边 ──
+onMounted(async () => {
+    await loadFullGraph();
+
+    nodes.value = apiNodes.value as Node[];
+
+    edges.value = (apiEdges.value as Edge[]).map((edge) => {
+        const relation = (edge.data as { type?: string })?.type;
+        const isSequence = relation === "sequence";
+
+        return {
+            ...edge,
+            type: isSequence ? "smoothstep" : "default",
+            animated: isSequence,
+            sourcePosition: Position.Right,
+            targetPosition: Position.Left,
+            style: isSequence
+                ? { stroke: "#00e5ff", strokeWidth: 2 }
+                : { stroke: "#71717a", strokeWidth: 1.5, strokeDasharray: "5 5" },
+        };
+    });
+});
 </script>
 
 <template>
-    <div class="graph-container" :class="{ 'is-layouting': isLayouting }">
-        <!-- ── 加载态（骨架屏节点网格预览） ── -->
-        <div v-if="graphLoading" class="empty-state">
-            <div class="grid grid-cols-3 gap-4 max-w-md mx-auto">
-                <div v-for="i in 6" :key="i"
-                    class="h-16 rounded-sm animate-pulse"
-                    :class="i % 3 === 0 ? 'col-span-2' : 'col-span-1'"
-                    :style="{ background: `rgba(51, 51, 51, ${0.3 + (i * 0.1)})` }">
-                    <div class="p-3 space-y-2">
-                        <div class="h-2 rounded bg-ms-border/50 w-3/4" />
-                        <div class="h-1.5 rounded bg-ms-border/30 w-1/2" />
-                    </div>
-                </div>
-            </div>
-            <p class="text-gray-500 text-xs mt-6 font-mono">正在加载全量星图...</p>
+    <div class="graph-container">
+        <!-- 加载态 -->
+        <div v-if="graphLoading" class="state-overlay">
+            <p class="text-zinc-500 text-xs font-mono animate-pulse">正在加载图谱...</p>
         </div>
 
-        <!-- ── 空态：后端无数据 ── -->
-        <div v-else-if="graphEmpty" class="empty-state">
-            <Network :size="48" class="text-gray-600 mb-4" />
-            <h3 class="text-gray-200 text-lg font-semibold mb-2">图谱是空的</h3>
-            <p class="text-gray-500 text-sm mb-4">还没有任何记忆卡片，快去创建第一张吧！</p>
-            <p class="text-gray-600 text-xs font-mono">在 admin-tauri 中新建卡片后，图谱会自动生成</p>
+        <!-- 空态 -->
+        <div v-else-if="graphEmpty" class="state-overlay">
+            <p class="text-zinc-500 text-sm">图谱为空</p>
         </div>
 
-        <!-- ── 错误态：API 不可用 ── -->
-        <div v-else-if="graphError" class="empty-state">
-            <Zap :size="48" class="text-ms-danger mb-4" />
-            <h3 class="text-gray-200 text-lg font-semibold mb-2">无法连接到后端服务</h3>
-            <p class="text-gray-500 text-sm mb-4">{{ graphError }}</p>
-            <button @click="loadFullGraph()"
-                class="px-4 py-2 bg-neon/10 text-neon text-sm rounded-lg border border-neon/20 hover:bg-neon/20 transition-all inline-flex items-center gap-1.5">
-                <RefreshCw :size="14" /> 重新连接
-            </button>
+        <!-- 错误态 -->
+        <div v-else-if="graphError" class="state-overlay">
+            <p class="text-red-400 text-sm">{{ graphError }}</p>
         </div>
 
-        <!-- ── 正常态：图谱渲染 ── -->
-        <VueFlow v-else
+        <!-- 图谱渲染 -->
+        <VueFlow
+            v-else
             :nodes="nodes"
             :edges="edges"
             :fit-view-on-init="true"
             :default-viewport="{ zoom: 1 }"
-            :snap-to-grid="true"
-            :snap-grid="[15, 15]"
-            :connect-on-click="false"
-            :connect-on-drag="false"
             @node-click="onNodeClick"
-            @viewport-change="handleViewportChange">
-            <Background :pattern-color="'#333333'" :gap="20" />
+            @node-context-menu="onNodeContextMenu"
+        >
+            <Background :pattern-color="'#27272a'" :gap="20" />
             <Controls />
 
-            <!-- 🌟 自定义卡片节点 -->
+            <!-- 显式插槽映射：node type "card" → CardNode -->
             <template #node-card="nodeProps">
                 <CardNode v-bind="nodeProps" />
             </template>
+        </VueFlow>
 
-            <!-- ✨ 一键归位浮动按钮 ── -->
-            <div class="absolute bottom-4 right-4 z-chrome">
-                <button @click="layout" class="layout-btn" :disabled="isLayouting" title="一键归位">
-                    <Sparkles :size="18" />
+        <!-- 右键菜单 -->
+        <Transition name="ctx-fade">
+            <div
+                v-if="contextMenu"
+                class="context-menu"
+                :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+            >
+                <button class="context-menu__item" @click="openFlowReader">
+                    <Flame :size="12" />
+                    <span>提取潜流</span>
                 </button>
             </div>
-        </VueFlow>
+        </Transition>
+
+        <!-- 右上角工具栏 -->
+        <div class="toolbar">
+            <button
+                class="toolbar-btn"
+                :class="{ 'toolbar-btn--active': heatmapEnabled }"
+                :title="heatmapEnabled ? '关闭遗忘热力学' : '开启遗忘热力学'"
+                @click="heatmapEnabled = !heatmapEnabled"
+            >
+                <Eye :size="14" />
+            </button>
+            <button
+                class="toolbar-btn"
+                title="视界归位"
+                @click="resetViewport"
+            >
+                <Crosshair :size="14" />
+            </button>
+            <button
+                class="toolbar-btn"
+                title="物理重置"
+                @click="resetLayout"
+            >
+                <RotateCw :size="14" />
+            </button>
+        </div>
+
+        <!-- 潜流阅读器 -->
+        <FlowReader
+            :open="flowReaderOpen"
+            :chain-ids="flowChainIds"
+            :current-node-id="flowCurrentNodeId"
+            @close="closeFlowReader"
+            @navigate="onFlowNavigate"
+        />
     </div>
 </template>
 
@@ -298,125 +276,124 @@ const layout = async () => {
 .graph-container {
     height: 100%;
     width: 100%;
-    background: theme('colors.ms-deep');
-    border-radius: 0;
+    background:
+        radial-gradient(ellipse 80% 60% at 50% 50%, rgba(166, 38, 38, 0.03) 0%, transparent 70%),
+        radial-gradient(circle at 20% 80%, rgba(201, 168, 76, 0.02) 0%, transparent 40%),
+        #09090b;
+    position: relative;
     overflow: hidden;
 }
 
-.empty-state {
+.state-overlay {
     height: 100%;
     width: 100%;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    text-align: center;
-    padding: 2rem;
 }
 
-.layout-btn {
-    padding: 12px;
-    border-radius: 9999px;
-    background: theme('colors.neon.DEFAULT');
-    color: theme('colors.ms-deep');
-    border: none;
-    cursor: pointer;
-    font-size: 18px;
-    box-shadow: 0 4px 24px rgba(0, 229, 255, 0.4);
-    transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.layout-btn:hover:not(:disabled) {
-    background: theme('colors.neon.400');
-    transform: scale(1.1);
-}
-
-.layout-btn:disabled {
-    opacity: 0.5;
-    cursor: wait;
-}
-
-/* ── 250ms 动效法则 ── */
-:deep(.vue-flow__node) {
-    transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1),
-        opacity 0.25s ease-out;
-    will-change: transform, opacity;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-}
-
-.is-layouting :deep(.vue-flow__node) {
-    pointer-events: none;
-}
-
-/* 隐藏 Vue Flow 所有连接手柄，禁用拖拽连接（只读边） */
-:deep(.vue-flow__handle) {
-    opacity: 0;
-    pointer-events: none;
-}
-
-/* ── 聚光灯暗化（blur + grayscale + 透明度） ── */
-:deep(.vue-flow__node.spotlight-dimmed) {
-    opacity: 0.12 !important;
-    filter: blur(3px) grayscale(0.5);
-    will-change: filter, opacity;
-    pointer-events: none;
-}
-
-:deep(.vue-flow__node.spotlight-dimmed:hover) {
-    opacity: 0.12 !important;
-    filter: blur(3px) grayscale(0.5);
-    transform: none !important;
-}
-
-/* ── 聚光灯焦点路径边发光 ── */
-:deep(.vue-flow__edge.spotlight-active .vue-flow__edge-path) {
-    stroke: theme('colors.neon.DEFAULT');
-    filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.6));
-    stroke-width: 2.5;
-    stroke-dasharray: 8 4;
-    animation: spotlight-flow 1s linear infinite;
-}
-
-@keyframes spotlight-flow {
-    from { stroke-dashoffset: 12; }
-    to { stroke-dashoffset: 0; }
-}
-
-/* ── 孤岛节点 class ── */
-:deep(.vue-flow__node.is-orphan) {
-    /* CardNode 内部样式已处理 */
-}
-
-/* ── Reference 参考线：虚线灰色 ── */
-:deep(.vue-flow__edge.reference .vue-flow__edge-path) {
-    stroke: theme('colors.zinc.500');
-    stroke-width: 1.5;
-    stroke-dasharray: 6 4;
-}
-
-/* ── Sequence 能量流线：实线 + animated 流动） ── */
-:deep(.vue-flow__edge.animated .vue-flow__edge-path) {
-    stroke: theme('colors.neon.DEFAULT');
-    stroke-width: 3;
-    filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.5));
-}
-
-/* ── Controls 主题适配 ── */
+/* ── Controls 暗色主题 ── */
 :deep(.vue-flow__controls) {
-    background: theme('colors.ms-carbon');
-    border: 1px solid theme('colors.ms-border');
-    border-radius: 2px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 3px;
 }
 
 :deep(.vue-flow__controls-button) {
-    background: theme('colors.ms-carbon');
-    border-bottom: 1px solid theme('colors.ms-border');
-    fill: theme('colors.gray.400');
+    background: #18181b;
+    border-bottom: 1px solid #27272a;
+    fill: #71717a;
 }
 
 :deep(.vue-flow__controls-button:hover) {
-    background: theme('colors.ms-panel');
+    background: #27272a;
+    fill: #e4e4e7;
+}
+
+/* ── 右键菜单 — hard entity shadow ── */
+.context-menu {
+    position: fixed;
+    z-index: 40;
+    background: #18181b;
+    border: 1px solid #3a3228;
+    border-radius: 3px;
+    padding: 4px 0;
+    min-width: 140px;
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+        3px 3px 0 0 rgba(0, 0, 0, 0.6);
+}
+
+.context-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: #c8bfa8;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 150ms ease;
+}
+
+.context-menu__item:hover {
+    background: rgba(201, 168, 76, 0.08);
+    color: #c9a84c;
+}
+
+.ctx-fade-enter-active,
+.ctx-fade-leave-active {
+    transition: opacity 0.15s ease;
+}
+
+.ctx-fade-enter-from,
+.ctx-fade-leave-to {
+    opacity: 0;
+}
+
+/* ── 右上角工具栏 ── */
+.toolbar {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.toolbar-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #18181b;
+    border: 1px solid #3a3228;
+    border-radius: 3px;
+    color: #71717a;
+    box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.toolbar-btn:hover {
+    background: #27272a;
+    color: #c8bfa8;
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 0 rgba(0, 0, 0, 0.5);
+}
+
+.toolbar-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 0px 0px 0 0 rgba(0, 0, 0, 0.5);
+}
+
+.toolbar-btn--active {
+    color: #c9a84c;
+    border-color: rgba(201, 168, 76, 0.3);
+    box-shadow: 0 0 6px rgba(201, 168, 76, 0.15), 2px 2px 0 0 rgba(0, 0, 0, 0.5);
 }
 </style>

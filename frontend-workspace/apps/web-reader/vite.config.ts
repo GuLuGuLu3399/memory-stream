@@ -4,6 +4,12 @@ import viteCompression from "vite-plugin-compression";
 
 // https://vite.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      // MarkdownEditor in ui-shared conditionally imports Tauri — provide an empty shim for web-reader
+      "@tauri-apps/api/core": new URL("./src/shims/tauri-api-core.ts", import.meta.url).pathname,
+    },
+  },
   plugins: [
     vue(),
     // Gzip 压缩

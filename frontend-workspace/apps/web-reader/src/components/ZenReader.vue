@@ -1,14 +1,14 @@
 <script setup lang="ts">
 /**
- * 🌟 ZenReader — 全屏禅模式阅读器
+ * ZenReader — 内殿祭坛（全屏禅模式）
  *
  * z-fullscreen 覆盖一切，沉浸式阅读体验。
- * 100% 宽度 Markdown 渲染（max-width: 72ch）
+ * 100% 宽度 Markdown 渲染（max-width: 72ch 或 88ch 可切换）
  * 右下角 FloatingCompass 悬浮目录导航
- * Escape 退出
+ * 退出：ESC 键、下滑手势、点击退出按钮
  */
 
-import { ref, watch, nextTick, onUnmounted } from "vue";
+import { ref, watch, nextTick, onMounted, onUnmounted, computed } from "vue";
 
 import { storeToRefs } from "pinia";
 import MarkdownViewer from "@memory-stream/ui-shared/components/MarkdownViewer.vue";
@@ -26,8 +26,12 @@ const detail = ref<CardDetail | null>(null);
 const tocItems = ref<TocItem[]>([]);
 const proseRef = ref<HTMLElement>();
 
-// ── 真实滚动进度追踪 ──
 const readProgress = ref(0);
+const proseWidth = ref<'prose' | 'reading'>('prose');
+
+const proseMaxWidth = computed(() => {
+    return proseWidth.value === 'prose' ? 'max-w-prose' : 'max-w-[88ch]';
+});
 
 const calculateProgress = () => {
     if (!proseRef.value) return;
@@ -36,10 +40,48 @@ const calculateProgress = () => {
     readProgress.value = maxScroll <= 0 ? 100 : Math.round((scrollTop / maxScroll) * 100);
 };
 
-// ── IntersectionObserver 驱动标题高亮 ──
 const { activeSlug, delayedRefresh } = useActiveHeading(proseRef);
 
-// ── 加载卡片 + TOC（直接使用后端持久化的 toc_data） ──
+const toggleProseWidth = () => {
+    proseWidth.value = proseWidth.value === 'prose' ? 'reading' : 'prose';
+};
+
+// 下滑退出手势
+let swipeStartY = 0;
+let swipeTracking = false;
+const SWIPE_THRESHOLD = 100;
+
+const onTouchStart = (e: TouchEvent) => {
+    const touch = e.touches[0];
+    swipeStartY = touch.clientY;
+    swipeTracking = true;
+};
+
+const onTouchMove = (e: TouchEvent) => {
+    if (!swipeTracking) return;
+    const touch = e.touches[0];
+    const dy = touch.clientY - swipeStartY;
+    const dx = Math.abs(touch.clientX - e.touches[0].clientX);
+
+    // 如果水平滑动大于垂直，取消追踪
+    if (dx > Math.abs(dy) && dx > 10) {
+        swipeTracking = false;
+        return;
+    }
+};
+
+const onTouchEnd = (e: TouchEvent) => {
+    if (!swipeTracking) return;
+    swipeTracking = false;
+
+    const touch = e.changedTouches[0];
+    const dy = touch.clientY - swipeStartY;
+
+    if (dy > SWIPE_THRESHOLD) {
+        store.toggleZenMode();
+    }
+};
+
 watch([zenMode, selectedId], async ([zen, id]) => {
     if (!zen || !id) {
         detail.value = null;
@@ -54,11 +96,8 @@ watch([zenMode, selectedId], async ([zen, id]) => {
             return;
         }
         detail.value = result;
-
-        // 直接使用保存时预计算的 TOC（无需 WASM 运行时重算）
         tocItems.value = result.tocData ?? [];
 
-        // DOM 更新后延迟刷新 observer（等待 MarkdownViewer 异步渲染完成）
         await nextTick();
         delayedRefresh();
     } catch (err) {
@@ -67,33 +106,67 @@ watch([zenMode, selectedId], async ([zen, id]) => {
     }
 }, { immediate: true });
 
-// ── 锁定外部滚动 ──
 watch(zenMode, (zen) => {
     document.body.style.overflow = zen ? "hidden" : "";
 });
 
+// ── Esc 键退出禅模式 ──
+function onKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape" && zenMode.value) {
+        e.preventDefault();
+        store.toggleZenMode();
+    }
+}
+
+onMounted(() => {
+    document.addEventListener("keydown", onKeydown);
+});
+
 onUnmounted(() => {
     document.body.style.overflow = "";
+    document.removeEventListener("keydown", onKeydown);
 });
 </script>
 
 <template>
     <Teleport to="body">
         <Transition name="ms-scale">
-            <div v-if="zenMode && detail" class="fixed inset-0 z-fullscreen bg-ms-deep flex zen-container">
-                <!-- 霓虹顶线装饰 -->
-                <div class="zen-neon-topline"></div>
+            <div v-if="zenMode && detail"
+                class="fixed inset-0 z-fullscreen bg-ms-xuan flex zen-container zen-vignette"
+                @touchstart="onTouchStart"
+                @touchmove="onTouchMove"
+                @touchend="onTouchEnd">
+
+                <!-- 金缮顶线装饰 - 笔触动画 -->
+                <div class="zen-gold-topline">
+                    <svg class="zen-brush-svg" viewBox="0 0 1200 2" preserveAspectRatio="none">
+                        <path class="zen-brush-path" d="M 0 1 Q 300 1, 600 1 T 1200 1"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </div>
+
+                <!-- 血珀参考线 - 左右边缘 -->
+                <div class="zen-guideline-left"></div>
+                <div class="zen-guideline-right"></div>
 
                 <!-- 全屏 Markdown 阅读 -->
-                <div class="flex-1 overflow-y-auto scrollbar-thin" ref="proseRef" @scroll="calculateProgress">
-                    <div class="max-w-prose mx-auto px-8 py-16">
-                        <!-- 标题 -->
-                        <h1 class="text-3xl font-bold text-white mb-8 leading-tight">
-                            {{ detail.title }}
-                        </h1>
+                <div class="flex-1 overflow-y-auto scrollbar-thin text-stone-300 relative z-[2]" ref="proseRef" @scroll="calculateProgress">
+                    <div class="mx-auto px-8 py-16 zen-content-area [&_li_p]:m-0 [&_li]:my-1" :class="proseMaxWidth" @dblclick="toggleProseWidth">
+                        <!-- 标题 - 淡入上滑动画 -->
+                        <Transition name="ms-fade-slide-up" appear>
+                            <h1 class="text-3xl font-bold text-zinc-200 mb-8 leading-tight font-serif">
+                                {{ detail.title }}
+                            </h1>
+                        </Transition>
+
                         <!-- 正文 -->
                         <MarkdownViewer :html-content="detail.html" />
                     </div>
+                </div>
+
+                <!-- 禅进度条 - 底部金色细线 -->
+                <div class="fixed bottom-0 left-0 right-0 h-[2px] bg-ms-mo z-[2]">
+                    <div class="zen-progress-fill" :style="{ width: `${readProgress}%` }"></div>
                 </div>
 
                 <!-- 悬浮阅读罗盘 -->
@@ -102,50 +175,169 @@ onUnmounted(() => {
                         :read-progress="readProgress" />
                 </div>
 
-                <!-- 退出提示 -->
-                <div class="fixed top-4 right-4 z-[1]">
-                    <button
-                        class="px-3 py-1.5 text-1.5xs font-mono text-gray-600 hover:text-gray-300 bg-ms-panel/80 backdrop-blur border border-ms-border rounded-lg transition-all"
-                        @click="store.toggleZenMode()">
-                        ESC 退出
-                    </button>
-                </div>
+                <!-- 宽度切换提示 -->
+                <Transition name="fade">
+                    <div v-if="proseWidth === 'reading'" class="fixed bottom-4 left-4 z-[1]">
+                        <span class="text-2xs font-mono text-ms-smoke bg-ms-xuan/90 border border-ms-copper/30 px-2 py-1 rounded">
+                            88ch 阅读宽
+                        </span>
+                    </div>
+                </Transition>
             </div>
         </Transition>
     </Teleport>
 </template>
 
 <style scoped>
-/* ── 霓虹顶线装饰：入殿感标志 ── */
-.zen-neon-topline {
+/* ── 环境暗场：沉浸深渊暗角 ── */
+.zen-vignette::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background: radial-gradient(
+        ellipse 70% 60% at 50% 50%,
+        transparent 50%,
+        rgba(10, 8, 6, 0.4) 100%
+    );
+}
+
+/* ── 金缮顶线装饰：笔触动画 ── */
+.zen-gold-topline {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg,
-            transparent 0%,
-            theme('colors.neon.DEFAULT') 15%,
-            theme('colors.neon.DEFAULT') 50%,
-            theme('colors.neon.DEFAULT') 85%,
-            transparent 100%);
-    box-shadow:
-        0 0 8px rgba(0, 229, 255, 0.6),
-        0 0 24px rgba(0, 229, 255, 0.3),
-        0 0 48px rgba(0, 229, 255, 0.15);
     z-index: 2;
-    animation: zen-neon-pulse 3s ease-in-out infinite;
+    overflow: hidden;
 }
 
-@keyframes zen-neon-pulse {
+.zen-brush-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    color: theme('colors.ms-gold');
+}
 
-    0%,
-    100% {
-        opacity: 0.7;
+.zen-brush-path {
+    stroke-dasharray: 1200;
+    stroke-dashoffset: 1200;
+    animation: zen-brush-draw 2.5s cubic-bezier(0.37, 0, 0.63, 1) forwards,
+               zen-gold-pulse 3s ease-in-out infinite 2.5s;
+}
+
+@keyframes zen-brush-draw {
+    to {
+        stroke-dashoffset: 0;
     }
+}
 
+@keyframes zen-gold-pulse {
+    0%, 100% {
+        filter: drop-shadow(0 0 4px rgba(201, 168, 76, 0.3));
+    }
+    50% {
+        filter: drop-shadow(0 0 12px rgba(201, 168, 76, 0.5));
+    }
+}
+
+/* ── 血珀参考线：左右边缘微弱脉动 ── */
+.zen-guideline-left,
+.zen-guideline-right {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        rgba(166, 38, 38, 0.08) 20%,
+        rgba(166, 38, 38, 0.12) 50%,
+        rgba(166, 38, 38, 0.08) 80%,
+        transparent 100%);
+    z-index: 1;
+    animation: zen-guideline-pulse 4s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.zen-guideline-left {
+    left: max(calc(50% - 36ch), 16px);
+}
+
+.zen-guideline-right {
+    right: max(calc(50% - 36ch), 16px);
+}
+
+@keyframes zen-guideline-pulse {
+    0%, 100% {
+        opacity: 0.6;
+    }
     50% {
         opacity: 1;
     }
+}
+
+/* ── 禅进度条：金色辉光 ── */
+.zen-progress-fill {
+    height: 100%;
+    background: theme('colors.ms-gold');
+    box-shadow:
+        0 0 8px rgba(201, 168, 76, 0.4),
+        0 0 16px rgba(201, 168, 76, 0.2);
+    transition: width 150ms ease-out;
+}
+
+/* ── 标题淡入上滑动画 ── */
+.ms-fade-slide-up-enter-active {
+    transition: all 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ms-fade-slide-up-enter-from {
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.ms-fade-slide-up-enter-to {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ── 宽度切换提示淡入淡出 ── */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 300ms ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+/* ── 缩放过渡动画 ── */
+.ms-scale-enter-active {
+    transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ms-scale-leave-active {
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ms-scale-enter-from,
+.ms-scale-leave-to {
+    opacity: 0;
+    transform: scale(0.98);
+}
+
+/* ── 内容区域：双击提示 ── */
+.zen-content-area {
+    cursor: default;
+    user-select: text;
+}
+
+.zen-content-area:active {
+    cursor: text;
 }
 </style>

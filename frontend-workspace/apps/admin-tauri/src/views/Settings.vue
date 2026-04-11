@@ -75,11 +75,11 @@ async function testNetwork() {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 5000)
     const url = new URL(form.value.api_base_url)
-    
+
     await fetch(`${url.origin}/health`, {
       signal: controller.signal,
     })
-    
+
     clearTimeout(timeoutId)
     networkStatus.value = 'ok'
   } catch {
@@ -109,7 +109,7 @@ async function selectVaultDir() {
   }
 }
 
-const canSave = computed(() => 
+const canSave = computed(() =>
   networkStatus.value === 'ok' &&
   storageStatus.value === 'ok' &&
   !saving.value &&
@@ -156,9 +156,9 @@ function getStatusIcon(status: TestStatus): string {
 
 function getStatusColor(status: TestStatus): string {
   switch (status) {
-    case 'ok': return 'text-emerald-400'
-    case 'failed': return 'text-red-400'
-    case 'testing': return 'text-amber-400 animate-pulse'
+    case 'ok': return 'text-brass'
+    case 'failed': return 'text-neon'
+    case 'testing': return 'text-brass animate-pulse'
     default: return 'text-slate-600'
   }
 }
@@ -171,8 +171,8 @@ function getStatusColor(status: TestStatus): string {
       class="fixed inset-x-0 bottom-0 top-titlebar z-panel flex items-center justify-center bg-ms-deep/95 backdrop-blur-sm"
       @click.self="close"
     >
-      <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-ms-panel border border-ms-border shadow-2xl">
-        
+      <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-ms-panel border border-ms-border shadow-2xl" style="box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(42,42,42,0.5);">
+
         <!-- Header -->
         <div class="h-14 flex items-center justify-between px-6 border-b border-ms-border bg-ms-carbon shrink-0">
           <div class="flex items-center gap-3">
@@ -193,12 +193,12 @@ function getStatusColor(status: TestStatus): string {
 
         <!-- Content -->
         <div class="p-6 space-y-6">
-          
+
           <!-- VAULT Section -->
           <div class="border border-ms-border bg-ms-deep">
             <div class="h-10 flex items-center gap-2 px-4 border-b border-ms-border bg-ms-carbon">
-              <FolderOpen class="w-3.5 h-3.5 text-cyan-400" />
-              <span class="text-cyan-400 text-xs tracking-widest uppercase font-bold font-mono">
+              <FolderOpen class="w-3.5 h-3.5 text-brass" />
+              <span class="text-brass text-xs tracking-widest uppercase font-bold font-mono">
                 [ VAULT ]
               </span>
             </div>
@@ -220,7 +220,7 @@ function getStatusColor(status: TestStatus): string {
                 <div class="flex items-center gap-2">
                   <button
                     @click="selectVaultDir"
-                    class="text-cyan-400 border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-1.5 text-xs font-mono transition-all whitespace-nowrap"
+                    class="text-brass border border-brass/30 bg-brass/10 hover:bg-brass/20 px-3 py-1.5 text-xs font-mono transition-all whitespace-nowrap"
                   >
                     {{ form.vault_path ? 'CHANGE' : 'SELECT' }}
                   </button>
@@ -232,8 +232,8 @@ function getStatusColor(status: TestStatus): string {
           <!-- NETWORK Section -->
           <div class="border border-ms-border bg-ms-deep">
             <div class="h-10 flex items-center gap-2 px-4 border-b border-ms-border bg-ms-carbon">
-              <Wifi class="w-3.5 h-3.5 text-cyan-400" />
-              <span class="text-cyan-400 text-xs tracking-widest uppercase font-bold font-mono">
+              <Wifi class="w-3.5 h-3.5 text-neon" />
+              <span class="text-neon text-xs tracking-widest uppercase font-bold font-mono">
                 [ NETWORK ]
               </span>
             </div>
@@ -279,8 +279,8 @@ function getStatusColor(status: TestStatus): string {
           <!-- STORAGE Section -->
           <div class="border border-ms-border bg-ms-deep">
             <div class="h-10 flex items-center gap-2 px-4 border-b border-ms-border bg-ms-carbon">
-              <Database class="w-3.5 h-3.5 text-cyan-400" />
-              <span class="text-cyan-400 text-xs tracking-widest uppercase font-bold font-mono">
+              <Database class="w-3.5 h-3.5 text-neon" />
+              <span class="text-neon text-xs tracking-widest uppercase font-bold font-mono">
                 [ STORAGE ]
               </span>
             </div>
@@ -414,7 +414,7 @@ function getStatusColor(status: TestStatus): string {
               :disabled="!canSave"
               class="flex items-center gap-2 px-6 py-2 text-xs font-mono transition-all"
               :class="canSave
-                ? 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
+                ? 'bg-brass/10 border border-brass/30 text-brass hover:bg-brass/20'
                 : 'bg-ms-surface border border-ms-border text-slate-600 opacity-30 cursor-not-allowed'"
             >
               <span class="text-neon">◆</span>

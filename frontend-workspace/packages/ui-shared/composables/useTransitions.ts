@@ -69,11 +69,25 @@ export function useTransitions() {
   const slideUp = computed(() => 
     `transform ${standardDuration.value} ease-out`
   )
-  const scale = computed(() => 
+  const scale = computed(() =>
     `transform ${standardDuration.value} ease, opacity ${standardDuration.value} ease`
   )
 
-  const transitionName = computed(() => 
+  // --- New transitions ---
+  const slideLeft = computed(() =>
+    `transform ${drawerDuration.value} cubic-bezier(0.16, 1, 0.3, 1)`
+  )
+  const slideDown = computed(() =>
+    `transform ${standardDuration.value} ease-out`
+  )
+  const morph = computed(() =>
+    `transform ${standardDuration.value} cubic-bezier(0.16, 1, 0.3, 1), opacity ${standardDuration.value} ease`
+  )
+  const spring = computed(() =>
+    `transform ${prefersReducedMotion.value ? '0ms' : '300ms'} cubic-bezier(0.68, -0.3, 0.32, 1.3)`
+  )
+
+  const transitionName = computed(() =>
     prefersReducedMotion.value ? 'none' : 'default'
   )
 
@@ -82,6 +96,10 @@ export function useTransitions() {
     slideRight,
     slideUp,
     scale,
+    slideLeft,
+    slideDown,
+    morph,
+    spring,
     transitionName,
     maxDuration: 250,
     drawerDurationMs: 300,

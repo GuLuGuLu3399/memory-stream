@@ -1,8 +1,19 @@
 <script setup lang="ts">
+/**
+ * CommandPalette — 机械祭坛命令台
+ *
+ * 机械祭坛主题设计:
+ * - 黄铜铆钉装饰（四个角）
+ * - 选中项霓虹辉 + 黄铜边框组合
+ * - 命令模式动画黄铜齿轮指示器
+ * - 空开显示最近卡片
+ */
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useKnowledgeStore } from "../stores/knowledge";
 import { useLayoutStore } from "../stores/layout";
 import { storeToRefs } from "pinia";
+import { Settings, FileText, RotateCw, Search } from "lucide-vue-next";
+import { useKeyboardListNavigation } from "@memory-stream/ui-shared";
 
 const store = useKnowledgeStore();
 const layoutStore = useLayoutStore();
@@ -10,7 +21,6 @@ const { recentCards, orphanCards } = storeToRefs(store);
 
 const isOpen = ref(false);
 const query = ref("");
-const selectedIndex = ref(0);
 const inputRef = ref<HTMLInputElement | null>(null);
 
 const isCommandMode = computed(() => query.value.startsWith(">"));
@@ -54,10 +64,19 @@ const displayItems = computed(() => {
     return allCards.value;
 });
 
+const itemCount = computed(() => displayItems.value.length);
+
+// Keyboard navigation using shared composable
+const { selectedIndex, handleKeydown: handleNavKeydown, reset: resetSelection, setIndex } = useKeyboardListNavigation(
+    itemCount,
+    () => handleSelect(),
+    { wrap: true, initialIndex: 0 }
+);
+
 function open() {
     isOpen.value = true;
     query.value = "";
-    selectedIndex.value = 0;
+    resetSelection();
     nextTick(() => inputRef.value?.focus());
 }
 
@@ -106,29 +125,13 @@ function handleKeydown(e: KeyboardEvent) {
         return;
     }
 
-    const maxIndex = displayItems.value.length - 1;
-
-    if (e.key === "ArrowDown") {
-        e.preventDefault();
-        selectedIndex.value = Math.min(selectedIndex.value + 1, maxIndex);
-        return;
-    }
-
-    if (e.key === "ArrowUp") {
-        e.preventDefault();
-        selectedIndex.value = Math.max(selectedIndex.value - 1, 0);
-        return;
-    }
-
-    if (e.key === "Enter" && displayItems.value[selectedIndex.value]) {
-        e.preventDefault();
-        handleSelect();
-        return;
-    }
+    // Delegate arrow/enter navigation to useKeyboardListNavigation
+    const handled = handleNavKeydown(e);
+    if (handled) return;
 }
 
 watch(query, () => {
-    selectedIndex.value = 0;
+    resetSelection();
 });
 
 onMounted(() => {
@@ -144,71 +147,82 @@ onUnmounted(() => {
         <Transition name="ms-scale">
             <div v-if="isOpen" class="fixed inset-x-0 bottom-0 top-titlebar z-modal flex items-start justify-center pt-[20vh]"
                 @click.self="close">
-                <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="close"></div>
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="close"></div>
 
                 <div role="combobox" :aria-expanded="isOpen" aria-haspopup="listbox"
-                    class="relative w-full max-w-lg bg-ms-carbon shadow-2xl border border-ms-border overflow-hidden">
-                    <div class="flex items-center px-4 border-b border-ms-border">
-                        <svg v-if="!isCommandMode" class="w-4 h-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <span v-else class="text-amber-400 mr-2 font-mono text-sm select-none">&gt;</span>
+                    class="relative w-full max-w-lg bg-ms-panel overflow-hidden"
+                    style="box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.04), 4px 4px 0 0 rgba(0,0,0,0.6), 0 0 40px rgba(0,229,255,0.05);">
+                    <!-- Brass rivet decorations at corners -->
+                    <div class="absolute top-0 left-0 w-3 h-3 border-l-2 border-t-2 border-brass/60 rounded-tl-sm" />
+                    <div class="absolute top-0 right-0 w-3 h-3 border-r-2 border-t-2 border-brass/60 rounded-tr-sm" />
+                    <div class="absolute bottom-0 left-0 w-3 h-3 border-l-2 border-b-2 border-brass/60 rounded-bl-sm" />
+                    <div class="absolute bottom-0 right-0 w-3 h-3 border-r-2 border-b-2 border-brass/60 rounded-br-sm" />
+
+                    <!-- Header -->
+                    <div class="flex items-center px-4 border-b border-ms-border bg-ms-deep">
+                        <Search v-if="!isCommandMode" :size="16" class="text-slate-500 shrink-0" />
+                        <RotateCw v-else :size="16" class="text-brass shrink-0 animate-spin-slow" />
                         <input ref="inputRef" v-model="query" :placeholder="isCommandMode ? 'command...' : '搜索卡片...'"
                             role="searchbox"
-                            :aria-activedescendant="isOpen && displayItems.length > 0 ? `palette-option-${displayItems[selectedIndex]?.id ?? selectedIndex}` : undefined"
                             class="flex-1 px-3 py-3 text-sm outline-none bg-transparent text-slate-200 placeholder-slate-600 font-mono" />
-                        <kbd
-                            class="text-2xs bg-ms-surface text-slate-500 px-1.5 py-0.5 rounded border border-ms-border">ESC</kbd>
+                        <kbd class="text-2xs bg-ms-surface text-slate-500 px-1.5 py-0.5 border border-ms-border shadow-[1px_1px_0_0_rgba(0,0,0,0.4)]">ESC</kbd>
                     </div>
 
                     <!-- Command Mode -->
                     <div v-if="isCommandMode" class="max-h-72 overflow-y-auto" role="listbox">
                         <button v-for="(cmd, idx) in filteredCommands" :key="cmd.id" @click="selectCommand(cmd.id)"
-                            @mouseenter="selectedIndex = idx"
+                            @mouseenter="setIndex(idx)"
                             role="option" :id="`palette-option-${cmd.id}`"
                             :aria-selected="idx === selectedIndex"
-                            class="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 transition"
+                            class="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 transition relative"
                             :class="idx === selectedIndex
-                                ? cmd.danger ? 'bg-amber-500/10 text-amber-400' : 'bg-neon/10 text-neon'
-                                : 'text-slate-400 hover:bg-ms-surface'">
-                            <span class="font-mono text-xs">&gt;</span>
+                                ? cmd.danger ? 'bg-brass/10 text-brass border-l-2 border-brass' : 'bg-neon/10 text-neon border-l-2 border-neon'
+                                : 'text-slate-400 hover:bg-ms-surface border-l-2 border-transparent'">
+                            <Settings :size="14" class="shrink-0"
+                                :class="idx === selectedIndex
+                                    ? (cmd.danger ? 'text-brass' : 'text-neon')
+                                    : 'text-slate-600'" />
                             <span class="font-mono">{{ cmd.label }}</span>
                             <span class="text-2xs text-slate-600 ml-auto">{{ cmd.description }}</span>
+                            <!-- Neon glow for selected -->
+                            <div v-if="idx === selectedIndex && !cmd.danger"
+                                class="absolute inset-0 pointer-events-none"
+                                style="box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.04), inset 0 -1px 0 0 rgba(0,0,0,0.1);" />
                         </button>
                         <div v-if="filteredCommands.length === 0" class="px-4 py-6 text-center text-sm text-slate-500 font-mono">
                             No command found
                         </div>
                     </div>
 
-                    <!-- Card Search Mode -->
+                    <!-- Card Search Mode / Recent Cards -->
                     <div v-else class="max-h-72 overflow-y-auto" role="listbox">
                         <button v-for="(card, idx) in allCards" :key="card.id" @click="selectCard(card.id)"
-                            @mouseenter="selectedIndex = idx"
+                            @mouseenter="setIndex(idx)"
                             role="option" :id="`palette-option-${card.id}`"
                             :aria-selected="idx === selectedIndex"
-                            class="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 transition" :class="idx === selectedIndex
-                                ? 'bg-neon/10 text-neon'
-                                : 'text-slate-400 hover:bg-ms-surface'">
-                            <svg class="w-4 h-4 shrink-0"
-                                :class="idx === selectedIndex ? 'text-neon' : 'text-slate-600'" fill="none"
-                                viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                            class="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 transition relative border-l-2"
+                            :class="idx === selectedIndex
+                                ? 'bg-neon/10 text-neon border-neon'
+                                : 'text-slate-400 hover:bg-ms-surface border-transparent'">
+                            <FileText :size="16" class="shrink-0"
+                                :class="idx === selectedIndex ? 'text-neon' : 'text-slate-600'" />
                             <span class="truncate font-mono text-xs">{{ card.title || "无标题" }}</span>
+                            <!-- Neon glow for selected -->
+                            <div v-if="idx === selectedIndex"
+                                class="absolute inset-0 pointer-events-none"
+                                style="box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.04), inset 0 -1px 0 0 rgba(0,0,0,0.1);" />
                         </button>
                         <div v-if="allCards.length === 0" class="px-4 py-6 text-center text-sm text-slate-500 font-mono">
                             未找到匹配的卡片
                         </div>
                     </div>
 
-                    <div class="px-4 py-2 border-t border-ms-border text-2xs text-slate-600 flex gap-3 font-mono">
+                    <!-- Footer -->
+                    <div class="px-4 py-2 border-t border-ms-border text-2xs text-slate-600 flex gap-3 font-mono bg-ms-deep/50">
                         <span>↑↓ 导航</span>
                         <span>↵ 确认</span>
                         <span>Esc 关闭</span>
-                        <span class="ml-auto text-amber-500/60">&gt; 命令模式</span>
+                        <span class="ml-auto text-brass/60">&gt; 命令模式</span>
                     </div>
                 </div>
             </div>
