@@ -41,6 +41,8 @@ pub enum AstNode<'a> {
     Paragraph { children: Vec<AstNode<'a>> },
     /// 纯文本叶子节点
     Text { value: Cow<'a, str> },
+    /// 行内代码（`code`）
+    InlineCode { value: Cow<'a, str> },
     /// 代码块（支持语言标注）
     CodeBlock {
         language: Option<Cow<'a, str>>,
@@ -89,6 +91,20 @@ pub enum AstNode<'a> {
     Strikethrough { children: Vec<AstNode<'a>> },
     /// 任务列表标记
     TaskListMarker { checked: bool },
+    /// 脚注定义（`[^label]: 内容`）
+    FootnoteDefinition {
+        name: Cow<'a, str>,
+        children: Vec<AstNode<'a>>,
+    },
+    /// 脚注引用（`[^label]`）
+    FootnoteReference { name: Cow<'a, str> },
+    /// 定义列表（`Term: Definition`）
+    DefinitionList { children: Vec<AstNode<'a>> },
+    /// 定义列表术语
+    DefinitionListTitle { children: Vec<AstNode<'a>> },
+    /// 定义列表定义
+    DefinitionListDefinition { children: Vec<AstNode<'a>> },
+    // 预留：Superscript / Subscript — 等 pulldown-cmark 支持后添加
 }
 
 impl<'a> AstNode<'a> {
@@ -111,7 +127,11 @@ impl<'a> AstNode<'a> {
             | AstNode::TableHead { children }
             | AstNode::TableRow { children }
             | AstNode::TableCell { children }
-            | AstNode::Strikethrough { children } => children.push(child),
+            | AstNode::Strikethrough { children }
+            | AstNode::FootnoteDefinition { children, .. }
+            | AstNode::DefinitionList { children }
+            | AstNode::DefinitionListTitle { children }
+            | AstNode::DefinitionListDefinition { children } => children.push(child),
             _ => {}
         }
     }

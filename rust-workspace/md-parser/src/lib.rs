@@ -66,13 +66,15 @@ pub fn extract_wikilinks(md: &str) -> Vec<String> {
 // CC-理由: 核心解析逻辑，拆分会降低可读性
 #[allow(clippy::too_many_lines)]
 pub fn parse_markdown(md_text: &str) -> MSResult<AstNode<'_>> {
-    // 🌟 开启扩展解析选项：表格、任务列表、删除线、数学公式
+    // 🌟 开启扩展解析选项：表格、任务列表、删除线、数学公式、脚注
     let mut opts = Options::empty();
     opts.insert(Options::ENABLE_TABLES);
     opts.insert(Options::ENABLE_TASKLISTS);
     opts.insert(Options::ENABLE_STRIKETHROUGH);
     opts.insert(Options::ENABLE_SMART_PUNCTUATION);
     opts.insert(Options::ENABLE_MATH); // 保护公式不被误解析为斜体
+    opts.insert(Options::ENABLE_FOOTNOTES);
+    opts.insert(Options::ENABLE_DEFINITION_LIST);
 
     let parser = CmarkParser::new_ext(md_text, opts);
     let mut stack: Vec<AstNode<'_>> = vec![AstNode::Root { children: vec![] }];
@@ -134,6 +136,13 @@ pub fn parse_markdown(md_text: &str) -> MSResult<AstNode<'_>> {
                     Tag::TableRow => AstNode::TableRow { children: vec![] },
                     Tag::TableCell => AstNode::TableCell { children: vec![] },
                     Tag::Strikethrough => AstNode::Strikethrough { children: vec![] },
+                    Tag::FootnoteDefinition(name) => AstNode::FootnoteDefinition {
+                        name: cowstr_to_cow(name),
+                        children: vec![],
+                    },
+                    Tag::DefinitionList => AstNode::DefinitionList { children: vec![] },
+                    Tag::DefinitionListTitle => AstNode::DefinitionListTitle { children: vec![] },
+                    Tag::DefinitionListDefinition => AstNode::DefinitionListDefinition { children: vec![] },
                     _ => continue,
                 };
                 stack.push(node);
@@ -157,8 +166,8 @@ pub fn parse_markdown(md_text: &str) -> MSResult<AstNode<'_>> {
 
             Event::Code(code_text) => {
                 if let Some(top_node) = stack.last_mut() {
-                    top_node.push_child(AstNode::Text {
-                        value: Cow::Owned(format!("`{code_text}`")),
+                    top_node.push_child(AstNode::InlineCode {
+                        value: cowstr_to_cow(code_text),
                     });
                 }
             }
@@ -198,6 +207,13 @@ pub fn parse_markdown(md_text: &str) -> MSResult<AstNode<'_>> {
             Event::TaskListMarker(checked) => {
                 if let Some(top_node) = stack.last_mut() {
                     top_node.push_child(AstNode::TaskListMarker { checked });
+                }
+            }
+            Event::FootnoteReference(name) => {
+                if let Some(top_node) = stack.last_mut() {
+                    top_node.push_child(AstNode::FootnoteReference {
+                        name: cowstr_to_cow(name),
+                    });
                 }
             }
 

@@ -91,7 +91,8 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
 
         AstNode::Heading { level, children } => {
             let inner_html = render_children(children)?;
-            format!("<h{level}>{inner_html}</h{level}>")
+            let slug = generate_slug(&collect_heading_text(children));
+            format!(r#"<h{level} id="{slug}">{inner_html}</h{level}>"#)
         }
 
         AstNode::Paragraph { children } => {
@@ -99,6 +100,10 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
         }
 
         AstNode::Text { value } => render_wikilinks(value, None),
+
+        AstNode::InlineCode { value } => {
+            format!("<code>{}</code>", escape_html(value))
+        }
 
         AstNode::Strong { children } | AstNode::Emphasis { children } => {
             let tag = if matches!(node, AstNode::Strong { .. }) { "strong" } else { "em" };
@@ -130,11 +135,19 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
                 format!("<pre class=\"mermaid\">\n{}\n</pre>", escape_html(value))
             }
             Some(lang) => {
-                format!(
-                    "<pre><code class=\"language-{}\">\n{}\n</code></pre>",
-                    escape_html(lang),
-                    escape_html(value)
-                )
+                let (lang_name, meta) = split_code_meta(lang);
+                let escaped_lang = escape_html(lang_name);
+                match meta {
+                    Some(m) => format!(
+                        "<pre><code class=\"language-{escaped_lang}\" data-meta=\"{}\">\n{}\n</code></pre>",
+                        escape_html(m),
+                        escape_html(value)
+                    ),
+                    None => format!(
+                        "<pre><code class=\"language-{escaped_lang}\">\n{}\n</code></pre>",
+                        escape_html(value)
+                    ),
+                }
             }
             None => {
                 format!("<pre><code>\n{}\n</code></pre>", escape_html(value))
@@ -255,9 +268,45 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
                 if *checked { "checked" } else { "" }
             )
         }
+        AstNode::FootnoteDefinition { name, children } => {
+            let escaped_name = escape_html(name);
+            let inner = render_children(children)?;
+            format!(
+                r##"<section class="footnote-def" id="fn-{escaped_name}"><p class="footnote-back-ref"><a href="#fnref-{escaped_name}" aria-label="回到正文">↩</a></p>{inner}</section>"##
+            )
+        }
+        AstNode::FootnoteReference { name } => {
+            let escaped_name = escape_html(name);
+            format!(
+                r##"<sup class="footnote-ref"><a href="#fn-{escaped_name}" id="fnref-{escaped_name}">{escaped_name}</a></sup>"##
+            )
+        }
+        AstNode::DefinitionList { children } => {
+            format!("<dl>{}</dl>", render_children(children)?)
+        }
+        AstNode::DefinitionListTitle { children } => {
+            format!("<dt>{}</dt>", render_children(children)?)
+        }
+        AstNode::DefinitionListDefinition { children } => {
+            format!("<dd>{}</dd>", render_children(children)?)
+        }
     };
 
     Ok(html)
+}
+
+/// 分离代码块 info string 中的语言名和元数据。
+/// `"rust {1,3-5}"` → `("rust", Some("{1,3-5}"))`
+/// `"python"` → `("python", None)`
+fn split_code_meta(info: &str) -> (&str, Option<&str>) {
+    match info.find('{') {
+        Some(pos) => {
+            let lang = info[..pos].trim();
+            let meta = info[pos..].trim();
+            (lang, if meta.is_empty() { None } else { Some(meta) })
+        }
+        None => (info.trim(), None),
+    }
 }
 
 /// HTML 实体转义 — 防止 XSS 注入。
@@ -310,6 +359,66 @@ fn render_children(children: &[AstNode]) -> MSResult<String> {
     Ok(html)
 }
 
+/// Extract plain text from heading children for slug generation.
+fn collect_heading_text(children: &[AstNode]) -> String {
+    let mut s = String::new();
+    for child in children {
+        append_text(child, &mut s);
+    }
+    s
+}
+
+fn append_text(node: &AstNode, out: &mut String) {
+    match node {
+        AstNode::Text { value } | AstNode::CodeBlock { value, .. } => out.push_str(value),
+        AstNode::Strong { children }
+        | AstNode::Emphasis { children }
+        | AstNode::Link { children, .. }
+        | AstNode::Paragraph { children } => {
+            for child in children {
+                append_text(child, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Generate a URL-safe slug from heading text.
+///
+/// Matches the algorithm in `ms-toc-extractor` so that TOC slugs
+/// correspond exactly to heading `id` attributes.
+fn generate_slug(text: &str) -> String {
+    let lower = text.to_lowercase();
+    let mut slug = String::with_capacity(lower.len());
+    for ch in lower.chars() {
+        match ch {
+            'a'..='z' | '0'..='9' => slug.push(ch),
+            _ if is_cjk(ch) => slug.push(ch),
+            ' ' | '-' | '_' => {
+                if !slug.ends_with('-') && !slug.is_empty() {
+                    slug.push('-');
+                }
+            }
+            _ => {}
+        }
+    }
+    let trimmed = slug.trim_end_matches('-');
+    if trimmed.is_empty() {
+        "heading".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn is_cjk(ch: char) -> bool {
+    matches!(ch,
+        '\u{4E00}'..='\u{9FFF}'
+        | '\u{3400}'..='\u{4DBF}'
+        | '\u{3000}'..='\u{303F}'
+        | '\u{F900}'..='\u{FAFF}'
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -342,7 +451,7 @@ mod tests {
         };
 
         let html = render_to_html(&ast).unwrap();
-        assert_eq!(html, "<h2>渲染测试</h2><p>纯文本</p>");
+        assert_eq!(html, r#"<h2 id="渲染测试">渲染测试</h2><p>纯文本</p>"#);
     }
 
     #[test]
