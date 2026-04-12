@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * StatsWidget — 灵签长条（血肉神殿）
+ * StatsWidget — 灵签（血肉神殿）
  *
- * 水平长条固定在列表底部，替代旧的方格折叠态。
- * 常驻显示所有数据：排序切换 · 总数 · 今日 · 均热 · sparkline
- * 不再需要折叠/展开交互。
+ * 竖直签条设计，模拟寺庙抽签：
+ * - 折叠态：窄长竹签形态（38×140px），签头顶部圆弧 + 数字封印
+ * - 展开态：签文展开，纵向堆叠数据 + sparkline
+ * - 金缮装饰线、血珀脉动、墨玉签文
  */
 
 import { ref, computed } from "vue";
@@ -21,14 +22,25 @@ const emit = defineEmits<{
     toggleSort: [];
 }>();
 
+const expanded = ref(false);
+const collapsed = ref(true);
 const hoveredPoint = ref<number | null>(null);
+
+function openLot() {
+    collapsed.value = false;
+    expanded.value = true;
+}
+
+function onLotAfterLeave() {
+    collapsed.value = true;
+}
 
 const sparklinePoints = computed(() => {
     const data = props.sparklineData;
     if (!data || data.length < 2) return "";
     const max = Math.max(...data, 1);
     const w = 160;
-    const h = 24;
+    const h = 28;
     const step = w / (data.length - 1);
     return data
         .map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h * 0.75 - h * 0.1).toFixed(1)}`)
@@ -38,7 +50,7 @@ const sparklinePoints = computed(() => {
 const sparklinePolygon = computed(() => {
     const points = sparklinePoints.value;
     if (!points) return "";
-    return `0,24 ${points} 160,24`;
+    return `0,28 ${points} 160,28`;
 });
 
 const dataPoints = computed(() => {
@@ -46,7 +58,7 @@ const dataPoints = computed(() => {
     if (!data || data.length < 2) return [];
     const max = Math.max(...data, 1);
     const w = 160;
-    const h = 24;
+    const h = 28;
     const step = w / (data.length - 1);
     return data.map((v, i) => ({
         x: i * step,
@@ -62,190 +74,341 @@ const handlePointHover = (index: number | null) => {
 </script>
 
 <template>
-    <div class="fortune-strip">
-        <!-- 左侧金色装饰端 -->
-        <div class="fortune-strip__endcap" />
-
-        <!-- 排序切换 -->
-        <button class="fortune-strip__sort" @click="emit('toggleSort')">
-            <svg class="w-3 h-3 transition-transform duration-300" :class="sortLabel === '热度排序' ? 'rotate-180' : ''"
-                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-            <span>{{ sortLabel }}</span>
-        </button>
-
-        <!-- 分隔符 -->
-        <div class="fortune-strip__sep" />
-
-        <!-- 数据区 -->
-        <div class="fortune-strip__stats">
-            <!-- 总数 -->
-            <div class="fortune-strip__stat fortune-strip__stat--gold">
-                <span class="fortune-strip__value fortune-strip__value--gold">{{ totalNodes }}</span>
-                <span class="fortune-strip__label">穴位</span>
-            </div>
-
-            <!-- 今日 -->
-            <div class="fortune-strip__stat" :class="todayCount > 0 ? 'fortune-strip__stat--active' : ''">
-                <div class="fortune-strip__value-row">
-                    <span class="fortune-strip__value" :class="todayCount > 0 ? 'text-xuepo' : 'text-ms-ash'">
-                        {{ todayCount > 0 ? `+${todayCount}` : '0' }}
+    <div class="fixed right-6 bottom-6 z-30 select-none">
+        <!-- 折叠态：竖直签条（竹签形态） -->
+        <Transition name="stick-pop">
+            <button v-if="collapsed" @click="openLot" class="fortune-stick"
+                :class="todayCount > 0 ? 'fortune-stick--alive' : 'fortune-stick--dormant'">
+                <!-- 签头圆弧 -->
+                <div class="fortune-stick__cap" />
+                <!-- 签身 — 主数字 -->
+                <div class="fortune-stick__body">
+                    <span class="fortune-stick__number"
+                        :class="todayCount > 0 ? 'text-xuepo' : 'text-ms-gold'">
+                        {{ todayCount > 0 ? `+${todayCount}` : totalNodes }}
                     </span>
-                    <svg v-if="todayCount > 0" class="fortune-strip__trend" viewBox="0 0 10 10" fill="none">
-                        <path d="M5 1L9 6H1L5 1Z" fill="currentColor" />
+                    <span class="fortune-stick__sub">
+                        {{ todayCount > 0 ? '今日' : '穴位' }}
+                    </span>
+                </div>
+                <!-- 签底金线 -->
+                <div class="fortune-stick__foot" />
+            </button>
+        </Transition>
+
+        <!-- 展开态：签文面板 -->
+        <Transition name="lot-unfold" @after-leave="onLotAfterLeave">
+            <div v-if="expanded" class="fortune-paper">
+                <!-- 顶部金缮线 -->
+                <div class="fortune-paper__rule" />
+
+                <!-- 签号头部 -->
+                <div class="fortune-paper__header">
+                    <span class="fortune-paper__seal" />
+                    <span class="fortune-paper__title">灵签</span>
+                    <button @click="expanded = false" class="fortune-paper__close" title="收签">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" stroke-width="1.5"
+                                stroke-linecap="round" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- 签文数据 — 纵向堆叠 -->
+                <div class="fortune-paper__stats">
+                    <div class="fortune-paper__stat">
+                        <span class="fortune-paper__value fortune-paper__value--gold">{{ totalNodes }}</span>
+                        <span class="fortune-paper__label">穴位</span>
+                    </div>
+                    <div class="fortune-paper__divider" />
+                    <div class="fortune-paper__stat" :class="todayCount > 0 ? 'fortune-paper__stat--active' : ''">
+                        <div class="fortune-paper__value-row">
+                            <span class="fortune-paper__value"
+                                :class="todayCount > 0 ? 'text-xuepo' : 'text-ms-ash'">
+                                {{ todayCount > 0 ? `+${todayCount}` : '0' }}
+                            </span>
+                            <svg v-if="todayCount > 0" class="fortune-paper__trend" viewBox="0 0 10 10" fill="none">
+                                <path d="M5 1L9 6H1L5 1Z" fill="currentColor" />
+                            </svg>
+                        </div>
+                        <span class="fortune-paper__label">今日</span>
+                    </div>
+                    <div class="fortune-paper__divider" />
+                    <div class="fortune-paper__stat">
+                        <span class="fortune-paper__value fortune-paper__value--ember">{{ avgHot }}</span>
+                        <span class="fortune-paper__label">均热</span>
+                    </div>
+                </div>
+
+                <!-- Sparkline -->
+                <div v-if="sparklineData.length >= 2" class="fortune-paper__sparkline">
+                    <svg class="w-full h-full" viewBox="0 0 160 28" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="sparkGradFortune" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="rgba(166,38,38,0.2)" />
+                                <stop offset="100%" stop-color="rgba(166,38,38,0)" />
+                            </linearGradient>
+                        </defs>
+                        <polygon v-if="sparklinePolygon" :points="sparklinePolygon" fill="url(#sparkGradFortune)" />
+                        <polyline v-if="sparklinePoints" :points="sparklinePoints" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-xuepo/70" />
+                        <g v-if="hoveredPoint !== null && dataPoints[hoveredPoint]">
+                            <circle :cx="dataPoints[hoveredPoint].x" :cy="dataPoints[hoveredPoint].y" r="2.5"
+                                class="fill-xuepo" />
+                        </g>
                     </svg>
+                    <div v-for="(point, idx) in dataPoints" :key="idx" class="sparkline-zone"
+                        :style="{ left: `${(point.x / 160) * 100}%`, width: `${100 / dataPoints.length}%` }"
+                        @mouseenter="handlePointHover(idx)">
+                        <div v-if="hoveredPoint === idx" class="sparkline-tip">
+                            {{ point.value }}
+                        </div>
+                    </div>
                 </div>
-                <span class="fortune-strip__label">今日</span>
-            </div>
 
-            <!-- 均热 -->
-            <div class="fortune-strip__stat fortune-strip__stat--ember">
-                <span class="fortune-strip__value fortune-strip__value--ember">{{ avgHot }}</span>
-                <span class="fortune-strip__label">均热</span>
-            </div>
-        </div>
-
-        <!-- 分隔符 -->
-        <div class="fortune-strip__sep" />
-
-        <!-- Sparkline -->
-        <div v-if="sparklineData.length >= 2" class="fortune-strip__sparkline">
-            <svg class="w-full h-full" viewBox="0 0 160 24" preserveAspectRatio="none">
-                <defs>
-                    <linearGradient id="sparkGradStrip" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="rgba(166,38,38,0.2)" />
-                        <stop offset="100%" stop-color="rgba(166,38,38,0)" />
-                    </linearGradient>
-                </defs>
-                <polygon v-if="sparklinePolygon" :points="sparklinePolygon" fill="url(#sparkGradStrip)" />
-                <polyline v-if="sparklinePoints" :points="sparklinePoints" fill="none" stroke="currentColor"
-                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-xuepo/70" />
-                <!-- 悬停数据点 -->
-                <g v-if="hoveredPoint !== null && dataPoints[hoveredPoint]">
-                    <circle :cx="dataPoints[hoveredPoint].x" :cy="dataPoints[hoveredPoint].y" r="2.5"
-                        class="fill-xuepo" />
-                </g>
-            </svg>
-            <div v-for="(point, idx) in dataPoints" :key="idx" class="sparkline-zone"
-                :style="{ left: `${(point.x / 160) * 100}%`, width: `${100 / dataPoints.length}%` }"
-                @mouseenter="handlePointHover(idx)">
-                <div v-if="hoveredPoint === idx" class="sparkline-tip">
-                    {{ point.value }}
+                <!-- 排序切换 -->
+                <div class="fortune-paper__footer">
+                    <button class="fortune-paper__sort" @click="emit('toggleSort')">
+                        <svg class="w-3 h-3 transition-transform duration-300"
+                            :class="sortLabel === '热度排序' ? 'rotate-180' : ''" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                        {{ sortLabel }}
+                    </button>
                 </div>
             </div>
-        </div>
-
-        <!-- 右侧金色装饰端 -->
-        <div class="fortune-strip__endcap" />
+        </Transition>
     </div>
 </template>
 
 <style scoped>
-/* ═══ 灵签长条 ═══ */
-.fortune-strip {
+/* ═══ 折叠态：竖直签条 ═══ */
+.fortune-stick {
+    position: relative;
+    width: 38px;
+    height: 140px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    height: 40px;
-    background: #141210;
-    border-top: 1px solid rgba(58, 50, 40, 0.5);
-    padding: 0 16px;
-    gap: 0;
-    user-select: none;
-    flex-shrink: 0;
-}
-
-/* 金色装饰端帽 */
-.fortune-strip__endcap {
-    width: 2px;
-    height: 16px;
-    background: linear-gradient(180deg, transparent, rgba(201, 168, 76, 0.3), transparent);
-    flex-shrink: 0;
-}
-
-/* 排序按钮 */
-.fortune-strip__sort {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    font-size: 12px;
-    font-family: 'JetBrains Mono', monospace;
-    color: #c8bfa8;
-    background: transparent;
-    border: 1px solid rgba(58, 50, 40, 0.4);
     cursor: pointer;
-    transition: all 150ms ease;
-    flex-shrink: 0;
+    transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.fortune-strip__sort:hover {
-    color: #e8dfd0;
-    border-color: rgba(58, 50, 40, 0.7);
-    background: rgba(58, 50, 40, 0.15);
+/* 签头圆弧 */
+.fortune-stick__cap {
+    width: 30px;
+    height: 15px;
+    border-radius: 15px 15px 0 0;
+    transition: all 300ms ease;
 }
 
-.fortune-strip__sort:active {
-    transform: translateY(1px);
+.fortune-stick--dormant .fortune-stick__cap {
+    background: linear-gradient(180deg, #2a2218, #1c1814);
+    border: 1px solid rgba(58, 50, 40, 0.4);
+    border-bottom: none;
 }
 
-/* 分隔符 */
-.fortune-strip__sep {
-    width: 1px;
-    height: 18px;
-    background: rgba(58, 50, 40, 0.4);
-    margin: 0 12px;
-    flex-shrink: 0;
+.fortune-stick--alive .fortune-stick__cap {
+    background: linear-gradient(180deg, rgba(166, 38, 38, 0.2), rgba(166, 38, 38, 0.08));
+    border: 1px solid rgba(166, 38, 38, 0.3);
+    border-bottom: none;
+    box-shadow: 0 -4px 12px rgba(166, 38, 38, 0.1);
 }
 
-/* 数据区 */
-.fortune-strip__stats {
+/* 签身 */
+.fortune-stick__body {
+    flex: 1;
+    width: 30px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
+    justify-content: center;
+    gap: 4px;
+    transition: all 300ms ease;
 }
 
-.fortune-strip__stat {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+.fortune-stick--dormant .fortune-stick__body {
+    background: #1c1814;
+    border-left: 1px solid rgba(58, 50, 40, 0.4);
+    border-right: 1px solid rgba(58, 50, 40, 0.4);
 }
 
-.fortune-strip__value-row {
-    display: flex;
-    align-items: center;
-    gap: 3px;
+.fortune-stick--alive .fortune-stick__body {
+    background: linear-gradient(180deg, rgba(166, 38, 38, 0.08), rgba(18, 16, 12, 0.8), rgba(166, 38, 38, 0.08));
+    border-left: 1px solid rgba(166, 38, 38, 0.2);
+    border-right: 1px solid rgba(166, 38, 38, 0.2);
+    animation: stickPulse 3s ease-in-out infinite;
 }
 
-.fortune-strip__value {
-    font-size: 14px;
+@keyframes stickPulse {
+    0%, 100% { box-shadow: 0 0 6px rgba(166, 38, 38, 0.06); }
+    50% { box-shadow: 0 0 14px rgba(166, 38, 38, 0.14); }
+}
+
+.fortune-stick__number {
+    font-size: 18px;
     font-weight: 700;
     font-family: 'JetBrains Mono', monospace;
     line-height: 1;
 }
 
-.fortune-strip__value--gold {
-    color: #c9a84c;
-}
-
-.fortune-strip__value--ember {
-    color: #d97706;
-}
-
-.fortune-strip__label {
-    font-size: 11px;
+.fortune-stick__sub {
+    font-size: 9px;
     font-family: 'JetBrains Mono', monospace;
     color: #5a4f3e;
 }
 
-.fortune-strip__trend {
+/* 签底金线 */
+.fortune-stick__foot {
+    width: 30px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.3), transparent);
+    transition: all 300ms ease;
+}
+
+/* Hover 效果 */
+.fortune-stick:hover {
+    transform: translateY(-4px);
+}
+
+.fortune-stick--dormant:hover .fortune-stick__body {
+    background: #221e18;
+    border-color: rgba(58, 50, 40, 0.6);
+}
+
+.fortune-stick--alive:hover .fortune-stick__body {
+    background: linear-gradient(180deg, rgba(166, 38, 38, 0.15), rgba(18, 16, 12, 0.9), rgba(166, 38, 38, 0.15));
+    border-color: rgba(166, 38, 38, 0.35);
+    animation: none;
+}
+
+.fortune-stick:hover .fortune-stick__foot {
+    background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.5), transparent);
+}
+
+.fortune-stick:active {
+    transform: translateY(-1px) scale(0.97);
+    transition-duration: 100ms;
+}
+
+/* ═══ 展开态：签文面板 ═══ */
+.fortune-paper {
+    width: 200px;
+    background: #16140f;
+    border: 1px solid rgba(58, 50, 40, 0.5);
+    border-radius: 2px;
+    padding: 16px;
+    box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(0, 0, 0, 0.3);
+    transform-origin: bottom right;
+}
+
+/* 顶部金缮线 */
+.fortune-paper__rule {
+    height: 1px;
+    margin-bottom: 14px;
+    background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.3) 30%, rgba(201, 168, 76, 0.3) 70%, transparent);
+}
+
+/* 头部 */
+.fortune-paper__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.fortune-paper__seal {
+    width: 6px;
+    height: 6px;
+    background: #a62626;
+    border-radius: 50%;
+    animation: sealPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes sealPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+.fortune-paper__title {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #8a7e6e;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    flex: 1;
+}
+
+.fortune-paper__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #5a4f3e;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 150ms ease;
+}
+
+.fortune-paper__close:hover {
+    color: #c8bfa8;
+    background: rgba(58, 50, 40, 0.25);
+    border-color: rgba(58, 50, 40, 0.4);
+}
+
+/* 纵向数据堆叠 */
+.fortune-paper__stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 14px;
+}
+
+.fortune-paper__stat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 4px;
+}
+
+.fortune-paper__stat--active {
+    background: linear-gradient(90deg, rgba(166, 38, 38, 0.06), transparent);
+    margin: 0 -4px;
+    padding: 8px 8px;
+    border-radius: 2px;
+}
+
+.fortune-paper__value-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.fortune-paper__value {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1;
+}
+
+.fortune-paper__value--gold {
+    color: #c9a84c;
+}
+
+.fortune-paper__value--ember {
+    color: #d97706;
+}
+
+.fortune-paper__trend {
     width: 7px;
     height: 7px;
     color: #a62626;
-}
-
-.fortune-strip__stat--active .fortune-strip__trend {
     animation: trendBounce 2s ease-in-out infinite;
 }
 
@@ -254,13 +417,22 @@ const handlePointHover = (index: number | null) => {
     50% { transform: translateY(-1.5px); }
 }
 
+.fortune-paper__label {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #5a4f3e;
+}
+
+.fortune-paper__divider {
+    height: 1px;
+    background: rgba(58, 50, 40, 0.3);
+}
+
 /* Sparkline */
-.fortune-strip__sparkline {
+.fortune-paper__sparkline {
     position: relative;
-    width: 160px;
-    height: 24px;
-    flex-shrink: 0;
-    margin-left: auto;
+    height: 28px;
+    margin-bottom: 12px;
 }
 
 .sparkline-zone {
@@ -285,5 +457,66 @@ const handlePointHover = (index: number | null) => {
     border-radius: 2px;
     white-space: nowrap;
     pointer-events: none;
+}
+
+/* 底部排序 */
+.fortune-paper__footer {
+    padding-top: 10px;
+    border-top: 1px solid rgba(58, 50, 40, 0.35);
+}
+
+.fortune-paper__sort {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 8px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #8a7e6e;
+    background: transparent;
+    border: 1px solid rgba(58, 50, 40, 0.3);
+    cursor: pointer;
+    transition: all 150ms ease;
+}
+
+.fortune-paper__sort:hover {
+    color: #c8bfa8;
+    border-color: rgba(58, 50, 40, 0.5);
+    background: rgba(58, 50, 40, 0.1);
+}
+
+/* ═══ 签条出入动画 ═══ */
+.stick-pop-enter-active {
+    transition: all 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.stick-pop-leave-active {
+    transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stick-pop-enter-from {
+    opacity: 0;
+    transform: translateY(20px) scaleY(0.8);
+}
+
+.stick-pop-leave-to {
+    opacity: 0;
+    transform: translateY(10px) scaleY(0.9);
+}
+
+/* ═══ 签文展开动画 ═══ */
+.lot-unfold-enter-active {
+    transition: all 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.lot-unfold-leave-active {
+    transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lot-unfold-enter-from,
+.lot-unfold-leave-to {
+    opacity: 0;
+    transform: scale(0.85);
 }
 </style>
