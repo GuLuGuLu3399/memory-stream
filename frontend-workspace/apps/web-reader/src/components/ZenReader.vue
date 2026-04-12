@@ -208,7 +208,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- 悬浮阅读罗盘 -->
-                <div v-if="tocItems.length > 0" class="fixed bottom-6 right-6 z-[1]">
+                <div v-if="tocItems.length > 0" class="fixed bottom-6 right-6 z-[3]">
                     <FloatingCompass :toc-items="tocItems" :active-slug="activeSlug" :container-el="proseRef"
                         :read-progress="readProgress" />
                 </div>
