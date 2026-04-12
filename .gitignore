@@ -19,3 +19,4 @@ go-server/nul
 .idea/
 .vscode/
 .sisyphus/
+.dev-pids
