@@ -83,6 +83,8 @@ const goldDivider = "w-6 h-px bg-gradient-to-r from-transparent via-ms-gold/40 t
                     :class="templeColumnClass(false)"
                     title="搜索 (⌘K)">
                     <span class="text-lg font-bold font-serif tracking-wider">M</span>
+                    <!-- 快捷键标记 -->
+                    <span class="absolute -bottom-0.5 text-[9px] font-mono text-ms-ash/50 opacity-0 group-hover:opacity-100 transition-opacity">⌘K</span>
                     <div class="absolute inset-0 rounded-altar bg-gradient-to-br from-ms-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
 
@@ -91,10 +93,10 @@ const goldDivider = "w-6 h-px bg-gradient-to-r from-transparent via-ms-gold/40 t
 
                 <!-- 列表视图 -->
                 <button @click="router.push('/list')"
-                    class="relative w-12 h-12 flex items-center justify-center rounded-altar temple-column-btn"
-                    :class="templeColumnClass(viewMode === 'list')"
-                    title="列表视图 (L)">
-                    <List :size="20" />
+                    class="relative w-12 h-14 flex flex-col items-center justify-center gap-0.5 rounded-altar temple-column-btn"
+                    :class="templeColumnClass(viewMode === 'list')">
+                    <List :size="18" />
+                    <span class="text-[9px] font-medium" :class="viewMode === 'list' ? 'text-xuepo/80' : 'text-ms-ash/50 group-hover:text-ms-bone/60'">列表</span>
                     <!-- 激活态血珀辉光 + 左侧指示条 -->
                     <div v-if="viewMode === 'list'" class="absolute inset-0 rounded-altar shadow-altar-glow-sm border border-xuepo/20" />
                     <div v-if="viewMode === 'list'" class="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-xuepo indicator-glow" />
@@ -104,10 +106,10 @@ const goldDivider = "w-6 h-px bg-gradient-to-r from-transparent via-ms-gold/40 t
 
                 <!-- 图谱视图 -->
                 <button @click="router.push('/graph')"
-                    class="relative w-12 h-12 flex items-center justify-center rounded-altar temple-column-btn"
-                    :class="templeColumnClass(viewMode === 'graph')"
-                    title="图谱视图 (G)">
-                    <Network :size="20" />
+                    class="relative w-12 h-14 flex flex-col items-center justify-center gap-0.5 rounded-altar temple-column-btn"
+                    :class="templeColumnClass(viewMode === 'graph')">
+                    <Network :size="18" />
+                    <span class="text-[9px] font-medium" :class="viewMode === 'graph' ? 'text-xuepo/80' : 'text-ms-ash/50 group-hover:text-ms-bone/60'">图谱</span>
                     <div v-if="viewMode === 'graph'" class="absolute inset-0 rounded-altar shadow-altar-glow-sm border border-xuepo/20" />
                     <div v-if="viewMode === 'graph'" class="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-xuepo indicator-glow" />
                     <div class="absolute inset-0 rounded-altar bg-gradient-to-br from-ms-copper/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -143,7 +145,7 @@ const goldDivider = "w-6 h-px bg-gradient-to-r from-transparent via-ms-gold/40 t
                                 stroke-linecap="round" class="text-ms-success/70 transition-all duration-700" />
                         </svg>
                     </div>
-                    <span v-if="latency > 0" class="text-3xs font-mono"
+                    <span v-if="latency > 0" class="text-[10px] font-mono"
                         :class="latency < 50 ? 'text-ms-success/70' : latency < 150 ? 'text-ms-gold/70' : 'text-xuepo/60'">
                         {{ latency }}ms
                     </span>

@@ -99,13 +99,16 @@ const skipAnimation = () => {
 
             <!-- 标题书法笔触 -->
             <div class="title-text" :class="{ 'title-visible': phase === 'calligraphy' || phase === 'fadeout' }">
-                <span class="text-xuepo font-bold tracking-[0.3em] text-lg calligraphy-text">MEMORY</span>
-                <span class="text-ms-smoke font-light tracking-[0.2em] text-sm ml-2 calligraphy-text calligraphy-delay">STREAM</span>
+                <span class="text-xuepo font-bold tracking-[0.4em] text-2xl calligraphy-text">MEMORY</span>
+                <span class="text-ms-smoke font-light tracking-[0.25em] text-base ml-3 calligraphy-text calligraphy-delay">STREAM</span>
             </div>
+
+            <!-- 金缮装饰线 -->
+            <div class="gold-accent-line" :class="{ 'gold-line-visible': phase === 'calligraphy' || phase === 'fadeout' }" />
 
             <!-- SKIP 按钮 -->
             <button class="skip-btn" @click="skipAnimation">
-                SKIP
+                跳过 <span class="skip-key">ESC</span>
             </button>
         </div>
     </Transition>
@@ -335,6 +338,20 @@ const skipAnimation = () => {
     align-items: center;
 }
 
+/* ── 金缮装饰线 ── */
+.gold-accent-line {
+    width: 0;
+    height: 1px;
+    margin-top: 16px;
+    z-index: 2;
+    background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.5) 30%, rgba(201, 168, 76, 0.5) 70%, transparent);
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s;
+}
+
+.gold-line-visible {
+    width: 160px;
+}
+
 .calligraphy-text {
     opacity: 0;
     background: linear-gradient(90deg, transparent 0%, theme('colors.ms-bone') 50%, transparent 100%);
@@ -369,23 +386,36 @@ const skipAnimation = () => {
 /* ── SKIP 按钮 ── */
 .skip-btn {
     position: absolute;
-    bottom: 24px;
-    right: 24px;
-    padding: 8px 16px;
-    font-size: 12px;
+    bottom: 28px;
+    right: 28px;
+    padding: 8px 18px;
+    font-size: 13px;
     font-weight: 500;
-    letter-spacing: 0.1em;
-    color: theme('colors.ms-ash');
-    background: transparent;
-    border: 1px solid transparent;
+    letter-spacing: 0.08em;
+    color: theme('colors.ms-smoke');
+    background: rgba(18, 16, 12, 0.6);
+    border: 1px solid rgba(58, 50, 40, 0.4);
     cursor: pointer;
     transition: all 0.2s ease;
     z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.skip-key {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 6px;
+    border: 1px solid rgba(58, 50, 40, 0.5);
+    color: theme('colors.ms-ash');
+    border-radius: 2px;
 }
 
 .skip-btn:hover {
     color: theme('colors.ms-bone');
     border-color: theme('colors.ms-copper');
+    background: rgba(18, 16, 12, 0.9);
 }
 
 /* ── 整体淡出 ── */

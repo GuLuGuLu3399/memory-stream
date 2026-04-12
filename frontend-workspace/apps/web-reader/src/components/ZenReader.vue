@@ -108,6 +108,20 @@ watch([zenMode, selectedId], async ([zen, id]) => {
 
 watch(zenMode, (zen) => {
     document.body.style.overflow = zen ? "hidden" : "";
+    if (zen) {
+        // 3s 后显示退出提示，再 5s 后隐藏
+        showExitHint.value = false;
+        if (exitHintTimer) clearTimeout(exitHintTimer);
+        exitHintTimer = setTimeout(() => {
+            showExitHint.value = true;
+            exitHintTimer = setTimeout(() => {
+                showExitHint.value = false;
+            }, 5000);
+        }, 3000);
+    } else {
+        showExitHint.value = false;
+        if (exitHintTimer) clearTimeout(exitHintTimer);
+    }
 });
 
 // ── Esc 键退出禅模式 ──
@@ -121,6 +135,10 @@ function onKeydown(e: KeyboardEvent) {
 // ── 金缮帘杆：鼠标靠近顶部时浮现 ──
 const showExitRod = ref(false);
 let exitRodTimer: ReturnType<typeof setTimeout> | null = null;
+
+// ── 退出提示：首次进入禅模式后短暂显示 ──
+const showExitHint = ref(false);
+let exitHintTimer: ReturnType<typeof setTimeout> | null = null;
 
 function onZenMouseMove(e: MouseEvent) {
     if (!zenMode.value) return;
@@ -147,6 +165,7 @@ onUnmounted(() => {
     document.removeEventListener("keydown", onKeydown);
     document.removeEventListener("mousemove", onZenMouseMove);
     if (exitRodTimer) clearTimeout(exitRodTimer);
+    if (exitHintTimer) clearTimeout(exitHintTimer);
 });
 </script>
 
@@ -213,11 +232,22 @@ onUnmounted(() => {
                         :read-progress="readProgress" />
                 </div>
 
-                <!-- 宽度切换提示 -->
+                <!-- 宽度切换提示 + 退出提示 -->
                 <Transition name="fade">
-                    <div v-if="proseWidth === 'reading'" class="fixed bottom-4 left-4 z-[1]">
-                        <span class="text-2xs font-mono text-ms-smoke bg-ms-xuan/90 border border-ms-copper/30 px-2 py-1 rounded">
-                            88ch 阅读宽
+                    <div v-if="proseWidth === 'reading'" class="fixed bottom-4 left-4 z-[3]">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-mono text-ms-bone/70 bg-ms-xuan/90 border border-ms-copper/40 px-3 py-1.5 rounded">
+                                88ch 阅读宽
+                            </span>
+                        </div>
+                    </div>
+                </Transition>
+
+                <!-- 禅模式退出提示 — 首次进入 3s 后显示，5s 后消失 -->
+                <Transition name="fade">
+                    <div v-if="showExitHint" class="fixed top-8 left-1/2 -translate-x-1/2 z-[3]">
+                        <span class="text-xs font-mono text-ms-ash bg-ms-xuan/80 border border-ms-copper/30 px-3 py-1.5 rounded">
+                            鼠标移至顶部可退出禅模式 · ESC
                         </span>
                     </div>
                 </Transition>
