@@ -118,13 +118,35 @@ function onKeydown(e: KeyboardEvent) {
     }
 }
 
+// ── 金缮帘杆：鼠标靠近顶部时浮现 ──
+const showExitRod = ref(false);
+let exitRodTimer: ReturnType<typeof setTimeout> | null = null;
+
+function onZenMouseMove(e: MouseEvent) {
+    if (!zenMode.value) return;
+    if (e.clientY < 30) {
+        showExitRod.value = true;
+        if (exitRodTimer) { clearTimeout(exitRodTimer); exitRodTimer = null; }
+    } else if (showExitRod.value && e.clientY > 80) {
+        if (exitRodTimer) clearTimeout(exitRodTimer);
+        exitRodTimer = setTimeout(() => { showExitRod.value = false; }, 600);
+    }
+}
+
+function exitZen() {
+    store.toggleZenMode();
+}
+
 onMounted(() => {
     document.addEventListener("keydown", onKeydown);
+    document.addEventListener("mousemove", onZenMouseMove);
 });
 
 onUnmounted(() => {
     document.body.style.overflow = "";
     document.removeEventListener("keydown", onKeydown);
+    document.removeEventListener("mousemove", onZenMouseMove);
+    if (exitRodTimer) clearTimeout(exitRodTimer);
 });
 </script>
 
@@ -148,6 +170,22 @@ onUnmounted(() => {
                 <!-- 血珀参考线 - 左右边缘 -->
                 <div class="zen-guideline-left"></div>
                 <div class="zen-guideline-right"></div>
+
+                <!-- 金缮帘杆 — 鼠标靠近顶部浮现的退出入口 -->
+                <Transition name="zen-rod">
+                    <button v-if="showExitRod"
+                        class="zen-exit-rod"
+                        @click="exitZen"
+                        title="退出禅模式 (ESC)">
+                        <span class="zen-exit-rod__line" />
+                        <span class="zen-exit-rod__diamond">
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                <path d="M5 1L9 5L5 9L1 5Z" stroke="currentColor" stroke-width="1" fill="none" />
+                            </svg>
+                        </span>
+                        <span class="zen-exit-rod__line" />
+                    </button>
+                </Transition>
 
                 <!-- 全屏 Markdown 阅读 -->
                 <div class="flex-1 overflow-y-auto scrollbar-thin text-stone-300 relative z-[2]" ref="proseRef" @scroll="calculateProgress">
@@ -201,6 +239,78 @@ onUnmounted(() => {
         transparent 50%,
         rgba(10, 8, 6, 0.4) 100%
     );
+}
+
+/* ── 金缮帘杆：退出禅境的隐形入口 ── */
+.zen-exit-rod {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 12px 0 8px;
+    cursor: pointer;
+}
+
+.zen-exit-rod__line {
+    display: block;
+    width: 80px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.35), transparent);
+    transition: all 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zen-exit-rod__diamond {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: rgba(201, 168, 76, 0.4);
+    transform: rotate(0deg);
+    transition: all 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zen-exit-rod:hover .zen-exit-rod__line {
+    width: 120px;
+    background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.6), transparent);
+}
+
+.zen-exit-rod:hover .zen-exit-rod__diamond {
+    color: rgba(201, 168, 76, 0.8);
+    transform: rotate(45deg) scale(1.2);
+    filter: drop-shadow(0 0 4px rgba(201, 168, 76, 0.4));
+}
+
+.zen-exit-rod:active .zen-exit-rod__diamond {
+    color: rgba(166, 38, 38, 0.9);
+    transform: rotate(45deg) scale(0.9);
+    filter: drop-shadow(0 0 6px rgba(166, 38, 38, 0.5));
+    transition-duration: 100ms;
+}
+
+/* 帘杆出入动画 */
+.zen-rod-enter-active {
+    transition: all 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zen-rod-leave-active {
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.zen-rod-enter-from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+}
+
+.zen-rod-leave-to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
 }
 
 /* ── 金缮顶线装饰：笔触动画 ── */
