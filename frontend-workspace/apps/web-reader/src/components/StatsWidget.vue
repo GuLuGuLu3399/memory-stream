@@ -8,7 +8,7 @@
  * - 金缮装饰线、血珀脉动、墨玉签文
  */
 
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 
 const props = defineProps<{
     totalNodes: number;
@@ -71,6 +71,31 @@ const dataPoints = computed(() => {
 const handlePointHover = (index: number | null) => {
     hoveredPoint.value = index;
 };
+
+// ── 点击外部收签 ──
+const paperRef = ref<HTMLElement | null>(null);
+
+function onDocClick(e: MouseEvent) {
+    if (!expanded.value) return;
+    const target = e.target as HTMLElement;
+    // 排除签文面板自身和签条触发按钮
+    if (paperRef.value?.contains(target)) return;
+    if (target.closest('.fortune-stick')) return;
+    expanded.value = false;
+}
+
+watch(expanded, (open) => {
+    if (open) {
+        // 延迟添加，避免触发按钮的 click 同步触发关闭
+        setTimeout(() => document.addEventListener('click', onDocClick), 0);
+    } else {
+        document.removeEventListener('click', onDocClick);
+    }
+});
+
+onUnmounted(() => {
+    document.removeEventListener('click', onDocClick);
+});
 </script>
 
 <template>
@@ -98,7 +123,7 @@ const handlePointHover = (index: number | null) => {
 
         <!-- 展开态：签文面板 -->
         <Transition name="lot-unfold" @after-leave="onLotAfterLeave">
-            <div v-if="expanded" class="fortune-paper">
+            <div v-if="expanded" ref="paperRef" class="fortune-paper">
                 <!-- 顶部金缮线 -->
                 <div class="fortune-paper__rule" />
 
@@ -106,12 +131,6 @@ const handlePointHover = (index: number | null) => {
                 <div class="fortune-paper__header">
                     <span class="fortune-paper__seal" />
                     <span class="fortune-paper__title">灵签</span>
-                    <button @click="expanded = false" class="fortune-paper__close" title="收签">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" stroke-width="1.5"
-                                stroke-linecap="round" />
-                        </svg>
-                    </button>
                 </div>
 
                 <!-- 签文数据 — 纵向堆叠 -->
@@ -340,26 +359,6 @@ const handlePointHover = (index: number | null) => {
     text-transform: uppercase;
     letter-spacing: 0.12em;
     flex: 1;
-}
-
-.fortune-paper__close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    background: transparent;
-    border: 1px solid transparent;
-    color: #5a4f3e;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 150ms ease;
-}
-
-.fortune-paper__close:hover {
-    color: #c8bfa8;
-    background: rgba(58, 50, 40, 0.25);
-    border-color: rgba(58, 50, 40, 0.4);
 }
 
 /* 纵向数据堆叠 */
