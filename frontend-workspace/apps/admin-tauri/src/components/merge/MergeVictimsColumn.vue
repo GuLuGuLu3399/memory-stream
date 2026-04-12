@@ -155,24 +155,24 @@ function updateSearchQuery(e: Event) {
   font-family: ui-monospace, monospace;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: theme('colors.ms-brass');
+  color: theme('colors.brass.DEFAULT');
 }
 
 .merge-victims-column__subtitle {
   font-size: 10px;
-  color: theme('colors.ms-slate.600');
+  color: theme('colors.ms-engrave');
   font-family: ui-monospace, monospace;
 }
 
 .merge-victims-column__action {
   font-size: 9px;
-  color: theme('colors.ms-slate.500');
+  color: theme('colors.ms-engrave');
   padding: 2px 6px;
   transition: color 150ms ease;
 }
 
 .merge-victims-column__action:hover {
-  color: theme('colors.ms-slate.300');
+  color: theme('colors.ms-surface-raised');
 }
 
 .merge-victims-column__search {
@@ -186,7 +186,7 @@ function updateSearchQuery(e: Event) {
   border: 1px solid theme('colors.ms-border');
   padding: 6px 8px;
   font-size: 12px;
-  color: theme('colors.ms-slate.300');
+  color: theme('colors.ms-surface-raised');
   font-family: ui-monospace, monospace;
   outline: none;
 }
@@ -196,7 +196,7 @@ function updateSearchQuery(e: Event) {
 }
 
 .merge-victims-column__input::placeholder {
-  color: theme('colors.ms-slate.600');
+  color: theme('colors.ms-engrave');
 }
 
 .merge-victims-column__counter {
@@ -207,7 +207,7 @@ function updateSearchQuery(e: Event) {
 
 .merge-victims-column__count {
   font-size: 10px;
-  color: theme('colors.ms-amber.400');
+  color: theme('colors.ms-warning');
   font-family: ui-monospace, monospace;
 }
 
@@ -237,7 +237,7 @@ function updateSearchQuery(e: Event) {
   cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease;
   border-bottom: 1px solid rgba(51, 65, 85, 0.3);
-  color: theme('colors.ms-slate.400');
+  color: theme('colors.ms-surface-raised');
 }
 
 .merge-victims-card:hover {
@@ -246,7 +246,7 @@ function updateSearchQuery(e: Event) {
 
 .merge-victims-card--selected {
   background: rgba(184, 134, 11, 0.1);
-  color: theme('colors.ms-brass-light');
+  color: theme('colors.brass.light');
 }
 
 .merge-victims-card__title {
@@ -265,7 +265,7 @@ function updateSearchQuery(e: Event) {
 
 .merge-victims-column__empty-text {
   font-size: 10px;
-  color: theme('colors.ms-slate.600');
+  color: theme('colors.ms-engrave');
   font-style: italic;
   font-family: ui-monospace, monospace;
 }

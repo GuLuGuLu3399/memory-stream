@@ -203,7 +203,7 @@ const availableVictimCards = computed(() => {
 
 .merge-panel__header-title {
   font-weight: bold;
-  color: theme('colors.ms-slate.300');
+  color: theme('colors.slate.300');
   font-size: 12px;
   font-family: ui-monospace, monospace;
   letter-spacing: 0.05em;
@@ -212,7 +212,7 @@ const availableVictimCards = computed(() => {
 
 .merge-panel__header-subtitle {
   font-size: 10px;
-  color: theme('colors.ms-slate.600');
+  color: theme('colors.slate.600');
   font-family: ui-monospace, monospace;
 }
 
@@ -222,12 +222,12 @@ const availableVictimCards = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: theme('colors.ms-slate.500');
+  color: theme('colors.slate.500');
   transition: color 150ms ease, background-color 150ms ease;
 }
 
 .merge-panel__close:hover {
-  color: theme('colors.ms-slate.300');
+  color: theme('colors.slate.300');
   background: theme('colors.ms-panel');
 }
 </style>

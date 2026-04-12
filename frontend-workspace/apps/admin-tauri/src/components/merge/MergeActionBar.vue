@@ -116,17 +116,17 @@ const CIRCUMFERENCE = 2 * Math.PI * 16;
   font-family: ui-monospace, monospace;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: theme('colors.ms-slate.600');
+  color: theme('colors.ms-engrave');
 }
 
 .merge-action-bar__warning--active {
-  color: theme('colors.ms-amber.400');
+  color: theme('colors.ms-warning');
 }
 
 .merge-action-bar__error {
   font-size: 10px;
-  color: theme('colors.ms-red.400');
-  font-family: ui-monospace, monospace);
+  color: theme('colors.ms-danger');
+  font-family: ui-monospace, monospace;
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -167,7 +167,7 @@ const CIRCUMFERENCE = 2 * Math.PI * 16;
 }
 
 .merge-action-bar__progress-circle {
-  color: theme('colors.ms-brass');
+  color: theme('colors.brass.DEFAULT');
   transition: all 75ms ease;
 }
 
@@ -187,13 +187,13 @@ const CIRCUMFERENCE = 2 * Math.PI * 16;
 
 .merge-action-bar__button-label {
   font-size: 12px;
-  font-family: ui-monospace, monospace);
+  font-family: ui-monospace, monospace;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: theme('colors.ms-brass');
+  color: theme('colors.brass.DEFAULT');
 }
 
 .merge-action-bar__button-label--disabled {
-  color: theme('colors.ms-slate.600');
+  color: theme('colors.ms-engrave');
 }
 </style>

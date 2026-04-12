@@ -140,13 +140,13 @@ const props = defineProps<{
   font-family: ui-monospace, monospace;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: theme('colors.ms-neon');
+  color: theme('colors.ms-primary');
 }
 
 .merge-blast-radius__subtitle {
   font-size: 10px;
-  color: theme('colors.ms-slate.600');
-  font-family: ui-monospace, monospace);
+  color: theme('colors.ms-engrave');
+  font-family: ui-monospace, monospace;
   margin-left: 8px;
 }
 
@@ -179,16 +179,16 @@ const props = defineProps<{
 }
 
 .merge-blast-radius__not-ready-text {
-  color: theme('colors.ms-slate.600');
+  color: theme('colors.ms-engrave');
   font-size: 12px;
-  font-family: ui-monospace, monospace);
+  font-family: ui-monospace, monospace;
   margin-bottom: 8px;
 }
 
 .merge-blast-radius__not-ready-sub {
-  color: theme('colors.ms-slate.700');
+  color: theme('colors.ms-deep-hover');
   font-size: 10px;
-  font-family: ui-monospace, monospace);
+  font-family: ui-monospace, monospace;
 }
 
 .merge-blast-radius__loading {
@@ -230,33 +230,33 @@ const props = defineProps<{
 
 .merge-blast-radius__stat-label {
   font-size: 9px;
-  color: theme('colors.ms-slate.500');
+  color: theme('colors.ms-engrave');
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-family: ui-monospace, monospace);
+  font-family: ui-monospace, monospace;
   margin-bottom: 4px;
 }
 
 .merge-blast-radius__stat-value {
   font-size: 24px;
   font-weight: bold;
-  font-family: ui-monospace, monospace);
+  font-family: ui-monospace, monospace;
 }
 
 .merge-blast-radius__stat-value--neon {
-  color: theme('colors.ms-neon');
+  color: theme('colors.ms-primary');
 }
 
 .merge-blast-radius__stat-value--brass {
-  color: theme('colors.ms-brass');
+  color: theme('colors.brass.DEFAULT');
 }
 
 .merge-blast-radius__files-title {
   font-size: 9px;
-  color: theme('colors.ms-slate.500');
+  color: theme('colors.ms-engrave');
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-family: ui-monospace, monospace);
+  font-family: ui-monospace, monospace;
   margin-bottom: 8px;
 }
 
@@ -271,7 +271,7 @@ const props = defineProps<{
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
-  font-family: ui-monospace, monospace);
+  font-family: ui-monospace, monospace;
   padding: 8px 12px;
   background: theme('colors.ms-deep');
   border: 1px solid theme('colors.ms-border');
@@ -283,7 +283,7 @@ const props = defineProps<{
 }
 
 .merge-blast-radius__file-path {
-  color: theme('colors.ms-slate.300');
+  color: theme('colors.ms-surface-raised');
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -304,8 +304,8 @@ const props = defineProps<{
 
 .merge-blast-radius__no-files-text {
   font-size: 10px;
-  color: theme('colors.ms-slate.600');
+  color: theme('colors.ms-engrave');
   font-style: italic;
-  font-family: ui-monospace, monospace);
+  font-family: ui-monospace, monospace;
 }
 </style>

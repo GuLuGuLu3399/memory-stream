@@ -135,13 +135,13 @@ const selectedCard = computed(() => {
   font-family: ui-monospace, monospace;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: theme('colors.ms-brass-light');
+  color: theme('colors.brass.light');
 }
 
 .merge-survivor-column__subtitle {
   font-size: 10px;
-  color: theme('colors.ms-slate.600');
-  font-family: ui-monospace, monospace);
+  color: theme('colors.ms-engrave');
+  font-family: ui-monospace, monospace;
   margin-left: 8px;
 }
 
@@ -156,7 +156,7 @@ const selectedCard = computed(() => {
   border: 1px solid theme('colors.ms-border');
   padding: 6px 8px;
   font-size: 12px;
-  color: theme('colors.ms-slate.300');
+  color: theme('colors.ms-surface-raised');
   font-family: ui-monospace, monospace;
   outline: none;
 }
@@ -166,7 +166,7 @@ const selectedCard = computed(() => {
 }
 
 .merge-survivor-column__input::placeholder {
-  color: theme('colors.ms-slate.600');
+  color: theme('colors.ms-engrave');
 }
 
 .merge-survivor-column__selected {
@@ -177,14 +177,14 @@ const selectedCard = computed(() => {
 
 .merge-survivor-column__selected-label {
   font-size: 9px;
-  color: theme('colors.ms-brass-light');
+  color: theme('colors.brass.light');
   font-family: ui-monospace, monospace;
   margin-bottom: 4px;
 }
 
 .merge-survivor-column__selected-title {
   font-size: 12px;
-  color: theme('colors.ms-slate.300');
+  color: theme('colors.ms-surface-raised');
   font-family: ui-monospace, monospace;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -217,7 +217,7 @@ const selectedCard = computed(() => {
   cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease;
   border-bottom: 1px solid rgba(51, 65, 85, 0.3);
-  color: theme('colors.ms-slate.400');
+  color: theme('colors.ms-surface-raised');
 }
 
 .merge-survivor-card:hover {
@@ -226,7 +226,7 @@ const selectedCard = computed(() => {
 
 .merge-survivor-card--selected {
   background: rgba(222, 184, 135, 0.1);
-  color: theme('colors.ms-brass-light');
+  color: theme('colors.brass.light');
 }
 
 .merge-survivor-card__title {
@@ -245,7 +245,7 @@ const selectedCard = computed(() => {
 
 .merge-survivor-column__empty-text {
   font-size: 10px;
-  color: theme('colors.ms-slate.600');
+  color: theme('colors.ms-engrave');
   font-style: italic;
   font-family: ui-monospace, monospace;
 }
