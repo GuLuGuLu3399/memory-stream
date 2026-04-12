@@ -35,7 +35,7 @@ func (h *MergeHandler) MergeCards(c *gin.Context) {
 		return
 	}
 
-	result, err := services.MergeCards(h.DB, services.MergeRequest{
+	result, err := services.MergeCards(c.Request.Context(), h.DB, services.MergeRequest{
 		SurvivorID: req.SurvivorID,
 		VictimIDs:  req.VictimIDs,
 	})

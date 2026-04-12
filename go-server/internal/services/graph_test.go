@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"regexp"
 	"testing"
 	"time"
@@ -111,7 +112,7 @@ func TestGetGraph_NonRoot_EmptyResult(t *testing.T) {
 		WithArgs("card-1").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "title"}).AddRow("card-1", "Test Card"))
 
-	result, err := svc.GetGraph("card-1", 2)
+	result, err := svc.GetGraph(context.Background(),"card-1", 2)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result.Nodes, 1)
@@ -134,7 +135,7 @@ func TestGetGraph_DepthClamping(t *testing.T) {
 		WithArgs("card-1").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "title"}).AddRow("card-1", "Root"))
 
-	result, err := svc.GetGraph("card-1", 10)
+	result, err := svc.GetGraph(context.Background(),"card-1", 10)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -163,7 +164,7 @@ func TestGetGraph_WithEdges(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(titleRows)
 
-	result, err := svc.GetGraph("card-1", 2)
+	result, err := svc.GetGraph(context.Background(),"card-1", 2)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result.Nodes, 3)
@@ -179,7 +180,7 @@ func TestGetGraph_CTEError(t *testing.T) {
 		WithArgs("card-1", 2).
 		WillReturnError(gorm.ErrInvalidDB)
 
-	result, err := svc.GetGraph("card-1", 2)
+	result, err := svc.GetGraph(context.Background(),"card-1", 2)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -205,7 +206,7 @@ func TestGetAllGraph_Success(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "card_edges"`)).
 		WillReturnRows(edgeRows)
 
-	result, err := svc.GetAllGraph()
+	result, err := svc.GetAllGraph(context.Background(),)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result.Nodes, 2)
@@ -222,7 +223,7 @@ func TestGetAllGraph_CardsDBError(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, title FROM "cards"`)).
 		WillReturnError(gorm.ErrInvalidDB)
 
-	result, err := svc.GetAllGraph()
+	result, err := svc.GetAllGraph(context.Background(),)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -240,7 +241,7 @@ func TestGetAllGraph_EdgesDBError(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "card_edges"`)).
 		WillReturnError(gorm.ErrInvalidDB)
 
-	result, err := svc.GetAllGraph()
+	result, err := svc.GetAllGraph(context.Background(),)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -256,7 +257,7 @@ func TestGetAllGraph_EmptyDatabase(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "card_edges"`)).
 		WillReturnRows(sqlmock.NewRows([]string{"source_id", "target_id", "relation_type", "created_at"}))
 
-	result, err := svc.GetAllGraph()
+	result, err := svc.GetAllGraph(context.Background(),)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Empty(t, result.Nodes)
@@ -294,7 +295,7 @@ func TestGetOutline_AllCategories(t *testing.T) {
 		`SELECT id, title, category_id, created_at FROM "cards" ORDER BY created_at DESC LIMIT $1`,
 	)).WithArgs(50).WillReturnRows(cardRows)
 
-	result, err := svc.GetOutline("")
+	result, err := svc.GetOutline(context.Background(),"")
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result.Topics, 2)
@@ -331,7 +332,7 @@ func TestGetOutline_FilterByCategory(t *testing.T) {
 		`SELECT id, title, category_id, created_at FROM "cards" WHERE category_id = $1 ORDER BY created_at DESC LIMIT $2`,
 	)).WithArgs("cat-1", 50).WillReturnRows(cardRows)
 
-	result, err := svc.GetOutline("cat-1")
+	result, err := svc.GetOutline(context.Background(),"cat-1")
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result.Topics, 1)
@@ -346,7 +347,7 @@ func TestGetOutline_CategoriesDBError(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "categories"`)).
 		WillReturnError(gorm.ErrInvalidDB)
 
-	result, err := svc.GetOutline("")
+	result, err := svc.GetOutline(context.Background(),"")
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -370,7 +371,7 @@ func TestGetOutline_CardsDBError(t *testing.T) {
 		`SELECT id, title, category_id, created_at FROM "cards" ORDER BY created_at DESC LIMIT $1`,
 	)).WithArgs(50).WillReturnError(gorm.ErrInvalidDB)
 
-	result, err := svc.GetOutline("")
+	result, err := svc.GetOutline(context.Background(),"")
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())

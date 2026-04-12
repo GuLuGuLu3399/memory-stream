@@ -7,7 +7,7 @@
  */
 
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, shallowRef, computed, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { PaginatedResponse, CardListItem } from "@memory-stream/types";
 
@@ -24,9 +24,19 @@ export interface CardItem {
 
 export const useCardListStore = defineStore("cardList", () => {
   // ---- 响应式状态 ----
-  const orphanCards = ref<CardItem[]>([]);
-  const recentCards = ref<CardItem[]>([]);
+  const orphanCards = shallowRef<CardItem[]>([]);
+  const recentCards = shallowRef<CardItem[]>([]);
   const searchQuery = ref("");
+  const debouncedQuery = ref("");
+  let _debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  watch(searchQuery, (v) => {
+    if (_debounceTimer) clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(() => {
+      debouncedQuery.value = v;
+    }, 300);
+  });
+
   // 当前选中的分类 ID，用于对卡片列表进行分类筛选
   const selectedCategoryId = ref<number | null>(null); // null = show all
 
@@ -35,8 +45,8 @@ export const useCardListStore = defineStore("cardList", () => {
   /** 按搜索关键词过滤的孤儿卡片 */
   const filteredOrphans = computed(() => {
     let result = orphanCards.value;
-    if (searchQuery.value) {
-      const q = searchQuery.value.toLowerCase();
+    if (debouncedQuery.value) {
+      const q = debouncedQuery.value.toLowerCase();
       result = result.filter((c) => c.title.toLowerCase().includes(q));
     }
     if (selectedCategoryId.value !== null) {
@@ -48,8 +58,8 @@ export const useCardListStore = defineStore("cardList", () => {
   /** 按搜索关键词过滤的最近卡片 */
   const filteredRecent = computed(() => {
     let result = recentCards.value;
-    if (searchQuery.value) {
-      const q = searchQuery.value.toLowerCase();
+    if (debouncedQuery.value) {
+      const q = debouncedQuery.value.toLowerCase();
       result = result.filter((c) => c.title.toLowerCase().includes(q));
     }
     if (selectedCategoryId.value !== null) {

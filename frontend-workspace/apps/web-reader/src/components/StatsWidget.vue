@@ -9,6 +9,9 @@
  */
 
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useBreakpoints } from "../composables/useBreakpoints";
+
+const { isMobile } = useBreakpoints();
 
 const props = defineProps<{
     totalNodes: number;
@@ -99,11 +102,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="fixed right-6 bottom-6 z-30 select-none">
+    <div class="fixed z-30 select-none"
+        :class="isMobile ? 'right-3 bottom-16' : 'right-6 bottom-6'">
         <!-- 折叠态：竖直签条（竹签形态） -->
         <Transition name="stick-pop">
             <button v-if="collapsed" @click="openLot" class="fortune-stick"
-                :class="todayCount > 0 ? 'fortune-stick--alive' : 'fortune-stick--dormant'">
+                :class="[todayCount > 0 ? 'fortune-stick--alive' : 'fortune-stick--dormant', isMobile ? 'fortune-stick--mobile' : '']">
                 <!-- 签头圆弧 -->
                 <div class="fortune-stick__cap" />
                 <!-- 签身 — 主数字 -->
@@ -212,6 +216,29 @@ onUnmounted(() => {
     align-items: center;
     cursor: pointer;
     transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Mobile: compact stick */
+.fortune-stick--mobile {
+    width: 32px;
+    height: 100px;
+}
+
+.fortune-stick--mobile .fortune-stick__cap {
+    width: 24px;
+    height: 12px;
+}
+
+.fortune-stick--mobile .fortune-stick__body {
+    width: 24px;
+}
+
+.fortune-stick--mobile .fortune-stick__number {
+    font-size: 14px;
+}
+
+.fortune-stick--mobile .fortune-stick__foot {
+    width: 24px;
 }
 
 /* 签头圆弧 */

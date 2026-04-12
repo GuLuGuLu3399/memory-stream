@@ -1,0 +1,17 @@
+[package]
+name = "temple-core"
+version = "0.1.0"
+edition = "2021"
+description = "Memory Stream — 领域错误契约与 IPC 类型系统"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+# 引用同一 workspace 中的兄弟 crate（错误类型 From 转换）
+ast-core = { path = "../ast-core" }
+ms-storage = { path = "../ms-storage" }
+ms-local-draft = { path = "../ms-local-draft" }
+image-compressor = { path = "../image-compressor" }
+ms-kb-exporter = { path = "../ms-kb-exporter" }

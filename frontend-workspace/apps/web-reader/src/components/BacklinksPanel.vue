@@ -15,49 +15,72 @@
  * - Smooth expand/collapse with ms-slide-down transition
  */
 
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import { ArrowLeft, Link2, ChevronDown, ChevronUp } from "lucide-vue-next";
 import { api } from "../api";
+import type { InferredBacklinkItem } from "../api/schemas";
 import { useGraphStore } from "../store/useGraphStore";
 
 const props = defineProps<{
     cardId: string;
+    isOpen?: boolean;
+    backlinks?: BacklinkItem[];
+    loading?: boolean;
+}>();
+
+const emit = defineEmits<{
+    (e: "toggle"): void;
+    (e: "navigate", cardId: string): void;
 }>();
 
 const store = useGraphStore();
 
-interface BacklinkItem {
-    source_id: string;
-    source_title: string;
-    relation_type: string;
+interface BacklinkItem extends InferredBacklinkItem {
     context_snippet?: string;
 }
 
-const backlinks = ref<BacklinkItem[]>([]);
-const loading = ref(false);
-const isOpen = ref(false);
+// Internal state for standalone mode, external props for controlled mode
+const internalBacklinks = ref<BacklinkItem[]>([]);
+const internalLoading = ref(false);
+const internalIsOpen = ref(false);
+
+const backlinks = props.backlinks !== undefined ? computed(() => props.backlinks ?? []) : internalBacklinks;
+const loading = props.loading !== undefined ? computed(() => props.loading) : internalLoading;
+const isOpen = props.isOpen !== undefined ? computed(() => props.isOpen) : internalIsOpen;
 
 async function fetchBacklinks() {
     if (!props.cardId) {
-        backlinks.value = [];
+        internalBacklinks.value = [];
         return;
     }
 
-    loading.value = true;
+    internalLoading.value = true;
     try {
         const res = await api.getBacklinks(props.cardId);
-        backlinks.value = res.backlinks || [];
+        internalBacklinks.value = res.backlinks || [];
     } catch {
-        backlinks.value = [];
+        internalBacklinks.value = [];
     } finally {
-        loading.value = false;
+        internalLoading.value = false;
     }
 }
 
-watch(() => props.cardId, fetchBacklinks, { immediate: true });
+// Only fetch if in standalone mode (no external backlinks prop)
+if (props.backlinks === undefined) {
+    watch(() => props.cardId, fetchBacklinks, { immediate: true });
+}
 
 function navigateToCard(cardId: string) {
+    emit("navigate", cardId);
     store.selectNode(cardId);
+}
+
+function toggleOpen() {
+    if (props.isOpen !== undefined) {
+        emit("toggle");
+    } else {
+        internalIsOpen.value = !internalIsOpen.value;
+    }
 }
 
 function getBadgeClass(relationType: string): string {
@@ -73,7 +96,7 @@ function getBadgeClass(relationType: string): string {
         <!-- Header with Copper-green Title -->
         <button
             class="backlinks-panel__header"
-            @click="isOpen = !isOpen">
+            @click="toggleOpen">
             <div class="flex items-center gap-2">
                 <Link2 :size="12" class="backlinks-panel__icon" />
                 <span class="backlinks-panel__title">被引用</span>

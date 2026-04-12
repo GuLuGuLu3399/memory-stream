@@ -3,6 +3,7 @@
 package services
 
 import (
+	"context"
 	"testing"
 
 	"github.com/GuLuGuLu3399/memory-stream-server/internal/models"
@@ -42,7 +43,7 @@ func TestSyncReferenceEdges_AddNew(t *testing.T) {
 	sourceID := "source-card-123"
 	targetIDs := []string{"id-A", "id-B"}
 
-	err := svc.SyncReferenceEdges(sourceID, targetIDs)
+	err := svc.SyncReferenceEdges(context.Background(), sourceID, targetIDs)
 	if err != nil {
 		t.Fatalf("SyncReferenceEdges failed: %v", err)
 	}
@@ -80,7 +81,7 @@ func TestSyncReferenceEdges_RemoveOld(t *testing.T) {
 	})
 
 	// Sync with only id-A (should remove id-B)
-	err := svc.SyncReferenceEdges(sourceID, []string{"id-A"})
+	err := svc.SyncReferenceEdges(context.Background(), sourceID, []string{"id-A"})
 	if err != nil {
 		t.Fatalf("SyncReferenceEdges failed: %v", err)
 	}
@@ -107,7 +108,7 @@ func TestSyncReferenceEdges_RemoveAll(t *testing.T) {
 	})
 
 	// Sync with empty target list (should delete all)
-	err := svc.SyncReferenceEdges(sourceID, []string{})
+	err := svc.SyncReferenceEdges(context.Background(), sourceID, []string{})
 	if err != nil {
 		t.Fatalf("SyncReferenceEdges failed: %v", err)
 	}
@@ -136,7 +137,7 @@ func TestSyncReferenceEdges_DoesNotTouchSequence(t *testing.T) {
 	})
 
 	// Sync with empty target list (should only remove reference, not sequence)
-	err := svc.SyncReferenceEdges(sourceID, []string{})
+	err := svc.SyncReferenceEdges(context.Background(), sourceID, []string{})
 	if err != nil {
 		t.Fatalf("SyncReferenceEdges failed: %v", err)
 	}
@@ -162,7 +163,7 @@ func TestSyncReferenceEdges_Deduplicates(t *testing.T) {
 	sourceID := "source-card-dedup"
 
 	// Sync with duplicate target IDs
-	err := svc.SyncReferenceEdges(sourceID, []string{"id-A", "id-A"})
+	err := svc.SyncReferenceEdges(context.Background(), sourceID, []string{"id-A", "id-A"})
 	if err != nil {
 		t.Fatalf("SyncReferenceEdges failed: %v", err)
 	}
@@ -198,7 +199,7 @@ func TestSyncReferenceEdges_NoChange(t *testing.T) {
 	svc.db.Model(&models.CardEdge{}).Where("source_id = ?", sourceID).Count(&countBefore)
 
 	// Sync with same target IDs (should not INSERT or DELETE)
-	err := svc.SyncReferenceEdges(sourceID, []string{"id-A", "id-B"})
+	err := svc.SyncReferenceEdges(context.Background(), sourceID, []string{"id-A", "id-B"})
 	if err != nil {
 		t.Fatalf("SyncReferenceEdges failed: %v", err)
 	}

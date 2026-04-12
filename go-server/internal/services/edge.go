@@ -1,7 +1,9 @@
 package services
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/GuLuGuLu3399/memory-stream-server/internal/pkg/logger"
@@ -16,19 +18,19 @@ import (
 // 支持的关系类型：sequence（时序）、reference（引用）。
 type EdgeService struct {
 	db                   *gorm.DB
-	invalidateGraphCache func(cardID string)
+	invalidateGraphCache func(ctx context.Context, cardID string)
 }
 
 // NewEdgeService 创建 EdgeService 实例
-func NewEdgeService(db *gorm.DB, invalidateGraphCache func(cardID string)) *EdgeService {
+func NewEdgeService(db *gorm.DB, invalidateGraphCache func(ctx context.Context, cardID string)) *EdgeService {
 	return &EdgeService{db: db, invalidateGraphCache: invalidateGraphCache}
 }
 
 // invalidateCache 使边的两端卡片图谱缓存失效
-func (s *EdgeService) invalidateCache(sourceID, targetID string) {
+func (s *EdgeService) invalidateCache(ctx context.Context, sourceID, targetID string) {
 	if s.invalidateGraphCache != nil {
-		s.invalidateGraphCache(sourceID)
-		s.invalidateGraphCache(targetID)
+		s.invalidateGraphCache(ctx, sourceID)
+		s.invalidateGraphCache(ctx, targetID)
 	}
 }
 
@@ -38,7 +40,7 @@ func (s *EdgeService) invalidateCache(sourceID, targetID string) {
 //   - sourceID: 源卡片 UUID（必填）
 //   - targetID: 目标卡片 UUID（必填）
 //   - relationType: 关系类型，仅支持 "sequence" 或 "reference"
-func (s *EdgeService) CreateEdge(sourceID, targetID, relationType string) error {
+func (s *EdgeService) CreateEdge(ctx context.Context, sourceID, targetID, relationType string) error {
 	if sourceID == "" || targetID == "" {
 		return errors.New("source_id and target_id are required")
 	}
@@ -54,28 +56,28 @@ func (s *EdgeService) CreateEdge(sourceID, targetID, relationType string) error 
 	}
 
 	if err := s.db.Create(&edge).Error; err != nil {
-		return err
+		return fmt.Errorf("failed to create edge %s->%s: %w", sourceID, targetID, err)
 	}
 
-	s.invalidateCache(sourceID, targetID)
+	s.invalidateCache(ctx, sourceID, targetID)
 	logger.Log.Infof("[EdgeService] Edge created: %s -> %s (%s)", sourceID, targetID, relationType)
 	return nil
 }
 
 // DeleteEdge 删除指定源→目标的有向边。
-func (s *EdgeService) DeleteEdge(sourceID, targetID string) error {
+func (s *EdgeService) DeleteEdge(ctx context.Context, sourceID, targetID string) error {
 	if err := s.db.Where("source_id = ? AND target_id = ?", sourceID, targetID).
 		Delete(&models.CardEdge{}).Error; err != nil {
-		return err
+		return fmt.Errorf("failed to delete edge %s->%s: %w", sourceID, targetID, err)
 	}
-	s.invalidateCache(sourceID, targetID)
+	s.invalidateCache(ctx, sourceID, targetID)
 	logger.Log.Infof("[EdgeService] Edge deleted: %s -> %s", sourceID, targetID)
 	return nil
 }
 
 // UpdateEdgeType 更新指定边的关系类型。
 // 如果边不存在返回 "edge not found" 错误。
-func (s *EdgeService) UpdateEdgeType(sourceID, targetID, newRelation string) error {
+func (s *EdgeService) UpdateEdgeType(ctx context.Context, sourceID, targetID, newRelation string) error {
 	if newRelation != "sequence" && newRelation != "reference" {
 		return errors.New("relation_type must be 'sequence' or 'reference'")
 	}
@@ -88,7 +90,7 @@ func (s *EdgeService) UpdateEdgeType(sourceID, targetID, newRelation string) err
 	if result.RowsAffected == 0 {
 		return errors.New("edge not found")
 	}
-	s.invalidateCache(sourceID, targetID)
+	s.invalidateCache(ctx, sourceID, targetID)
 	logger.Log.Infof("[EdgeService] Edge updated: %s -> %s (%s)", sourceID, targetID, newRelation)
 	return nil
 }
@@ -134,7 +136,7 @@ func (s *EdgeService) GetAllEdges() ([]models.CardEdge, error) {
 // Parameters:
 //   - sourceCardID: UUID of the source card
 //   - targetCardIDs: slice of target card UUIDs (pre-resolved, will be deduplicated)
-func (s *EdgeService) SyncReferenceEdges(sourceCardID string, targetCardIDs []string) error {
+func (s *EdgeService) SyncReferenceEdges(ctx context.Context, sourceCardID string, targetCardIDs []string) error {
 	deduplicated := deduplicatePreserveOrder(targetCardIDs)
 
 	var affectedTargetIDs []string
@@ -206,11 +208,11 @@ func (s *EdgeService) SyncReferenceEdges(sourceCardID string, targetCardIDs []st
 	})
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to sync reference edges for %s: %w", sourceCardID, err)
 	}
 
 	for _, targetID := range affectedTargetIDs {
-		s.invalidateCache(sourceCardID, targetID)
+		s.invalidateCache(ctx, sourceCardID, targetID)
 	}
 
 	logger.Log.Infof("[EdgeService] Synced reference edges for %s: +%d -%d", sourceCardID, addCount, removeCount)
@@ -218,12 +220,12 @@ func (s *EdgeService) SyncReferenceEdges(sourceCardID string, targetCardIDs []st
 }
 
 func computeEdgeDiff(current []string, desired []string) (toAdd []string, toRemove []string) {
-	currentSet := make(map[string]bool)
+	currentSet := make(map[string]bool, len(current))
 	for _, id := range current {
 		currentSet[id] = true
 	}
 
-	desiredSet := make(map[string]bool)
+	desiredSet := make(map[string]bool, len(desired))
 	for _, id := range desired {
 		desiredSet[id] = true
 	}
@@ -249,7 +251,7 @@ func deduplicatePreserveOrder(ids []string) []string {
 		return ids
 	}
 
-	seen := make(map[string]bool)
+	seen := make(map[string]bool, len(ids))
 	result := make([]string, 0, len(ids))
 	for _, id := range ids {
 		if !seen[id] {

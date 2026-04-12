@@ -22,6 +22,7 @@
     "process:default",
     "store:default",
     "dialog:default",
+    "deep-link:default",
     "process:allow-restart"
   ]
 }

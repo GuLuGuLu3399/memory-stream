@@ -14,6 +14,7 @@ import { storeToRefs } from 'pinia';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import { useCards } from '../composables/useCards';
 import { useGraphStore } from '../store/useGraphStore';
+import { useBreakpoints } from '../composables/useBreakpoints';
 import SkeletonLine from '../components/ui/SkeletonLine.vue';
 import StatsWidget from '../components/StatsWidget.vue';
 import EmptyState from '@memory-stream/ui-shared/components/EmptyState.vue';
@@ -25,9 +26,11 @@ import ListViewHeader from './list/ListViewHeader.vue';
 const store = useGraphStore();
 const { sortBy, selectedId } = storeToRefs(store);
 const { cardIndex, loadIndex, loading } = useCards();
+const { isMobile } = useBreakpoints();
 
 const searchQuery = ref('');
 const focusedIndex = ref<number>(-1);
+const mobileGap = 20;
 
 interface CardRow {
   type: 'card';
@@ -101,6 +104,11 @@ function formatDateLabel(dateStr: string): string {
 function selectCard(id: string) {
   store.selectNode(id);
   focusedIndex.value = flatItems.value.findIndex(item => item.data.id === id);
+}
+
+/** Type-safe row accessor — eliminates repeated `as CardRow` casts in template */
+function getRow(index: number): CardRow | undefined {
+  return flatItems.value[index] as CardRow | undefined;
 }
 
 function handleCardClick(index: number, event: MouseEvent | KeyboardEvent) {
@@ -192,26 +200,30 @@ const avgHot = computed(() => {
 
 const sortLabel = computed(() => (sortBy.value === 'hot' ? '热度排序' : '时间排序'));
 
-// ── Virtual scrolling (large gap: 32px) ──
+// ── Virtual scrolling ──
 const listRef = ref<HTMLElement>();
 const itemCount = computed(() => flatItems.value.length);
+const virtualGap = computed(() => isMobile.value ? mobileGap : 32);
 const virtualizer = useVirtualizer({
   count: itemCount.value,
   getScrollElement: () => listRef.value ?? null,
-  estimateSize: () => 100,
-  overscan: 10,
-  gap: 32,
+  estimateSize: () => isMobile.value ? 88 : 100,
+  overscan: isMobile.value ? 5 : 10,
+  gap: virtualGap.value,
 });
 
 watchEffect(() => {
   virtualizer.value.options.count = itemCount.value;
+  virtualizer.value.options.gap = virtualGap.value;
 });
 </script>
 
 <template>
-  <div class="list-view bg-ms-xuan h-full flex flex-col pt-8 pb-0">
+  <div class="list-view bg-ms-xuan h-full flex flex-col pb-0"
+    :class="isMobile ? 'pt-4' : 'pt-8'">
     <!-- Loading state -->
-    <div v-if="loading" class="flex-1 px-8 py-4 space-y-3 max-w-3xl mx-auto w-full">
+    <div v-if="loading" class="flex-1 py-4 space-y-3 max-w-3xl mx-auto w-full"
+      :class="isMobile ? 'px-4' : 'px-8'">
       <div v-for="i in 5" :key="i" class="flex items-center gap-4 p-6 rounded-altar border border-ms-copper-light">
         <SkeletonLine width="4px" height="60px" />
         <div class="flex-1 space-y-3">
@@ -223,17 +235,18 @@ watchEffect(() => {
     </div>
 
     <!-- Card list (blood spine) -->
-    <div v-else-if="filteredCards.length > 0" ref="listRef" class="flex-1 min-h-0 overflow-y-auto pb-6 relative">
+    <div v-else-if="filteredCards.length > 0" ref="listRef" class="flex-1 min-h-0 overflow-y-auto relative"
+      :class="isMobile ? 'pb-20' : 'pb-6'">
 
-      <!-- Global spine beam - blood amber glow -->
-      <div class="spine-beam absolute left-24 top-0 bottom-0 w-24 z-0 pointer-events-none" />
+      <!-- Global spine beam - blood amber glow (desktop only) -->
+      <div v-if="!isMobile" class="spine-beam absolute left-24 top-0 bottom-0 w-24 z-0 pointer-events-none" />
 
       <!-- Header -->
-      <div class="max-w-4xl mx-auto">
+      <div :class="isMobile ? 'px-4 pb-2 mb-0' : 'max-w-4xl mx-auto px-8'">
         <ListViewHeader />
       </div>
 
-      <div class="max-w-4xl mx-auto">
+      <div :class="isMobile ? 'px-3' : 'max-w-4xl mx-auto'">
         <div :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
           <div
             v-for="row in virtualizer.getVirtualItems()"
@@ -244,32 +257,38 @@ watchEffect(() => {
               transform: `translateY(${row.start}px)`,
               width: '100%',
             }"
-            class="grid grid-cols-spine items-start group cursor-pointer w-full transition-all duration-300 ease-out hover:-translate-y-0.5"
+            class="items-start group cursor-pointer w-full transition-all duration-300 ease-out"
+            :class="[
+              isMobile ? 'grid grid-cols-spine-mobile' : 'grid grid-cols-spine hover:-translate-y-0.5',
+            ]"
             role="button"
             tabindex="0"
             @click="handleCardClick(row.index, $event)"
             @keyup.enter="handleCardClick(row.index, $event)"
           >
-            <!-- Column 1: DateColumn -->
+            <!-- Column 1: DateColumn (desktop only) -->
             <DateColumn
-              :date-label="(flatItems[row.index] as CardRow)?.dateLabel || ''"
-              :is-active="(flatItems[row.index] as CardRow)?.isFirstInDay || false"
+              v-if="!isMobile"
+              :date-label="getRow(row.index)?.dateLabel || ''"
+              :is-active="getRow(row.index)?.isFirstInDay || false"
             />
 
-            <!-- Column 2: SpineNode -->
+            <!-- Column 2: SpineNode (desktop only) -->
             <SpineNode
-              :is-genesis="(flatItems[row.index] as CardRow)?.isFirstInDay || false"
-              :date="(flatItems[row.index] as CardRow)?.data?.updated_at"
-              :is-selected="selectedId === (flatItems[row.index] as CardRow)?.data?.id"
+              v-if="!isMobile"
+              :is-genesis="getRow(row.index)?.isFirstInDay || false"
+              :date="getRow(row.index)?.data?.updated_at"
+              :is-selected="selectedId === getRow(row.index)?.data?.id"
             />
 
             <!-- Column 3: ListCardRow -->
             <ListCardRow
-              v-if="(flatItems[row.index] as CardRow)?.data"
-              :card="(flatItems[row.index] as CardRow).data"
-              :is-selected="selectedId === (flatItems[row.index] as CardRow).data.id"
+              v-if="getRow(row.index)?.data"
+              :card="getRow(row.index)!.data"
+              :is-selected="selectedId === getRow(row.index)!.data.id"
               :is-active="focusedIndex === row.index"
-              @select="selectCard((flatItems[row.index] as CardRow).data.id)"
+              :is-mobile="isMobile"
+              @select="selectCard(getRow(row.index)!.data.id)"
             />
           </div>
         </div>

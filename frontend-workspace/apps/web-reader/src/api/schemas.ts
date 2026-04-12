@@ -157,5 +157,6 @@ export type InferredGraphEdge = z.infer<typeof GraphEdgeSchema>;
 export type InferredGraphResult = z.infer<typeof GraphResultSchema>;
 export type InferredOutlineResult = z.infer<typeof OutlineResultSchema>;
 export type InferredBacklinksResponse = z.infer<typeof BacklinksResponseSchema>;
+export type InferredBacklinkItem = z.infer<typeof BacklinkItemSchema>;
 export type InferredDiscoverResponse = z.infer<typeof DiscoverResponseSchema>;
 export type InferredSearchResponse = z.infer<typeof SearchResponseSchema>;

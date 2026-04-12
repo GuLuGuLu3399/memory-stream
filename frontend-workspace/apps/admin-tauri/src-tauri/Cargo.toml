@@ -32,6 +32,10 @@ ms-kb-exporter = {path = "../../../../rust-workspace/ms-kb-exporter"}
 ms-local-draft = {path = "../../../../rust-workspace/ms-local-draft"}
 ms-storage = {path = "../../../../rust-workspace/ms-storage"}
 ms-toc-extractor = {path = "../../../../rust-workspace/ms-toc-extractor"}
+temple-core = {path = "../../../../rust-workspace/temple_core"}
+temple-cache = {path = "../../../../rust-workspace/temple_cache"}
+temple-graph = {path = "../../../../rust-workspace/temple_graph"}
+temple-search = {path = "../../../../rust-workspace/temple_search"}
 
 base64 = "0.22"
 dotenv = "0.15"
@@ -43,7 +47,7 @@ rusqlite = {version = "0.32", features = ["bundled"] }
 notify = "7"
 
 pulldown-cmark = "0.12"
-reqwest = {version = "0.12", features = ["json", "blocking"] }
+reqwest = {version = "0.12", features = ["json"] }
 tempfile = "3"
 
 futures-util = "0.3"

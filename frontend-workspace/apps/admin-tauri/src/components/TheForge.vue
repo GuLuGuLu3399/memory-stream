@@ -12,13 +12,13 @@
  * - Keyboard shortcuts (Ctrl+S)
  */
 
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
 import { useKnowledgeStore } from '../stores/knowledge'
 import { useLayoutStore } from '../stores/layout'
 import { storeToRefs } from 'pinia'
 import { invoke } from '@tauri-apps/api/core'
 import type { EditorView } from '@codemirror/view'
-import CodemirrorEditor from './CodemirrorEditor.vue'
+const CodemirrorEditor = defineAsyncComponent(() => import('./CodemirrorEditor.vue'))
 import ForgeHeader from './forge/ForgeHeader.vue'
 import ForgePreview from './forge/ForgePreview.vue'
 import BacklinksRadar, { type BacklinkItem } from './forge/BacklinksRadar.vue'

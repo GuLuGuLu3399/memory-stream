@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -38,7 +39,7 @@ func TestMergeCards_ValidationError_SurvivorInVictims(t *testing.T) {
 		VictimIDs:  []string{"card-1", "card-2"},
 	}
 
-	result, err := MergeCards(db, req)
+	result, err := MergeCards(context.Background(),db, req)
 	assert.Error(t, err)
 	assert.Equal(t, "survivor_id cannot be in victim_ids", err.Error())
 	assert.Nil(t, result)
@@ -60,7 +61,7 @@ func TestMergeCards_CardNotFound(t *testing.T) {
 		VictimIDs:  []string{"card-2", "card-3"},
 	}
 
-	result, err := MergeCards(db, req)
+	result, err := MergeCards(context.Background(),db, req)
 	assert.Error(t, err)
 	assert.Equal(t, "one or more card IDs not found", err.Error())
 	assert.Nil(t, result)
@@ -80,7 +81,7 @@ func TestMergeCards_DBErrorOnRowLock(t *testing.T) {
 		VictimIDs:  []string{"card-2"},
 	}
 
-	result, err := MergeCards(db, req)
+	result, err := MergeCards(context.Background(),db, req)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -138,7 +139,7 @@ func TestMergeCards_Success_NoExistingEdges(t *testing.T) {
 		VictimIDs:  []string{"victim-1", "victim-2"},
 	}
 
-	result, err := MergeCards(db, req)
+	result, err := MergeCards(context.Background(),db, req)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, 2, result.NodesDeleted)
@@ -204,7 +205,7 @@ func TestMergeCards_Success_WithIncomingEdges(t *testing.T) {
 		VictimIDs:  []string{"victim-1"},
 	}
 
-	result, err := MergeCards(db, req)
+	result, err := MergeCards(context.Background(),db, req)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, 1, result.NodesDeleted)
@@ -260,7 +261,7 @@ func TestMergeCards_SelfLoopWarning_IncomingEdge(t *testing.T) {
 		VictimIDs:  []string{"victim-1"},
 	}
 
-	result, err := MergeCards(db, req)
+	result, err := MergeCards(context.Background(),db, req)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, 1, result.NodesDeleted)
@@ -292,7 +293,7 @@ func TestMergeCards_TransactionError_OnIncomingQuery(t *testing.T) {
 		VictimIDs:  []string{"victim-1"},
 	}
 
-	result, err := MergeCards(db, req)
+	result, err := MergeCards(context.Background(),db, req)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())

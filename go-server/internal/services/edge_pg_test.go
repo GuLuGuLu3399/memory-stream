@@ -3,6 +3,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -23,7 +24,7 @@ func TestPG_CreateEdge_HappyPath_Sequence(t *testing.T) {
 	a := seedCard(t, tx, uniqueTitle(t, "A"), "# A")
 	b := seedCard(t, tx, uniqueTitle(t, "B"), "# B")
 
-	err := svc.CreateEdge(a.ID, b.ID, "sequence")
+	err := svc.CreateEdge(context.Background(),a.ID, b.ID, "sequence")
 	require.NoError(t, err)
 	assertEdgeExists(t, tx, a.ID, b.ID, "sequence", true)
 }
@@ -35,7 +36,7 @@ func TestPG_CreateEdge_HappyPath_Reference(t *testing.T) {
 	a := seedCard(t, tx, uniqueTitle(t, "A"), "# A")
 	b := seedCard(t, tx, uniqueTitle(t, "B"), "# B")
 
-	err := svc.CreateEdge(a.ID, b.ID, "reference")
+	err := svc.CreateEdge(context.Background(),a.ID, b.ID, "reference")
 	require.NoError(t, err)
 	assertEdgeExists(t, tx, a.ID, b.ID, "reference", true)
 }
@@ -44,7 +45,7 @@ func TestPG_CreateEdge_EmptySourceID(t *testing.T) {
 	tx := testTx(t)
 	svc := NewEdgeService(tx, nil)
 
-	err := svc.CreateEdge("", "some-target", "sequence")
+	err := svc.CreateEdge(context.Background(),"", "some-target", "sequence")
 	assert.EqualError(t, err, "source_id and target_id are required")
 }
 
@@ -52,7 +53,7 @@ func TestPG_CreateEdge_EmptyTargetID(t *testing.T) {
 	tx := testTx(t)
 	svc := NewEdgeService(tx, nil)
 
-	err := svc.CreateEdge("some-source", "", "sequence")
+	err := svc.CreateEdge(context.Background(),"some-source", "", "sequence")
 	assert.EqualError(t, err, "source_id and target_id are required")
 }
 
@@ -60,7 +61,7 @@ func TestPG_CreateEdge_InvalidRelationType(t *testing.T) {
 	tx := testTx(t)
 	svc := NewEdgeService(tx, nil)
 
-	err := svc.CreateEdge("a", "b", "invalid")
+	err := svc.CreateEdge(context.Background(),"a", "b", "invalid")
 	assert.EqualError(t, err, "relation_type must be 'sequence' or 'reference'")
 }
 
@@ -71,10 +72,10 @@ func TestPG_CreateEdge_DuplicateEdge(t *testing.T) {
 	a := seedCard(t, tx, uniqueTitle(t, "A"), "# A")
 	b := seedCard(t, tx, uniqueTitle(t, "B"), "# B")
 
-	require.NoError(t, svc.CreateEdge(a.ID, b.ID, "reference"))
+	require.NoError(t, svc.CreateEdge(context.Background(),a.ID, b.ID, "reference"))
 
 	// Second create with same (source, target, relation) should fail on PK constraint
-	err := svc.CreateEdge(a.ID, b.ID, "reference")
+	err := svc.CreateEdge(context.Background(),a.ID, b.ID, "reference")
 	assert.Error(t, err, "expected error on duplicate edge")
 }
 
@@ -85,7 +86,7 @@ func TestPG_CreateEdge_SameSourceAndTarget(t *testing.T) {
 	a := seedCard(t, tx, uniqueTitle(t, "A"), "# A")
 
 	// DB does not enforce a no-self-loop constraint, so CreateEdge should succeed.
-	err := svc.CreateEdge(a.ID, a.ID, "reference")
+	err := svc.CreateEdge(context.Background(),a.ID, a.ID, "reference")
 	require.NoError(t, err)
 	assertEdgeExists(t, tx, a.ID, a.ID, "reference", true)
 }
@@ -102,7 +103,7 @@ func TestPG_DeleteEdge_HappyPath(t *testing.T) {
 	b := seedCard(t, tx, uniqueTitle(t, "B"), "# B")
 	seedEdge(t, tx, a.ID, b.ID, "reference")
 
-	err := svc.DeleteEdge(a.ID, b.ID)
+	err := svc.DeleteEdge(context.Background(),a.ID, b.ID)
 	require.NoError(t, err)
 	assertEdgeExists(t, tx, a.ID, b.ID, "reference", false)
 }
@@ -112,7 +113,7 @@ func TestPG_DeleteEdge_NonExistentEdge(t *testing.T) {
 	svc := NewEdgeService(tx, nil)
 
 	// Deleting a non-existent edge should NOT error (GORM soft-pass)
-	err := svc.DeleteEdge("00000000-0000-0000-0000-000000000000", "11111111-1111-1111-1111-111111111111")
+	err := svc.DeleteEdge(context.Background(),"00000000-0000-0000-0000-000000000000", "11111111-1111-1111-1111-111111111111")
 	assert.NoError(t, err)
 }
 
@@ -126,7 +127,7 @@ func TestPG_DeleteEdge_OnlyDeletesMatchingEdge(t *testing.T) {
 	seedEdge(t, tx, a.ID, b.ID, "reference")
 	seedEdge(t, tx, a.ID, c.ID, "reference")
 
-	err := svc.DeleteEdge(a.ID, b.ID)
+	err := svc.DeleteEdge(context.Background(),a.ID, b.ID)
 	require.NoError(t, err)
 
 	assertEdgeExists(t, tx, a.ID, b.ID, "reference", false)
@@ -145,7 +146,7 @@ func TestPG_UpdateEdgeType_HappyPath(t *testing.T) {
 	b := seedCard(t, tx, uniqueTitle(t, "B"), "# B")
 	seedEdge(t, tx, a.ID, b.ID, "reference")
 
-	err := svc.UpdateEdgeType(a.ID, b.ID, "sequence")
+	err := svc.UpdateEdgeType(context.Background(),a.ID, b.ID, "sequence")
 	require.NoError(t, err)
 	assertEdgeExists(t, tx, a.ID, b.ID, "sequence", true)
 	assertEdgeExists(t, tx, a.ID, b.ID, "reference", false)
@@ -155,7 +156,7 @@ func TestPG_UpdateEdgeType_EdgeNotFound(t *testing.T) {
 	tx := testTx(t)
 	svc := NewEdgeService(tx, nil)
 
-	err := svc.UpdateEdgeType("00000000-0000-0000-0000-000000000000", "11111111-1111-1111-1111-111111111111", "sequence")
+	err := svc.UpdateEdgeType(context.Background(),"00000000-0000-0000-0000-000000000000", "11111111-1111-1111-1111-111111111111", "sequence")
 	assert.EqualError(t, err, "edge not found")
 }
 
@@ -163,7 +164,7 @@ func TestPG_UpdateEdgeType_InvalidRelationType(t *testing.T) {
 	tx := testTx(t)
 	svc := NewEdgeService(tx, nil)
 
-	err := svc.UpdateEdgeType("a", "b", "invalid")
+	err := svc.UpdateEdgeType(context.Background(),"a", "b", "invalid")
 	assert.EqualError(t, err, "relation_type must be 'sequence' or 'reference'")
 }
 
@@ -272,7 +273,7 @@ func TestPG_CreateEdge_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func(targetID string) {
 			defer wg.Done()
-			if err := svc.CreateEdge(a.ID, targetID, "reference"); err != nil {
+			if err := svc.CreateEdge(context.Background(),a.ID, targetID, "reference"); err != nil {
 				errCh <- err
 			}
 		}(c.ID)

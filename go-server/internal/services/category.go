@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -19,7 +20,7 @@ func NewCategoryService(db *gorm.DB) *CategoryService {
 }
 
 // ListAll 获取全部分类列表，按名称排序。
-func (s *CategoryService) ListAll() ([]models.Category, error) {
+func (s *CategoryService) ListAll(ctx context.Context) ([]models.Category, error) {
 	var categories []models.Category
 	if err := s.db.Order("name").Find(&categories).Error; err != nil {
 		return nil, err
@@ -28,7 +29,7 @@ func (s *CategoryService) ListAll() ([]models.Category, error) {
 }
 
 // GetTree 获取分类树结构，按 sort_order 排序。
-func (s *CategoryService) GetTree() ([]models.CategoryTreeNode, error) {
+func (s *CategoryService) GetTree(ctx context.Context) ([]models.CategoryTreeNode, error) {
 	var categories []models.Category
 	// Query all categories ordered by sort_order, then name
 	if err := s.db.Order("sort_order, name").Find(&categories).Error; err != nil {
@@ -69,7 +70,7 @@ func (s *CategoryService) GetTree() ([]models.CategoryTreeNode, error) {
 }
 
 // Create 创建新的知识分类。名称不能为空；可选传 parentID。
-func (s *CategoryService) Create(name string, description string, themeColor *string, parentID *uint) (*models.Category, error) {
+func (s *CategoryService) Create(ctx context.Context, name string, description string, themeColor *string, parentID *uint) (*models.Category, error) {
 	if name == "" {
 		return nil, fmt.Errorf("分类名称不能为空")
 	}
@@ -96,7 +97,7 @@ func (s *CategoryService) Create(name string, description string, themeColor *st
 }
 
 // Update 更新分类的名称、描述及父级。名称不能为空。
-func (s *CategoryService) Update(id uint, name string, description string, themeColor *string, parentID *uint) error {
+func (s *CategoryService) Update(ctx context.Context, id uint, name string, description string, themeColor *string, parentID *uint) error {
 	if name == "" {
 		return fmt.Errorf("分类名称不能为空")
 	}
@@ -122,7 +123,7 @@ func (s *CategoryService) Update(id uint, name string, description string, theme
 
 // Delete 删除分类，并将该分类下的所有卡片 category_id 置为 NULL。
 // 使用事务确保原子性。
-func (s *CategoryService) Delete(id uint) error {
+func (s *CategoryService) Delete(ctx context.Context, id uint) error {
 	// 1) 必须先检查子分类是否存在
 	hasChild, err := s.HasChildren(id)
 	if err != nil {
@@ -199,7 +200,7 @@ func (s *CategoryService) validateDepth(parentID uint) error {
 }
 
 // GetClusters 获取指定分类下的卡片聚类（按热度和更新时间排序）。
-func (s *CategoryService) GetClusters(categoryID uint) ([]ClusterResult, error) {
+func (s *CategoryService) GetClusters(ctx context.Context, categoryID uint) ([]ClusterResult, error) {
 	var clusters []ClusterResult
 
 	err := s.db.Raw(`

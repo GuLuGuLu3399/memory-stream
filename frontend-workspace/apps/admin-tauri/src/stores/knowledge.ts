@@ -20,7 +20,7 @@
  */
 
 import { defineStore, storeToRefs } from "pinia";
-import { ref } from "vue";
+import { ref, shallowRef } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { RenderResult, TocNodeDto, DraftDto } from "@memory-stream/types/ipc";
 import type { CardListItem } from "@memory-stream/types";
@@ -89,7 +89,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
     category_id?: number | null;
   }
 
-  const backlinks = ref<BacklinkItem[]>([]);
+  const backlinks = shallowRef<BacklinkItem[]>([]);
 
   // ---- 防抖工具 ----
   let _refreshTimer: ReturnType<typeof setTimeout> | null = null;

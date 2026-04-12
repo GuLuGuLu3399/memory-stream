@@ -18,16 +18,19 @@ import { storeToRefs } from "pinia";
 import { useRouter, useRoute } from "vue-router";
 import DetailDrawer from "./components/DetailDrawer.vue";
 import LeftDock from "./components/LeftDock.vue";
+import BottomNav from "./components/BottomNav.vue";
 import SearchBar from "./components/SearchBar.vue";
 import ZenReader from "./components/ZenReader.vue";
 import EntranceAnimation from "./components/EntranceAnimation.vue";
 import { useGraphStore } from "./store/useGraphStore";
 import { useKeyboardNav } from "./composables/useKeyboardNav";
+import { useBreakpoints } from "./composables/useBreakpoints";
 
 const store = useGraphStore();
 const { viewMode, selectedId } = storeToRefs(store);
 const router = useRouter();
 const route = useRoute();
+const { isMobile } = useBreakpoints();
 
 // ── 全局键盘导航（含 Cmd+K） ──
 useKeyboardNav();
@@ -184,8 +187,8 @@ const showEntrance = ref(true);
       </router-view>
     </main>
 
-    <!-- ── 殿门旌旗 ── -->
-    <LeftDock />
+    <!-- ── 殿门旌旗（仅桌面端） ── -->
+    <LeftDock v-if="!isMobile" />
 
     <!-- ── 经文卷轴 ── -->
     <DetailDrawer />
@@ -195,6 +198,9 @@ const showEntrance = ref(true);
 
     <!-- ── 铜镜搜索 ── -->
     <SearchBar />
+
+    <!-- ── 移动端底部导航 ── -->
+    <BottomNav />
 
     <!-- ── 入场动画 ── -->
     <EntranceAnimation v-if="showEntrance" @done="showEntrance = false" />

@@ -10,7 +10,8 @@
 use crate::api::AppHttpClient;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use tauri::State;
 
@@ -34,16 +35,16 @@ struct PersistedTokens {
 
 /// 全局认证状态，存储 JWT 凭据及时间信息
 pub struct AuthState {
-    access_token: Mutex<Option<String>>,
-    refresh_token: Mutex<Option<String>>,
+    access_token: RwLock<Option<String>>,
+    refresh_token: RwLock<Option<String>>,
     /// Token 创建时间（用于计算剩余有效期）
-    created_at: Mutex<Option<Instant>>,
+    created_at: RwLock<Option<Instant>>,
     /// Access token 有效期
     expires_in: Duration,
     /// 刷新操作进行中的标记（防止 thundering herd）
-    refreshing: Mutex<bool>,
+    refreshing: AtomicBool,
     /// 连续刷新失败计数
-    consecutive_failures: Mutex<u32>,
+    consecutive_failures: AtomicU32,
     /// Token 持久化文件路径
     persist_path: PathBuf,
 }
@@ -53,61 +54,54 @@ impl AuthState {
     pub fn new(persist_dir: PathBuf) -> Self {
         let persist_path = persist_dir.join("tokens.json");
         let state = Self {
-            access_token: Mutex::new(None),
-            refresh_token: Mutex::new(None),
-            created_at: Mutex::new(None),
+            access_token: RwLock::new(None),
+            refresh_token: RwLock::new(None),
+            created_at: RwLock::new(None),
             expires_in: ACCESS_TOKEN_TTL,
-            refreshing: Mutex::new(false),
-            consecutive_failures: Mutex::new(0),
+            refreshing: AtomicBool::new(false),
+            consecutive_failures: AtomicU32::new(0),
             persist_path,
         };
         state.load_from_disk();
         state
     }
 
-    /// 获取当前 access token（从毒化 mutex 中恢复）
+    /// 获取当前 access token（使用读锁）
     pub fn get_access_token(&self) -> Option<String> {
-        match self.access_token.lock() {
-            Ok(guard) => guard.clone(),
-            Err(e) => e.into_inner().clone(),
-        }
+        self.access_token.read().ok().and_then(|t| t.clone())
     }
 
-    /// 获取当前 refresh token（从毒化 mutex 中恢复）
+    /// 获取当前 refresh token（使用读锁）
     pub fn get_refresh_token(&self) -> Option<String> {
-        match self.refresh_token.lock() {
-            Ok(guard) => guard.clone(),
-            Err(e) => e.into_inner().clone(),
-        }
+        self.refresh_token.read().ok().and_then(|t| t.clone())
     }
 
     /// 设置新的 token 对（登录或刷新成功后调用）
     fn set_tokens(&self, access_token: String, refresh_token: String) {
-        if let Ok(mut t) = self.access_token.lock() {
+        if let Ok(mut t) = self.access_token.write() {
             *t = Some(access_token);
         }
-        if let Ok(mut t) = self.refresh_token.lock() {
+        if let Ok(mut t) = self.refresh_token.write() {
             *t = Some(refresh_token);
         }
-        if let Ok(mut t) = self.created_at.lock() {
+        if let Ok(mut t) = self.created_at.write() {
             *t = Some(Instant::now());
         }
-        if let Ok(mut c) = self.consecutive_failures.lock() {
-            *c = 0;
-        }
+        // Reset failure counter on successful token set
+        self.consecutive_failures.store(0, Ordering::Release);
         self.save_to_disk();
     }
 
     /// 清除所有 token（登出时调用）
     #[allow(dead_code)]
     pub fn clear(&self) {
-        if let Ok(mut t) = self.access_token.lock() {
+        if let Ok(mut t) = self.access_token.write() {
             *t = None;
         }
-        if let Ok(mut t) = self.refresh_token.lock() {
+        if let Ok(mut t) = self.refresh_token.write() {
             *t = None;
         }
-        if let Ok(mut t) = self.created_at.lock() {
+        if let Ok(mut t) = self.created_at.write() {
             *t = None;
         }
         self.save_to_disk();
@@ -116,7 +110,7 @@ impl AuthState {
     /// 检查 access token 是否即将过期（在 REFRESH_MARGIN 内）
     #[allow(dead_code)]
     fn should_refresh_soon(&self) -> bool {
-        let created = match self.created_at.lock().ok() {
+        let created = match self.created_at.read().ok() {
             Some(guard) => match *guard {
                 Some(c) => c,
                 None => return true,
@@ -130,7 +124,7 @@ impl AuthState {
     /// 检查 access token 是否已完全过期
     #[allow(dead_code)]
     fn is_expired(&self) -> bool {
-        let created = match self.created_at.lock().ok() {
+        let created = match self.created_at.read().ok() {
             Some(guard) => match *guard {
                 Some(c) => c,
                 None => return true,
@@ -142,14 +136,14 @@ impl AuthState {
 
     /// 计算到下次需要刷新的剩余时间
     fn time_until_refresh(&self) -> Duration {
-        let created = match self.created_at.lock().ok() {
+        let created = match self.created_at.read().ok() {
             Some(guard) => match *guard {
                 Some(c) => c,
                 None => return NO_TOKEN_CHECK_INTERVAL,
             },
             None => return NO_TOKEN_CHECK_INTERVAL,
         };
-        let has_token = self.access_token.lock().ok().is_some_and(|t| t.is_some());
+        let has_token = self.access_token.read().ok().is_some_and(|t| t.is_some());
         if !has_token {
             return NO_TOKEN_CHECK_INTERVAL;
         }
@@ -165,50 +159,29 @@ impl AuthState {
     /// 尝试获取刷新锁（防 thundering herd）
     /// 返回 true 表示获得锁（应该执行刷新），false 表示其他线程正在刷新
     pub fn try_acquire_refresh_lock(&self) -> bool {
-        match self.refreshing.lock() {
-            Ok(mut flag) => {
-                if *flag {
-                    false
-                } else {
-                    *flag = true;
-                    true
-                }
-            }
-            Err(e) => {
-                // 从毒化 mutex 中恢复，重置锁定状态
-                let mut guard = e.into_inner();
-                *guard = false;
-                true
-            }
-        }
+        !self.refreshing.swap(true, Ordering::AcqRel)
     }
 
     /// 释放刷新锁
     pub fn release_refresh_lock(&self) {
-        if let Ok(mut flag) = self.refreshing.lock() {
-            *flag = false;
-        }
+        self.refreshing.store(false, Ordering::Release);
     }
 
     /// 记录一次刷新失败
     fn record_refresh_failure(&self) {
-        if let Ok(mut c) = self.consecutive_failures.lock() {
-            *c += 1;
-        }
+        self.consecutive_failures.fetch_add(1, Ordering::Release);
     }
 
     /// 是否超过最大连续失败次数
     fn too_many_failures(&self) -> bool {
-        self.consecutive_failures
-            .lock()
-            .is_ok_and(|c| *c >= MAX_CONSECUTIVE_FAILURES)
+        self.consecutive_failures.load(Ordering::Acquire) >= MAX_CONSECUTIVE_FAILURES
     }
 
     /// 持久化 token 到磁盘
     fn save_to_disk(&self) {
         let data = PersistedTokens {
-            access_token: self.access_token.lock().ok().and_then(|t| t.clone()),
-            refresh_token: self.refresh_token.lock().ok().and_then(|t| t.clone()),
+            access_token: self.access_token.read().ok().and_then(|t| t.clone()),
+            refresh_token: self.refresh_token.read().ok().and_then(|t| t.clone()),
         };
 
         // 两个 token 都没有时删除文件
@@ -244,15 +217,15 @@ impl AuthState {
         };
 
         if tokens.access_token.is_some() || tokens.refresh_token.is_some() {
-            if let Ok(mut t) = self.access_token.lock() {
+            if let Ok(mut t) = self.access_token.write() {
                 *t = tokens.access_token;
             }
-            if let Ok(mut t) = self.refresh_token.lock() {
+            if let Ok(mut t) = self.refresh_token.write() {
                 *t = tokens.refresh_token;
             }
             // 保守策略：假设恢复的 token 是新获取的
             // 如果实际已过期，401/WS rejected 会触发被动刷新
-            if let Ok(mut t) = self.created_at.lock() {
+            if let Ok(mut t) = self.created_at.write() {
                 *t = Some(Instant::now());
             }
             eprintln!("[Auth] restored tokens from disk");
@@ -368,7 +341,7 @@ pub async fn try_refresh_token(client: &reqwest::Client, auth: &Arc<AuthState>) 
         let wait_result = tokio::time::timeout(Duration::from_secs(5), async {
             loop {
                 tokio::time::sleep(Duration::from_millis(100)).await;
-                let refreshing = auth.refreshing.lock().ok().is_none_or(|f| *f);
+                let refreshing = auth.refreshing.load(Ordering::Acquire);
                 if !refreshing {
                     break;
                 }

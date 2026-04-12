@@ -1,0 +1,12 @@
+[package]
+name = "temple-graph"
+version = "0.1.0"
+edition = "2021"
+description = "Memory Stream — 图谱拓扑与双链计算引擎"
+
+[dependencies]
+temple-core = { path = "../temple_core" }
+petgraph = "0.7"
+serde = { workspace = true }
+serde_json = { workspace = true }
+rayon = "1.10"

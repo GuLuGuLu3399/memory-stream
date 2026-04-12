@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 
 	"gorm.io/gorm"
@@ -21,7 +22,7 @@ func NewSearchService(db *gorm.DB) *SearchService {
 	return &SearchService{db: db}
 }
 
-func (s *SearchService) SearchCards(query string, limit, offset int) ([]SearchResult, int, error) {
+func (s *SearchService) SearchCards(ctx context.Context, query string, limit, offset int) ([]SearchResult, int, error) {
 	if query == "" {
 		return nil, 0, errors.New("search query cannot be empty")
 	}

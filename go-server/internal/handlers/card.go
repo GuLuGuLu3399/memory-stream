@@ -52,7 +52,7 @@ func (h *CardHandler) Create(c *gin.Context) {
 	}
 
 	tocData := req.TocData
-	card, err := h.cardSvc.CreateCard(req.Title, req.RawMd, req.Excerpt, astData, tocData)
+	card, err := h.cardSvc.CreateCard(c.Request.Context(), req.Title, req.RawMd, req.Excerpt, astData, tocData)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -63,7 +63,7 @@ func (h *CardHandler) Create(c *gin.Context) {
 		if relationType == "" {
 			relationType = "sequence"
 		}
-		if err := h.edgeSvc.CreateEdge(*req.ParentID, card.ID, relationType); err != nil {
+		if err := h.edgeSvc.CreateEdge(c.Request.Context(), *req.ParentID, card.ID, relationType); err != nil {
 			appErr.Respond(c, appErr.NewInternal(err))
 			return
 		}
@@ -93,7 +93,7 @@ func (h *CardHandler) List(c *gin.Context) {
 	cursor := c.Query("cursor")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
-	result, err := h.cardSvc.ListCards(services.CursorPage{Cursor: cursor, Limit: limit})
+	result, err := h.cardSvc.ListCards(c.Request.Context(), services.CursorPage{Cursor: cursor, Limit: limit})
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -108,7 +108,7 @@ func (h *CardHandler) Discover(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	result, err := h.cardSvc.GetDiscover(sort, services.OffsetPage{Page: page, PageSize: pageSize})
+	result, err := h.cardSvc.GetDiscover(c.Request.Context(), sort, services.OffsetPage{Page: page, PageSize: pageSize})
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -121,7 +121,7 @@ func (h *CardHandler) Discover(c *gin.Context) {
 func (h *CardHandler) GetByID(c *gin.Context) {
 	cardID := c.Param("id")
 
-	card, err := h.cardSvc.GetCardByID(cardID)
+	card, err := h.cardSvc.GetCardByID(c.Request.Context(), cardID)
 	if err != nil {
 		appErr.Respond(c, appErr.NewNotFound("卡片未找到"))
 		return
@@ -140,13 +140,13 @@ func (h *CardHandler) Graph(c *gin.Context) {
 		depth = 2
 	}
 
-	graph, err := h.graphSvc.GetGraph(cardID, depth)
+	graph, err := h.graphSvc.GetGraph(c.Request.Context(), cardID, depth)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}
 
-	err = h.cardSvc.IncrementView(cardID)
+	err = h.cardSvc.IncrementView(c.Request.Context(), cardID)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -166,7 +166,7 @@ func (h *CardHandler) IncrementView(c *gin.Context) {
 		return
 	}
 
-	if err := h.cardSvc.IncrementView(cardID); err != nil {
+	if err := h.cardSvc.IncrementView(c.Request.Context(), cardID); err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}
@@ -193,7 +193,7 @@ func (h *CardHandler) Update(c *gin.Context) {
 		appErr.Respond(c, appErr.NewBadRequestWithLog("参数解析失败", err.Error()))
 		return
 	}
-	if err := h.cardSvc.UpdateCard(id, req.Title, req.RawMd, req.Excerpt, req.AstData, req.TocData, req.CategoryID); err != nil {
+	if err := h.cardSvc.UpdateCard(c.Request.Context(), id, req.Title, req.RawMd, req.Excerpt, req.AstData, req.TocData, req.CategoryID); err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}
@@ -205,7 +205,7 @@ func (h *CardHandler) Update(c *gin.Context) {
 			if title == "" {
 				continue
 			}
-			card, err := h.cardSvc.FindOrCreateByTitle(title)
+			card, err := h.cardSvc.FindOrCreateByTitle(c.Request.Context(), title)
 			if err != nil {
 				logger.Log.Warnf("Failed to resolve title '%s' to card ID: %v", title, err)
 				continue
@@ -213,7 +213,7 @@ func (h *CardHandler) Update(c *gin.Context) {
 			resolvedIDs = append(resolvedIDs, card.ID)
 		}
 		if len(resolvedIDs) > 0 {
-			if err := h.edgeSvc.SyncReferenceEdges(id, resolvedIDs); err != nil {
+			if err := h.edgeSvc.SyncReferenceEdges(c.Request.Context(), id, resolvedIDs); err != nil {
 				logger.Log.Warnf("Failed to sync reference edges for card %s: %v", id, err)
 				// Don't fail the card save - edge sync is secondary
 			}
@@ -239,7 +239,7 @@ func (h *CardHandler) Update(c *gin.Context) {
 func (h *CardHandler) GetBacklinks(c *gin.Context) {
 	cardID := c.Param("id")
 
-	backlinks, err := h.cardSvc.GetBacklinks(cardID)
+	backlinks, err := h.cardSvc.GetBacklinks(c.Request.Context(), cardID)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -255,7 +255,7 @@ func (h *CardHandler) GetBacklinks(c *gin.Context) {
 // DELETE /cards/:id
 func (h *CardHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
-	if err := h.cardSvc.DeleteCard(id); err != nil {
+	if err := h.cardSvc.DeleteCard(c.Request.Context(), id); err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}

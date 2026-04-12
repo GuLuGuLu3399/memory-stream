@@ -15,10 +15,6 @@
  * - layoutMultiComponentAsync() — Worker 异步 Vue Flow 集成
  */
 
-import Graph from "graphology";
-import { connectedComponents } from "graphology-components";
-import dagre from "dagre";
-import potpack from "potpack";
 import type { Node, Edge } from "@vue-flow/core";
 
 // ── 布局常量 ──
@@ -88,9 +84,10 @@ function getNodeDimensions(n: Node): { width: number; height: number } {
  * 构建 graphology 无向图
  */
 function buildGraphologyGraph(
+  Graph: import("graphology").default,
   nodeIds: string[],
   edges: SerializableEdge[],
-): Graph {
+) {
   const graph = new Graph({ multi: false, type: "undirected" });
 
   for (const id of nodeIds) {
@@ -140,6 +137,7 @@ function filterComponentEdges(
  * 对单个连通分量执行 Dagre 布局
  */
 function layoutComponentDagre(
+  dagre: typeof import("dagre").default,
   nodeIds: string[],
   componentEdges: SerializableEdge[],
   isOrphan: boolean,
@@ -224,19 +222,28 @@ function computeBoundingBox(
 // ── 纯计算层（Worker 安全，零 Vue Flow 依赖） ──
 
 /**
- * computePositions — 纯坐标计算
+ * computePositions — 纯坐标计算（异步，动态导入重型依赖）
  *
  * 接收序列化的节点/边数据，返回节点绝对坐标映射。
  * 不依赖 Vue Flow，可在 Web Worker 中执行。
+ * graphology / dagre / potpack 延迟到首次调用时才加载。
  */
-export function computePositions(
+export async function computePositions(
   nodes: SerializableNode[],
   edges: SerializableEdge[],
-): Record<string, { x: number; y: number }> {
+): Promise<Record<string, { x: number; y: number }>> {
   if (nodes.length === 0) return {};
 
+  const [{ default: Graph }, { connectedComponents }, { default: dagre }, { default: potpack }] =
+    await Promise.all([
+      import("graphology"),
+      import("graphology-components"),
+      import("dagre"),
+      import("potpack"),
+    ]);
+
   const nodeIds = nodes.map((n) => n.id);
-  const graph = buildGraphologyGraph(nodeIds, edges);
+  const graph = buildGraphologyGraph(Graph, nodeIds, edges);
   const components = connectedComponents(graph);
 
   if (components.length === 0) return {};
@@ -250,7 +257,7 @@ export function computePositions(
   for (const componentNodeIds of components) {
     const isOrphan = componentNodeIds.length === 1;
     const componentEdges = filterComponentEdges(componentNodeIds, edgeSet);
-    const positions = layoutComponentDagre(componentNodeIds, componentEdges, isOrphan, nodeDimensions);
+    const positions = layoutComponentDagre(dagre, componentNodeIds, componentEdges, isOrphan, nodeDimensions);
     const bbox = computeBoundingBox(positions, isOrphan, nodeDimensions);
 
     layouts.push({ nodeIds: componentNodeIds, positions, bbox, isOrphan });
@@ -289,12 +296,12 @@ export function computePositions(
 // ── Vue Flow 集成层 ──
 
 /**
- * layoutMultiComponent — 同步版 Vue Flow 布局
+ * layoutMultiComponent — 异步版 Vue Flow 布局
  *
  * 接收 Vue Flow 的 nodes/edges，返回带绝对坐标的新 nodes 数组。
- * 小图谱（< ASYNC_THRESHOLD）可直接使用，大图谱请用 layoutMultiComponentAsync。
+ * 重型依赖延迟到首次调用时加载。
  */
-export function layoutMultiComponent(nodes: Node[], edges: Edge[]): Node[] {
+export async function layoutMultiComponent(nodes: Node[], edges: Edge[]): Promise<Node[]> {
   if (nodes.length === 0) return [];
 
   const layoutNodes: SerializableNode[] = nodes.map((n) => {
@@ -306,7 +313,7 @@ export function layoutMultiComponent(nodes: Node[], edges: Edge[]): Node[] {
     target: e.target,
   }));
 
-  const positions = computePositions(layoutNodes, layoutEdges);
+  const positions = await computePositions(layoutNodes, layoutEdges);
 
   return nodes.map((n) => ({
     ...n,

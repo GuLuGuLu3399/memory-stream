@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from "vue";
-import { VueFlow, useVueFlow, type Connection } from "@vue-flow/core";
-import { Background } from "@vue-flow/background";
-import { Controls } from "@vue-flow/controls";
+import { computed, ref, onMounted, onUnmounted, defineAsyncComponent } from "vue";
+import { useVueFlow, type Connection } from "@vue-flow/core";
 import dagre from "dagre";
 import "@vue-flow/core/dist/style.css";
 import "@vue-flow/core/dist/theme-default.css";
@@ -11,6 +9,10 @@ import { useKnowledgeStore } from "../stores/knowledge";
 import { useConfirmDialog } from "../composables/useConfirmDialog";
 import { hexForKey } from "../composables/useCategoryTheme";
 import { storeToRefs } from "pinia";
+
+const VueFlow = defineAsyncComponent(() => import("@vue-flow/core").then(m => m.VueFlow));
+const Background = defineAsyncComponent(() => import("@vue-flow/background").then(m => m.Background));
+const Controls = defineAsyncComponent(() => import("@vue-flow/controls").then(m => m.Controls));
 
 const store = useKnowledgeStore();
 const { localNodes, localEdges, activeCard, orphanCards, recentCards, categories } = storeToRefs(store);

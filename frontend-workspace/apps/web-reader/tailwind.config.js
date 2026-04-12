@@ -122,6 +122,7 @@ export default {
             },
             gridTemplateColumns: {
                 'spine': '64px 24px 1fr',
+                'spine-mobile': '1fr',
             },
             transitionDuration: {
                 drawer: "200ms",

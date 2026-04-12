@@ -41,7 +41,7 @@ func (h *SearchHandler) Search(c *gin.Context) {
 		return
 	}
 
-	results, total, err := h.searchSvc.SearchCards(query, limit, offset)
+	results, total, err := h.searchSvc.SearchCards(c.Request.Context(), query, limit, offset)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return

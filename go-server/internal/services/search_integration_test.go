@@ -3,6 +3,7 @@
 package services
 
 import (
+	"context"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -34,7 +35,7 @@ func TestSearchIntegration_EmptyQuery(t *testing.T) {
 
 	svc := NewSearchService(db)
 
-	results, total, err := svc.SearchCards("", 20, 0)
+	results, total, err := svc.SearchCards(context.Background(),"", 20, 0)
 
 	assert.Error(t, err)
 	assert.Equal(t, 0, total)
@@ -58,7 +59,7 @@ func TestSearchIntegration_LimitClamping_DefaultValue(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), 20, 0).
 		WillReturnRows(searchRows)
 
-	results, total, err := svc.SearchCards("test", 0, 0)
+	results, total, err := svc.SearchCards(context.Background(),"test", 0, 0)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 5, total)
@@ -82,7 +83,7 @@ func TestSearchIntegration_LimitClamping_MaxClamp(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), 100, 0).
 		WillReturnRows(searchRows)
 
-	results, total, err := svc.SearchCards("test", 500, 0)
+	results, total, err := svc.SearchCards(context.Background(),"test", 500, 0)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 5, total)
@@ -106,7 +107,7 @@ func TestSearchIntegration_OffsetClamping(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), 20, 0).
 		WillReturnRows(searchRows)
 
-	results, total, err := svc.SearchCards("test", 20, -10)
+	results, total, err := svc.SearchCards(context.Background(),"test", 20, -10)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 5, total)

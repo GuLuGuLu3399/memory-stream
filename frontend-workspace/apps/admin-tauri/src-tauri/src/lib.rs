@@ -29,6 +29,10 @@ use ws_client::WsSender;
 
 use md_parser::{extract_wikilinks, parse_markdown};
 use ast_renderer::render_to_html;
+use temple_core::error::{ErrorCode, TempleError};
+use temple_cache::{ChangeNotification, DocumentPool, VaultWatcher, preheat_vault};
+use temple_graph::{KnowledgeGraph, GraphNode, GraphEdge, compute_hierarchical_layout};
+use temple_search::SearchEngine;
 
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
@@ -45,10 +49,18 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 struct AppState {
     /// SQLite 缓存管理器（线程安全）
     cache: Arc<Mutex<Option<CacheManager>>>,
-    /// 文件系统监控器
+    /// 零 I/O 内存文档池
+    doc_pool: DocumentPool,
+    /// 文件系统监控器（新版 VaultWatcher → 内存池同步）
+    vault_watcher: Option<VaultWatcher>,
+    /// 文件系统监控器（旧版，兼容过渡）
     watcher: Option<MarkdownWatcher>,
     /// WebSocket 发送端（用于实时边操作）
     ws_sender: Option<WsSender>,
+    /// 知识图谱引擎（Petgraph 有向图）
+    knowledge_graph: Arc<Mutex<Option<KnowledgeGraph>>>,
+    /// 全文搜索引擎（Tantivy + jieba 中文分词）
+    search_engine: Arc<Mutex<Option<SearchEngine>>>,
 }
 
 /// 可重载的全局状态（运行时热更新配置）
@@ -152,7 +164,8 @@ struct OutlineResponse {
 /// # 返回
 /// `RenderResult` 包含 html、ast_json 和 excerpt
 #[tauri::command]
-fn process_markdown(content: String) -> Result<RenderResult, String> {
+async fn process_markdown(content: String) -> Result<RenderResult, TempleError> {
+    tauri::async_runtime::spawn_blocking(move || {
     // 修复：将可能被转义的字面量 "\\n" 还原为真实换行符
     // 在 Go(JSON) → Vue(JS) → Tauri IPC → Rust(String) 的传输中，\n 可能变成 \\n
     let clean = content
@@ -161,12 +174,9 @@ fn process_markdown(content: String) -> Result<RenderResult, String> {
 
     let extracted_links = extract_wikilinks(&clean);
 
-    let ast = parse_markdown(&clean)
-        .map_err(|e| format!("Markdown parse failed: {:?}", e))?;
-    let html = render_to_html(&ast)
-        .map_err(|e| format!("HTML render failed: {:?}", e))?;
-    let ast_json = serde_json::to_string(&ast)
-        .map_err(|e| format!("AST serialize failed: {}", e))?;
+    let ast = parse_markdown(&clean)?;
+    let html = render_to_html(&ast)?;
+    let ast_json = serde_json::to_string(&ast)?;
     let excerpt = extract_plain_text(&clean, 150);
 
     Ok(RenderResult {
@@ -175,6 +185,7 @@ fn process_markdown(content: String) -> Result<RenderResult, String> {
         excerpt,
         extracted_links,
     })
+    }).await.map_err(|e| TempleError::new(ErrorCode::TaskPanic, e.to_string()))?
 }
 
 /// 图片压缩为 WebP 格式
@@ -186,13 +197,14 @@ fn process_markdown(content: String) -> Result<RenderResult, String> {
 /// - `output_path`: 输出 WebP 文件路径（为空时自动替换扩展名）
 /// - `_quality`: 压缩质量（当前使用无损模式，此参数预留）
 #[tauri::command]
-fn compress_image_to_webp(
+async fn compress_image_to_webp(
     input_path: String,
     output_path: String,
     _quality: u8,
-) -> Result<String, String> {
+) -> Result<String, TempleError> {
+    tauri::async_runtime::spawn_blocking(move || {
     let img =
-        ::image::open(&input_path).map_err(|e| format!("open image failed: {}", e))?;
+        ::image::open(&input_path).map_err(|e| TempleError::new(ErrorCode::ImageDecodeFailed, e.to_string()))?;
     let output_path = if output_path.is_empty() {
         let mut p = std::path::PathBuf::from(&input_path);
         p.set_extension("webp");
@@ -201,31 +213,31 @@ fn compress_image_to_webp(
         output_path
     };
     let mut buf = std::io::BufWriter::new(
-        std::fs::File::create(&output_path)
-            .map_err(|e| format!("create output failed: {}", e))?,
+        std::fs::File::create(&output_path)?,
     );
     let encoder = ::image::codecs::webp::WebPEncoder::new_lossless(&mut buf);
     img.write_with_encoder(encoder)
-        .map_err(|e| format!("WebP encode failed: {}", e))?;
+        .map_err(|e| TempleError::new(ErrorCode::ImageEncodeFailed, e.to_string()))?;
     Ok(output_path)
+    }).await.map_err(|e| TempleError::new(ErrorCode::TaskPanic, e.to_string()))?
 }
 
 /// 获取本地 SQLite 中缓存的所有布局数据
 ///
 /// 用于离线模式或快速加载图谱视图，无需请求后端。
 #[tauri::command]
-fn get_cached_layouts(state: State<'_, Mutex<AppState>>) -> Result<LayoutCacheResult, String> {
-    let app_state = state.lock().map_err(|e| format!("lock failed: {}", e))?;
+fn get_cached_layouts(state: State<'_, Mutex<AppState>>) -> Result<LayoutCacheResult, TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
     let cg = app_state
         .cache
         .lock()
-        .map_err(|e| format!("cache lock failed: {}", e))?;
+        .map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
     match &*cg {
         Some(cache) => {
-            let layouts = cache.get_all_layouts().map_err(|e| format!("{}", e))?;
-            let edges = cache.get_all_edges().map_err(|e| format!("{}", e))?;
-            let count = cache.count().map_err(|e| format!("{}", e))?;
-            let last_sync = cache.get_last_sync_time().map_err(|e| format!("{}", e))?;
+            let layouts = cache.get_all_layouts().map_err(|e| TempleError::new(ErrorCode::CacheQueryFailed, e.to_string()))?;
+            let edges = cache.get_all_edges().map_err(|e| TempleError::new(ErrorCode::CacheQueryFailed, e.to_string()))?;
+            let count = cache.count().map_err(|e| TempleError::new(ErrorCode::CacheQueryFailed, e.to_string()))?;
+            let last_sync = cache.get_last_sync_time().map_err(|e| TempleError::new(ErrorCode::CacheQueryFailed, e.to_string()))?;
             Ok(LayoutCacheResult {
                 layouts,
                 edges,
@@ -233,7 +245,7 @@ fn get_cached_layouts(state: State<'_, Mutex<AppState>>) -> Result<LayoutCacheRe
                 last_sync,
             })
         }
-        None => Err("cache not initialized".to_string()),
+        None => Err(TempleError::new(ErrorCode::CacheNotInitialized, "cache not initialized")),
     }
 }
 
@@ -253,7 +265,7 @@ async fn create_card_with_relation(
     toc_data: Option<String>,
     parent_id: Option<String>,
     relation: String,
-) -> Result<String, String> {
+) -> Result<String, TempleError> {
     let parsed_toc: Option<serde_json::Value> = toc_data
         .and_then(|s| if s.is_empty() { None } else { serde_json::from_str(&s).ok() });
     let body = CreateCardRequest {
@@ -273,18 +285,18 @@ async fn create_card_with_relation(
         req = req.header("Authorization", format!("Bearer {}", token));
     }
     let resp = req.send().await
-        .map_err(|e| format!("request failed: {}", e))?;
+        .map_err(|e| TempleError::new(ErrorCode::NetworkUnreachable, e.to_string()))?;
 
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        return Err(format!("create card failed: {} - {}", status, body));
+        return Err(TempleError::new(ErrorCode::ApiError, format!("create card failed: {} - {}", status, body)));
     }
 
     let card_resp: CreateCardResponse = resp
         .json()
         .await
-        .map_err(|e| format!("parse failed: {}", e))?;
+        .map_err(|e| TempleError::new(ErrorCode::AstDeserializeFailed, e.to_string()))?;
     Ok(card_resp.card_id)
 }
 
@@ -294,7 +306,7 @@ async fn delete_card(
     client: State<'_, AppHttpClient>,
     auth_state: State<'_, AuthArc>,
     id: String,
-) -> Result<(), String> {
+) -> Result<(), TempleError> {
     let mut req = client
         .0
         .delete(format!("{}/cards/{}", api::API_BASE_URL, id));
@@ -302,12 +314,12 @@ async fn delete_card(
         req = req.header("Authorization", format!("Bearer {}", token));
     }
     let resp = req.send().await
-        .map_err(|e| format!("delete request failed: {}", e))?;
+        .map_err(|e| TempleError::new(ErrorCode::NetworkUnreachable, e.to_string()))?;
 
     if resp.status().is_success() {
         Ok(())
     } else {
-        Err(format!("delete failed: {}", resp.status()))
+        Err(TempleError::new(ErrorCode::ApiError, format!("delete failed: {}", resp.status())))
     }
 }
 
@@ -319,7 +331,7 @@ async fn get_card_detail(
     client: State<'_, AppHttpClient>,
     auth_state: State<'_, AuthArc>,
     id: String,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, TempleError> {
     let mut req = client
         .0
         .get(format!("{}/cards/{}", api::API_BASE_URL, id));
@@ -327,46 +339,45 @@ async fn get_card_detail(
         req = req.header("Authorization", format!("Bearer {}", token));
     }
     let resp = req.send().await
-        .map_err(|e| format!("fetch card failed: {}", e))?;
+        .map_err(|e| TempleError::new(ErrorCode::NetworkUnreachable, e.to_string()))?;
 
     if !resp.status().is_success() {
-        return Err(format!("card not found: {}", resp.status()));
+        return Err(TempleError::new(ErrorCode::GraphNodeNotFound, format!("card not found: {}", resp.status())));
     }
 
     resp.json::<serde_json::Value>()
         .await
-        .map_err(|e| format!("parse failed: {}", e))
+        .map_err(|e| TempleError::new(ErrorCode::AstDeserializeFailed, e.to_string()))
 }
 
 /// 从 Go 后端同步图谱数据到本地 SQLite 缓存
 ///
-/// 使用 blocking 客户端，因为此命令在同步上下文中执行。
+/// 异步版本：先发起 HTTP 请求（不持有锁），拿到数据后再锁定写入缓存。
 #[tauri::command]
-fn sync_from_server(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, String> {
-    let app_state = state.lock().map_err(|e| format!("lock failed: {}", e))?;
-    let cg = app_state
-        .cache
-        .lock()
-        .map_err(|e| format!("cache lock failed: {}", e))?;
-    let cache = match &*cg {
-        Some(c) => c,
-        None => return Err("cache not initialized".to_string()),
-    };
-
-    // 同步操作使用 blocking 客户端（非 async 上下文）
-    let client = reqwest::blocking::Client::new();
-    let resp = client
+async fn sync_from_server(
+    state: State<'_, Mutex<AppState>>,
+    client: State<'_, AppHttpClient>,
+    auth_state: State<'_, AuthArc>,
+) -> Result<SyncResult, TempleError> {
+    // Phase 1: 网络请求（不持有任何锁）
+    let mut req = client
+        .0
         .get(format!("{}/graph/outline", api::API_BASE_URL))
-        .timeout(std::time::Duration::from_secs(10))
-        .send()
-        .map_err(|e| format!("sync request failed: {}", e))?;
+        .timeout(std::time::Duration::from_secs(10));
+    if let Some(token) = auth_state.get_access_token() {
+        req = req.header("Authorization", format!("Bearer {}", token));
+    }
+    let resp = req.send().await
+        .map_err(|e| TempleError::new(ErrorCode::NetworkUnreachable, e.to_string()))?;
 
     if !resp.status().is_success() {
-        return Err(format!("sync failed: {}", resp.status()));
+        return Err(TempleError::new(ErrorCode::ApiError, format!("sync failed: {}", resp.status())));
     }
 
-    let outline: OutlineResponse = resp.json().map_err(|e| format!("parse failed: {}", e))?;
+    let outline: OutlineResponse = resp.json().await
+        .map_err(|e| TempleError::new(ErrorCode::AstDeserializeFailed, e.to_string()))?;
 
+    // Phase 2: 数据转换（CPU 密集但无需锁）
     let layouts: Vec<cache::CachedLayout> = outline
         .nodes
         .iter()
@@ -391,31 +402,295 @@ fn sync_from_server(state: State<'_, Mutex<AppState>>) -> Result<SyncResult, Str
         })
         .collect();
 
-    cache
-        .upsert_layouts(&layouts)
-        .map_err(|e| format!("{}", e))?;
-    cache
-        .upsert_edges(&edges)
-        .map_err(|e| format!("{}", e))?;
-    cache
-        .set_last_sync_time(&format_sync_time())
-        .map_err(|e| format!("{}", e))?;
+    let layout_count = layouts.len();
+    let edge_count = edges.len();
 
-    let count = cache.count().map_err(|e| format!("{}", e))?;
+    // Phase 3: 锁定 + 写入（持锁时间最短化）
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    let cg = app_state
+        .cache
+        .lock()
+        .map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    let cache = match &*cg {
+        Some(c) => c,
+        None => return Err(TempleError::new(ErrorCode::CacheNotInitialized, "cache not initialized")),
+    };
+
+    cache.upsert_layouts(&layouts).map_err(|e| TempleError::new(ErrorCode::CacheQueryFailed, e.to_string()))?;
+    cache.upsert_edges(&edges).map_err(|e| TempleError::new(ErrorCode::CacheQueryFailed, e.to_string()))?;
+    cache.set_last_sync_time(&format_sync_time()).map_err(|e| TempleError::new(ErrorCode::CacheQueryFailed, e.to_string()))?;
+    let count = cache.count().map_err(|e| TempleError::new(ErrorCode::CacheQueryFailed, e.to_string()))?;
 
     Ok(SyncResult {
         success: true,
-        message: format!("sync: {} nodes, {} edges", layouts.len(), edges.len()),
+        message: format!("sync: {} nodes, {} edges", layout_count, edge_count),
         synced_count: count,
     })
+}
+
+// ============================================================================
+// 零 I/O 文档池命令 (temple_cache)
+// ============================================================================
+
+/// 从内存池获取单个文档（零 I/O）
+#[tauri::command]
+fn get_document(state: State<'_, Mutex<AppState>>, path: String) -> Result<Option<temple_cache::Document>, TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    Ok(app_state.doc_pool.get(&path).map(|arc| arc.as_ref().clone()))
+}
+
+/// 获取所有文档的轻量元数据（列表页使用，零 I/O）
+#[tauri::command]
+fn list_documents(state: State<'_, Mutex<AppState>>) -> Result<Vec<temple_cache::DocumentMeta>, TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    Ok(app_state.doc_pool.list_metadata())
+}
+
+/// 按标题搜索文档（简单的子串匹配，后续由 temple_search 替代）
+#[tauri::command]
+fn search_documents(state: State<'_, Mutex<AppState>>, query: String) -> Result<Vec<temple_cache::DocumentMeta>, TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    Ok(app_state.doc_pool.search_by_title(&query))
+}
+
+/// 启动 Vault 监听器 + 内存池同步
+#[tauri::command]
+fn start_vault_watcher(state: State<'_, Mutex<AppState>>, vault_path: String) -> Result<String, TempleError> {
+    let mut app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    let mut watcher = VaultWatcher::new(&vault_path)?;
+    watcher.start()?;
+    app_state.vault_watcher = Some(watcher);
+    Ok(format!("vault watcher started: {}", vault_path))
+}
+
+/// 轮询 Vault 变更 → 同步内存池 → 返回变更通知
+#[tauri::command]
+fn poll_vault_changes(state: State<'_, Mutex<AppState>>) -> Result<Vec<serde_json::Value>, TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    match &app_state.vault_watcher {
+        Some(watcher) => {
+            let notifications = watcher.poll_and_sync(&app_state.doc_pool);
+            Ok(notifications.into_iter().map(|n| {
+                match n {
+                    ChangeNotification::Created(meta) => serde_json::json!({"kind": "created", "path": meta.path, "title": meta.title}),
+                    ChangeNotification::Updated(meta) => serde_json::json!({"kind": "updated", "path": meta.path, "title": meta.title}),
+                    ChangeNotification::Removed { path } => serde_json::json!({"kind": "removed", "path": path}),
+                }
+            }).collect())
+        }
+        None => Ok(vec![]),
+    }
+}
+
+/// 预热 Vault — 并行扫描所有 Markdown 文件加载到内存
+#[tauri::command]
+fn preheat_vault_cmd(state: State<'_, Mutex<AppState>>, vault_path: String) -> Result<serde_json::Value, TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    let stats = preheat_vault(&app_state.doc_pool, &vault_path)?;
+    Ok(serde_json::json!({
+        "total_files": stats.total_files,
+        "parsed_ok": stats.parsed_ok,
+        "parse_errors": stats.parse_errors,
+        "elapsed_ms": stats.elapsed_ms,
+    }))
+}
+
+// ============================================================================
+// 知识图谱命令 (temple_graph)
+// ============================================================================
+
+/// 从 Go 后端同步图谱数据并构建内存知识图谱
+///
+/// 异步版本：先发起 HTTP 请求（不持有锁），拿到数据后构建图谱再锁定写入。
+#[tauri::command]
+async fn build_knowledge_graph(
+    state: State<'_, Mutex<AppState>>,
+    client: State<'_, AppHttpClient>,
+    auth_state: State<'_, AuthArc>,
+) -> Result<serde_json::Value, TempleError> {
+    // Phase 1: 网络请求（不持有任何锁）
+    let mut req = client
+        .0
+        .get(format!("{}/graph/outline", api::API_BASE_URL))
+        .timeout(std::time::Duration::from_secs(15));
+    if let Some(token) = auth_state.get_access_token() {
+        req = req.header("Authorization", format!("Bearer {}", token));
+    }
+    let resp = req.send().await
+        .map_err(|e| TempleError::new(ErrorCode::NetworkUnreachable, e.to_string()))?;
+
+    if !resp.status().is_success() {
+        return Err(TempleError::new(ErrorCode::ApiError, format!("sync graph failed: {}", resp.status())));
+    }
+
+    let outline: OutlineResponse = resp.json().await
+        .map_err(|e| TempleError::new(ErrorCode::AstDeserializeFailed, e.to_string()))?;
+
+    // Phase 2: 数据转换 + 图谱构建（CPU 密集但无需锁）
+    let nodes: Vec<GraphNode> = outline.nodes.iter().map(|n| GraphNode {
+        id: n.id.clone(),
+        title: n.title.clone(),
+    }).collect();
+
+    let edges: Vec<GraphEdge> = outline.edges.iter().map(|e| GraphEdge {
+        source: e.source.clone(),
+        target: e.target.clone(),
+        relation: e.relation.clone(),
+    }).collect();
+
+    let graph = KnowledgeGraph::build_from(nodes, edges);
+    let node_count = graph.node_count();
+    let edge_count = graph.edge_count();
+
+    // Phase 3: 锁定 + 写入（持锁时间最短化）
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    *app_state.knowledge_graph.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))? = Some(graph);
+
+    Ok(serde_json::json!({
+        "node_count": node_count,
+        "edge_count": edge_count,
+    }))
+}
+
+/// 获取中心节点 N 度 BFS 子图（局部星图）
+///
+/// 前端请求图谱聚焦时调用，返回子图节点和边，
+/// 无需加载完整图谱数据。
+#[tauri::command]
+fn get_subgraph(
+    state: State<'_, Mutex<AppState>>,
+    center_id: String,
+    depth: usize,
+) -> Result<temple_graph::SubgraphResult, TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    let kg = app_state.knowledge_graph.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    match &*kg {
+        Some(graph) => graph.subgraph(&center_id, depth),
+        None => Err(TempleError::new(ErrorCode::GraphNodeNotFound, "knowledge graph not built")),
+    }
+}
+
+/// 计算层级布局（替代前端 Dagre）
+///
+/// 使用 Sugiyama 风格拓扑排序，返回节点坐标。
+/// 前端直接应用坐标渲染，无需在 JS 侧计算布局。
+#[tauri::command]
+async fn compute_graph_layout(
+    state: State<'_, Mutex<AppState>>,
+    node_ids: Option<Vec<String>>,
+) -> Result<temple_graph::LayoutResult, TempleError> {
+    // 读取图谱快照（短暂持锁）
+    let graph_snapshot = {
+        let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+        let kg = app_state.knowledge_graph.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+        match &*kg {
+            Some(graph) => graph.clone(),
+            None => return Err(TempleError::new(ErrorCode::GraphNodeNotFound, "knowledge graph not built")),
+        }
+    };
+
+    // CPU 密集的布局计算放入阻塞线程池
+    tauri::async_runtime::spawn_blocking(move || {
+        match node_ids {
+            Some(ids) => Ok(compute_hierarchical_layout(&graph_snapshot, &ids)),
+            None => Ok(compute_hierarchical_layout(&graph_snapshot, &[])),
+        }
+    }).await.map_err(|e| TempleError::new(ErrorCode::TaskPanic, e.to_string()))?
+}
+
+// ============================================================================
+// 全文搜索命令 (temple_search)
+// ============================================================================
+
+/// 初始化全文搜索索引
+///
+/// 在指定目录创建或打开 Tantivy 索引。
+/// 前端首次使用搜索功能时调用。
+#[tauri::command]
+fn init_search_index(state: State<'_, Mutex<AppState>>, index_dir: String) -> Result<String, TempleError> {
+    let engine = SearchEngine::open(&index_dir)?;
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    *app_state.search_engine.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))? = Some(engine);
+    Ok(format!("search index opened: {}", index_dir))
+}
+
+/// 将内存池中的文档批量索引到搜索引擎
+///
+/// 从 DocumentPool 读取所有文档，写入 Tantivy 索引。
+/// 应在 preheat_vault 后调用。
+#[tauri::command]
+async fn rebuild_search_index(state: State<'_, Mutex<AppState>>) -> Result<serde_json::Value, TempleError> {
+    // 短暂持锁：读取快照
+    let (engine_ptr, docs_to_index): (Arc<Mutex<Option<SearchEngine>>>, Vec<(String, String, String)>) = {
+        let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+        let metas = app_state.doc_pool.list_metadata();
+        let mut docs = Vec::with_capacity(metas.len());
+        for meta in &metas {
+            if let Some(doc) = app_state.doc_pool.get(&meta.path) {
+                docs.push((meta.path.clone(), meta.title.clone(), doc.raw_md.clone()));
+            }
+        }
+        (app_state.search_engine.clone(), docs)
+    };
+
+    // CPU 密集的索引构建放入阻塞线程池
+    let indexed = tauri::async_runtime::spawn_blocking(move || {
+        let se = engine_ptr.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+        let engine = match &*se {
+            Some(e) => e,
+            None => return Err(TempleError::new(ErrorCode::IndexNotReady, "search index not initialized")),
+        };
+        let mut writer = engine.writer()?;
+        let mut count = 0u32;
+        for (path, title, raw_md) in &docs_to_index {
+            let tags: Vec<String> = Vec::new();
+            let wikilinks: Vec<String> = Vec::new();
+            SearchEngine::add_document(&mut writer, engine.fields(), path, title, raw_md, &tags, &wikilinks)?;
+            count += 1;
+        }
+        SearchEngine::commit(writer)?;
+        Ok(count)
+    }).await.map_err(|e| TempleError::new(ErrorCode::TaskPanic, e.to_string()))??;
+
+    Ok(serde_json::json!({
+        "indexed_docs": indexed,
+    }))
+}
+
+/// 执行全文搜索
+///
+/// 使用 jieba 中文分词 + Tantivy BM25 评分。
+#[tauri::command]
+fn fulltext_search(
+    state: State<'_, Mutex<AppState>>,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<temple_search::SearchResult>, TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    let se = app_state.search_engine.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    match &*se {
+        Some(engine) => engine.search(&query, limit.unwrap_or(20)),
+        None => Err(TempleError::new(ErrorCode::IndexNotReady, "search index not initialized")),
+    }
+}
+
+/// 获取搜索索引统计
+#[tauri::command]
+fn search_index_stats(state: State<'_, Mutex<AppState>>) -> Result<temple_search::IndexStats, TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    let se = app_state.search_engine.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    match &*se {
+        Some(engine) => engine.stats(),
+        None => Err(TempleError::new(ErrorCode::IndexNotReady, "search index not initialized")),
+    }
 }
 
 /// 轮询文件系统变更事件
 ///
 /// 从 MarkdownWatcher 的事件队列中取出自上次轮询以来的所有文件变更。
 #[tauri::command]
-fn poll_file_changes(state: State<'_, Mutex<AppState>>) -> Result<Vec<FileChangeEvent>, String> {
-    let app_state = state.lock().map_err(|e| format!("lock failed: {}", e))?;
+fn poll_file_changes(state: State<'_, Mutex<AppState>>) -> Result<Vec<FileChangeEvent>, TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
     match &app_state.watcher {
         Some(watcher) => Ok(watcher.poll_changes()),
         None => Ok(vec![]),
@@ -429,10 +704,10 @@ fn poll_file_changes(state: State<'_, Mutex<AppState>>) -> Result<Vec<FileChange
 fn start_watcher(
     state: State<'_, Mutex<AppState>>,
     watch_dir: String,
-) -> Result<String, String> {
-    let mut app_state = state.lock().map_err(|e| format!("lock failed: {}", e))?;
-    let mut watcher = MarkdownWatcher::new(&watch_dir).map_err(|e| format!("{}", e))?;
-    watcher.start().map_err(|e| format!("{}", e))?;
+) -> Result<String, TempleError> {
+    let mut app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    let mut watcher = MarkdownWatcher::new(&watch_dir).map_err(|e| TempleError::new(ErrorCode::DirectoryNotFound, e.to_string()))?;
+    watcher.start().map_err(|e| TempleError::new(ErrorCode::InternalError, e.to_string()))?;
     app_state.watcher = Some(watcher);
     Ok(format!("watching: {}", watch_dir))
 }
@@ -446,14 +721,14 @@ fn create_edge_cmd(
     source: String,
     target: String,
     rel: String,
-) -> Result<(), String> {
-    let app_state = state.lock().map_err(|e| format!("lock failed: {}", e))?;
+) -> Result<(), TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
     match &app_state.ws_sender {
         Some(sender) => sender.send_action(
             "CREATE_EDGE",
             serde_json::json!({"source_id": source, "target_id": target, "relation_type": rel}),
-        ),
-        None => Err("WS not connected".to_string()),
+        ).map_err(|e| TempleError::new(ErrorCode::GraphEdgeCreationFailed, e.to_string())),
+        None => Err(TempleError::new(ErrorCode::WsConnectionFailed, "WS not connected")),
     }
 }
 
@@ -463,35 +738,35 @@ fn delete_edge_cmd(
     state: State<'_, Mutex<AppState>>,
     source: String,
     target: String,
-) -> Result<(), String> {
-    let app_state = state.lock().map_err(|e| format!("lock failed: {}", e))?;
+) -> Result<(), TempleError> {
+    let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
     match &app_state.ws_sender {
         Some(sender) => sender.send_action(
             "DELETE_EDGE",
             serde_json::json!({"source_id": source, "target_id": target}),
-        ),
-        None => Err("WS not connected".to_string()),
+        ).map_err(|e| TempleError::new(ErrorCode::GraphEdgeCreationFailed, e.to_string())),
+        None => Err(TempleError::new(ErrorCode::WsConnectionFailed, "WS not connected")),
     }
 }
 
 #[tauri::command]
-fn import_markdown_files(paths: Vec<String>) -> Result<Vec<importer::ImportCard>, String> {
+fn import_markdown_files(paths: Vec<String>) -> Result<Vec<importer::ImportCard>, TempleError> {
     let mut cards = vec![];
     for path_str in paths {
         let path = std::path::PathBuf::from(&path_str);
         match importer::parse_markdown_file(&path) {
             Ok(card) => cards.push(card),
-            Err(e) => return Err(format!("Failed to parse {}: {}", path_str, e)),
+            Err(e) => return Err(TempleError::new(ErrorCode::MarkdownParseFailed, format!("Failed to parse {}: {}", path_str, e))),
         }
     }
     Ok(cards)
 }
 
 #[tauri::command]
-fn import_zip_archive(path: String) -> Result<Vec<importer::ImportCard>, String> {
+fn import_zip_archive(path: String) -> Result<Vec<importer::ImportCard>, TempleError> {
     let zip_path = std::path::PathBuf::from(&path);
     let (cards, _images) = importer::extract_zip_archive(&zip_path)
-        .map_err(|e| format!("Failed to extract zip: {}", e))?;
+        .map_err(|e| TempleError::new(ErrorCode::ExportZipFailed, format!("Failed to extract zip: {}", e)))?;
     Ok(cards)
 }
 
@@ -500,11 +775,11 @@ fn import_zip_archive(path: String) -> Result<Vec<importer::ImportCard>, String>
 /// 从 tauri-plugin-store 读取配置，从 keyring 读取敏感信息，
 /// 更新全局可重载状态（S3 配置等），无需重启应用。
 #[tauri::command]
-async fn reload_sys_config(app: tauri::AppHandle) -> Result<(), String> {
-    let config = config::get_config(&app).await?;
+async fn reload_sys_config(app: tauri::AppHandle) -> Result<(), TempleError> {
+    let config = config::get_config(&app).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
 
-    let access_key = config::keyring_wrapper::get_secret("S3_ACCESS_KEY")?;
-    let secret_key = config::keyring_wrapper::get_secret("S3_SECRET_KEY")?;
+    let access_key = config::keyring_wrapper::get_secret("S3_ACCESS_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
+    let secret_key = config::keyring_wrapper::get_secret("S3_SECRET_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
 
     let s3_config = ms_storage::StorageConfig {
         endpoint: config.s3_endpoint.clone(),
@@ -517,11 +792,11 @@ async fn reload_sys_config(app: tauri::AppHandle) -> Result<(), String> {
     };
 
     let state = app.state::<ReloadableState>();
-    let mut guard = state.s3_config.lock().map_err(|e| e.to_string())?;
+    let mut guard = state.s3_config.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
     *guard = Some(s3_config);
 
     app.emit("config-reloaded", serde_json::json!({}))
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| TempleError::new(ErrorCode::InternalError, e.to_string()))?;
 
     log::info!("System config reloaded successfully");
     Ok(())
@@ -532,10 +807,10 @@ async fn reload_sys_config(app: tauri::AppHandle) -> Result<(), String> {
 /// 从 tauri-plugin-store 读取配置，从 keyring 读取敏感信息，
 /// 合并后返回完整的 SysConfig 给前端。
 #[tauri::command]
-async fn get_sys_config(app: tauri::AppHandle) -> Result<config::SysConfig, String> {
-    let mut config = config::get_config(&app).await?;
-    config.s3_access_key = config::keyring_wrapper::get_secret("S3_ACCESS_KEY")?;
-    config.s3_secret_key = config::keyring_wrapper::get_secret("S3_SECRET_KEY")?;
+async fn get_sys_config(app: tauri::AppHandle) -> Result<config::SysConfig, TempleError> {
+    let mut config = config::get_config(&app).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
+    config.s3_access_key = config::keyring_wrapper::get_secret("S3_ACCESS_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
+    config.s3_secret_key = config::keyring_wrapper::get_secret("S3_SECRET_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
     Ok(config)
 }
 
@@ -544,14 +819,14 @@ async fn get_sys_config(app: tauri::AppHandle) -> Result<config::SysConfig, Stri
 /// 非敏感字段写入 tauri-plugin-store，敏感字段（access_key / secret_key）
 /// 写入 OS keyring，然后自动热重载内存中的 S3 配置。
 #[tauri::command]
-async fn save_sys_config(app: tauri::AppHandle, config: config::SysConfig) -> Result<(), String> {
+async fn save_sys_config(app: tauri::AppHandle, config: config::SysConfig) -> Result<(), TempleError> {
     if let Some(ref key) = config.s3_access_key {
-        config::keyring_wrapper::store_secret("S3_ACCESS_KEY", key)?;
+        config::keyring_wrapper::store_secret("S3_ACCESS_KEY", key).map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
     }
     if let Some(ref key) = config.s3_secret_key {
-        config::keyring_wrapper::store_secret("S3_SECRET_KEY", key)?;
+        config::keyring_wrapper::store_secret("S3_SECRET_KEY", key).map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
     }
-    config::save_config(&app, &config).await?;
+    config::save_config(&app, &config).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
     reload_sys_config(app).await
 }
 
@@ -560,41 +835,41 @@ async fn save_sys_config(app: tauri::AppHandle, config: config::SysConfig) -> Re
 /// 接收前端通过 Dialog 选定的目录路径，持久化到 SysConfig 中，
 /// 并通过事件通知前端状态变更。
 #[tauri::command]
-async fn set_vault_path(app: tauri::AppHandle, path: String) -> Result<config::SysConfig, String> {
-    let mut config = config::get_config(&app).await?;
+async fn set_vault_path(app: tauri::AppHandle, path: String) -> Result<config::SysConfig, TempleError> {
+    let mut config = config::get_config(&app).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
     config.vault_path = Some(path);
-    config::save_config(&app, &config).await?;
+    config::save_config(&app, &config).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
     app.emit("vault-path-changed", &config.vault_path)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| TempleError::new(ErrorCode::InternalError, e.to_string()))?;
     log::info!("Vault path set to: {:?}", config.vault_path);
     Ok(config)
 }
 
 #[tauri::command]
-async fn test_api_connection(app: tauri::AppHandle) -> Result<(), String> {
-    let config = config::get_config(&app).await?;
+async fn test_api_connection(app: tauri::AppHandle) -> Result<(), TempleError> {
+    let config = config::get_config(&app).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
         .build()
-        .map_err(|e| format!("HTTP client init failed: {}", e))?;
+        .map_err(|e| TempleError::new(ErrorCode::InternalError, format!("HTTP client init failed: {}", e)))?;
     let url = format!("{}/health", config.api_base_url.trim_end_matches('/'));
     let resp = client
         .get(&url)
         .send()
         .await
-        .map_err(|e| format!("API unreachable: {}", e))?;
+        .map_err(|e| TempleError::new(ErrorCode::NetworkUnreachable, format!("API unreachable: {}", e)))?;
     if resp.status().is_success() {
         Ok(())
     } else {
-        Err(format!("API returned HTTP {}", resp.status()))
+        Err(TempleError::new(ErrorCode::ApiError, format!("API returned HTTP {}", resp.status())))
     }
 }
 
 #[tauri::command]
-async fn test_s3_connection(app: tauri::AppHandle) -> Result<(), String> {
-    let config = config::get_config(&app).await?;
-    let access_key = config::keyring_wrapper::get_secret("S3_ACCESS_KEY")?;
-    let secret_key = config::keyring_wrapper::get_secret("S3_SECRET_KEY")?;
+async fn test_s3_connection(app: tauri::AppHandle) -> Result<(), TempleError> {
+    let config = config::get_config(&app).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
+    let access_key = config::keyring_wrapper::get_secret("S3_ACCESS_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
+    let secret_key = config::keyring_wrapper::get_secret("S3_SECRET_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
     let storage_config = ms_storage::StorageConfig {
         endpoint: config.s3_endpoint.clone(),
         region: config.s3_region.clone(),
@@ -604,11 +879,11 @@ async fn test_s3_connection(app: tauri::AppHandle) -> Result<(), String> {
         public_url_base: config.s3_public_url_base.clone(),
         use_path_style: config.s3_use_path_style,
     };
-    let backend = ms_storage::S3Backend::new(&storage_config).map_err(|e| e.to_string())?;
+    let backend = ms_storage::S3Backend::new(&storage_config).map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e.to_string()))?;
     let provider: Box<dyn ms_storage::StorageProvider> = Box::new(backend);
     match provider.exists("__health_check_probe__").await {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!("S3 connection failed: {}", e)),
+        Err(e) => Err(TempleError::new(ErrorCode::S3UploadFailed, format!("S3 connection failed: {}", e))),
     }
 }
 
@@ -797,8 +1072,12 @@ pub fn run() {
             // 注入应用状态
             app.manage(Mutex::new(AppState {
                 cache: cache_arc,
+                doc_pool: DocumentPool::new(),
+                vault_watcher: None,
                 watcher: None,
                 ws_sender: Some(ws_sender),
+                knowledge_graph: Arc::new(Mutex::new(None)),
+                search_engine: Arc::new(Mutex::new(None)),
             }));
 
             // 注入全局 HTTP 客户端（连接池复用）
@@ -918,10 +1197,26 @@ pub fn run() {
             get_card_detail,
             // 文件监控
             poll_file_changes,
+            // 零 I/O 文档池 (temple_cache)
+            get_document,
+            list_documents,
+            search_documents,
+            start_vault_watcher,
+            poll_vault_changes,
+            preheat_vault_cmd,
             start_watcher,
             // 图谱边操作（WebSocket）
             create_edge_cmd,
             delete_edge_cmd,
+            // 知识图谱引擎 (temple_graph)
+            build_knowledge_graph,
+            get_subgraph,
+            compute_graph_layout,
+            // 全文搜索引擎 (temple_search)
+            init_search_index,
+            rebuild_search_index,
+            fulltext_search,
+            search_index_stats,
             // 导入功能
             import_markdown_files,
             import_zip_archive,

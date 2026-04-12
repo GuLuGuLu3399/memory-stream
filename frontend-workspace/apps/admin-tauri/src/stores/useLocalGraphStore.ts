@@ -7,7 +7,7 @@
  */
 
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { shallowRef } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 
 /** 图谱可视化节点 — 包含布局坐标 */
@@ -33,8 +33,8 @@ interface GraphDetailResponse {
 
 export const useLocalGraphStore = defineStore("localGraph", () => {
   // ---- 响应式状态 ----
-  const localNodes = ref<LocalGraphNode[]>([]);
-  const localEdges = ref<LocalGraphEdge[]>([]);
+  const localNodes = shallowRef<LocalGraphNode[]>([]);
+  const localEdges = shallowRef<LocalGraphEdge[]>([]);
 
   /** 加载指定卡片的局部图谱（邻居节点 + 边） */
   async function loadLocalGraph(cardId: string) {

@@ -74,7 +74,7 @@ watch(query, (q) => {
             if (gen !== searchGeneration) return;
             results.value = response.results.map(r => ({
                 ...r,
-                relationType: Math.random() > 0.5 ? "sequence" : "reference" as const,
+                relationType: r.relationType,
             }));
             resetSelection();
         } catch (error) {
@@ -114,9 +114,8 @@ function onKeydown(e: KeyboardEvent) {
                 @click="close" @keydown="onKeydown">
                 <div class="absolute inset-0 bg-ms-xuan/70 backdrop-blur-sm" />
 
-                <div class="relative w-full max-w-lg bg-ms-xiang overflow-hidden"
-                    @click.stop
-                    style="box-shadow: 4px 4px 0 0 rgba(0,0,0,0.6), 0 0 60px rgba(166,38,38,0.06);">
+                <div class="relative w-full max-w-lg bg-ms-xiang overflow-hidden search-panel"
+                    @click.stop>
                     <!-- Copper filigree border -->
                     <div class="absolute inset-0 border-[3px] border-ms-copper/40 pointer-events-none" />
                     <div class="absolute inset-0 border border-ms-copper/20 pointer-events-none" />
@@ -147,9 +146,8 @@ function onKeydown(e: KeyboardEvent) {
                             :key="item.id"
                             class="w-full flex items-center gap-3 px-5 py-3 text-left transition-all duration-150 group relative"
                             :class="idx === selectedIndex
-                                ? 'bg-ms-copper/20'
+                                ? 'bg-ms-copper/20 search-result--selected'
                                 : 'hover:bg-ms-mo/50'"
-                            :style="idx === selectedIndex ? 'box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.04), inset 0 -1px 0 0 rgba(0,0,0,0.1);' : ''"
                             @click="selectCard(item.id)"
                             @mouseenter="selectedIndex = idx"
                         >
@@ -207,5 +205,11 @@ function onKeydown(e: KeyboardEvent) {
 </template>
 
 <style scoped>
-/* Shared transitions from ui-shared */
+.search-panel {
+    box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.6), 0 0 60px rgba(166, 38, 38, 0.06);
+}
+
+.search-result--selected {
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04), inset 0 -1px 0 0 rgba(0, 0, 0, 0.1);
+}
 </style>

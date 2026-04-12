@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"time"
@@ -96,7 +97,7 @@ func (s *GraphService) resolveIdentifier(id string) (string, error) {
 // 参数：
 //   - cardID: 中心卡片 ID（"root" 自动解析为根卡片）
 //   - depth: 遍历深度（1-5，默认 2）
-func (s *GraphService) GetGraph(cardID string, depth int) (*GraphResult, error) {
+func (s *GraphService) GetGraph(ctx context.Context, cardID string, depth int) (*GraphResult, error) {
 	// 深度硬上限：防止递归爆炸（服务层兜底，handler 已限制 1-5）
 	const maxDepth = 5
 	if depth < 1 {
@@ -168,7 +169,7 @@ func (s *GraphService) GetGraph(cardID string, depth int) (*GraphResult, error) 
 		})
 	}
 
-	seen := make(map[string]bool)
+	seen := make(map[string]bool, len(allEdges))
 	for _, e := range allEdges {
 		key := e.SourceID + ":" + e.TargetID
 		if !seen[key] {
@@ -188,7 +189,7 @@ func (s *GraphService) GetGraph(cardID string, depth int) (*GraphResult, error) 
 //
 // 不使用递归 CTE，直接全表扫描 cards（轻量字段）和 card_edges。
 // 用于前端"上帝视角"星图展示，包含所有连通分量和孤岛节点。
-func (s *GraphService) GetAllGraph() (*GraphResult, error) {
+func (s *GraphService) GetAllGraph(ctx context.Context) (*GraphResult, error) {
 	// Step 1: 全量拉取节点（仅 id + title，排除 raw_md 等大文本）
 	var cards []struct {
 		ID    string
@@ -235,7 +236,7 @@ func (s *GraphService) GetAllGraph() (*GraphResult, error) {
 
 // GetOutline 生成大纲视图数据（Category → Topic → Card → Cluster）。
 // 可选按 categoryID 过滤，返回指定分类下的主题和卡片聚类。
-func (s *GraphService) GetOutline(categoryID string) (*OutlineResult, error) {
+func (s *GraphService) GetOutline(ctx context.Context, categoryID string) (*OutlineResult, error) {
 	result := &OutlineResult{
 		Topics:   []OutlineTopic{},
 		Clusters: []OutlineCluster{},

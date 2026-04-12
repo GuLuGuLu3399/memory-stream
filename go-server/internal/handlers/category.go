@@ -22,7 +22,7 @@ func NewCategoryHandler(service *services.CategoryService) *CategoryHandler {
 // List returns all categories as a flat list.
 // GET /categories
 func (h *CategoryHandler) List(c *gin.Context) {
-	categories, err := h.service.ListAll()
+	categories, err := h.service.ListAll(c.Request.Context())
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -33,7 +33,7 @@ func (h *CategoryHandler) List(c *gin.Context) {
 // GetTree returns categories organized as a tree structure.
 // GET /categories/tree
 func (h *CategoryHandler) GetTree(c *gin.Context) {
-	tree, err := h.service.GetTree()
+	tree, err := h.service.GetTree(c.Request.Context())
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -54,7 +54,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 		appErr.Respond(c, appErr.NewBadRequestWithLog("参数解析失败", err.Error()))
 		return
 	}
-	cat, err := h.service.Create(req.Name, req.Description, req.ThemeColor, req.ParentID)
+	cat, err := h.service.Create(c.Request.Context(), req.Name, req.Description, req.ThemeColor, req.ParentID)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -80,7 +80,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 		appErr.Respond(c, appErr.NewBadRequestWithLog("参数解析失败", err.Error()))
 		return
 	}
-	if err := h.service.Update(uint(id), req.Name, req.Description, req.ThemeColor, req.ParentID); err != nil {
+	if err := h.service.Update(c.Request.Context(), uint(id), req.Name, req.Description, req.ThemeColor, req.ParentID); err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}
@@ -95,7 +95,7 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 		appErr.Respond(c, appErr.NewBadRequest("无效的分类 ID"))
 		return
 	}
-	if err := h.service.Delete(uint(id)); err != nil {
+	if err := h.service.Delete(c.Request.Context(), uint(id)); err != nil {
 		// If the category has children, return HTTP 409 per contract
 		if err.Error() == "category has children" {
 			appErr.Respond(c, appErr.Wrap(err, 409, 40901, err.Error()))
@@ -117,7 +117,7 @@ func (h *CategoryHandler) GetClusters(c *gin.Context) {
 		return
 	}
 
-	clusters, err := h.service.GetClusters(uint(id))
+	clusters, err := h.service.GetClusters(c.Request.Context(), uint(id))
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return

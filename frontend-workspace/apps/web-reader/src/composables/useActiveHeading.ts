@@ -12,6 +12,7 @@ import { ref, watch, onMounted, onUnmounted, type Ref } from "vue";
 export function useActiveHeading(containerRef: Ref<HTMLElement | undefined>) {
   const activeSlug = ref("");
   let observer: IntersectionObserver | null = null;
+  let delayTimer: ReturnType<typeof setTimeout> | null = null;
 
   function setupObserver() {
     if (!containerRef.value) return;
@@ -50,7 +51,9 @@ export function useActiveHeading(containerRef: Ref<HTMLElement | undefined>) {
 
   /** 延迟刷新 — 等待 v-html + 异步渲染（Shiki/KaTeX）完成 */
   function delayedRefresh(ms = 120) {
-    setTimeout(() => {
+    if (delayTimer) clearTimeout(delayTimer);
+    delayTimer = setTimeout(() => {
+      delayTimer = null;
       requestAnimationFrame(() => setupObserver());
     }, ms);
   }
@@ -60,6 +63,10 @@ export function useActiveHeading(containerRef: Ref<HTMLElement | undefined>) {
   });
 
   onUnmounted(() => {
+    if (delayTimer) {
+      clearTimeout(delayTimer);
+      delayTimer = null;
+    }
     if (observer) {
       observer.disconnect();
       observer = null;

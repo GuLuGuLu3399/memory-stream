@@ -3,6 +3,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -28,7 +29,7 @@ func TestPG_ListAll_HappyPath(t *testing.T) {
 	seedCategory(t, tx, uniqueTitle(t, "CatA"), nil)
 	seedCategory(t, tx, uniqueTitle(t, "CatB"), nil)
 
-	cats, err := svc.ListAll()
+	cats, err := svc.ListAll(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, int(before)+2, len(cats))
 }
@@ -37,7 +38,7 @@ func TestPG_ListAll_ReturnsWithoutError(t *testing.T) {
 	tx := testTx(t)
 	svc := NewCategoryService(tx)
 
-	_, err := svc.ListAll()
+	_, err := svc.ListAll(context.Background())
 	require.NoError(t, err)
 }
 
@@ -52,7 +53,7 @@ func TestPG_GetTree_NestedStructure(t *testing.T) {
 	parent := seedCategory(t, tx, uniqueTitle(t, "Parent"), nil)
 	child := seedCategory(t, tx, uniqueTitle(t, "Child"), &parent.ID)
 
-	roots, err := svc.GetTree()
+	roots, err := svc.GetTree(context.Background(),)
 	require.NoError(t, err)
 
 	// Find our parent node among the roots
@@ -75,7 +76,7 @@ func TestPG_GetTree_FlatStructure(t *testing.T) {
 	r1 := seedCategory(t, tx, uniqueTitle(t, "Root1"), nil)
 	r2 := seedCategory(t, tx, uniqueTitle(t, "Root2"), nil)
 
-	roots, err := svc.GetTree()
+	roots, err := svc.GetTree(context.Background(),)
 	require.NoError(t, err)
 
 	// Our two roots should exist as root nodes with no children
@@ -100,7 +101,7 @@ func TestPG_Create_HappyPath(t *testing.T) {
 	tx := testTx(t)
 	svc := NewCategoryService(tx)
 
-	cat, err := svc.Create(uniqueTitle(t, "NewCat"), "desc", nil, nil)
+	cat, err := svc.Create(context.Background(),uniqueTitle(t, "NewCat"), "desc", nil, nil)
 	require.NoError(t, err)
 	assert.NotZero(t, cat.ID)
 	assert.Equal(t, "desc", cat.Description)
@@ -112,7 +113,7 @@ func TestPG_Create_WithParent(t *testing.T) {
 
 	parent := seedCategory(t, tx, uniqueTitle(t, "Parent"), nil)
 
-	child, err := svc.Create(uniqueTitle(t, "Child"), "child desc", nil, &parent.ID)
+	child, err := svc.Create(context.Background(),uniqueTitle(t, "Child"), "child desc", nil, &parent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, parent.ID, *child.ParentID)
 }
@@ -121,7 +122,7 @@ func TestPG_Create_EmptyName(t *testing.T) {
 	tx := testTx(t)
 	svc := NewCategoryService(tx)
 
-	_, err := svc.Create("", "desc", nil, nil)
+	_, err := svc.Create(context.Background(),"", "desc", nil, nil)
 	assert.EqualError(t, err, "分类名称不能为空")
 }
 
@@ -130,10 +131,10 @@ func TestPG_Create_DuplicateName(t *testing.T) {
 	svc := NewCategoryService(tx)
 
 	name := uniqueTitle(t, "Dup")
-	_, err1 := svc.Create(name, "first", nil, nil)
+	_, err1 := svc.Create(context.Background(),name, "first", nil, nil)
 	require.NoError(t, err1)
 
-	_, err2 := svc.Create(name, "second", nil, nil)
+	_, err2 := svc.Create(context.Background(),name, "second", nil, nil)
 	assert.Error(t, err2, "expected unique constraint violation on duplicate name")
 }
 
@@ -142,7 +143,7 @@ func TestPG_Create_WithThemeColor(t *testing.T) {
 	svc := NewCategoryService(tx)
 
 	theme := "cyan"
-	cat, err := svc.Create(uniqueTitle(t, "Themed"), "desc", &theme, nil)
+	cat, err := svc.Create(context.Background(),uniqueTitle(t, "Themed"), "desc", &theme, nil)
 	require.NoError(t, err)
 	require.NotNil(t, cat.ThemeColor)
 	assert.Equal(t, "cyan", *cat.ThemeColor)
@@ -158,7 +159,7 @@ func TestPG_Update_HappyPath(t *testing.T) {
 
 	cat := seedCategory(t, tx, uniqueTitle(t, "Old"), nil)
 
-	err := svc.Update(cat.ID, uniqueTitle(t, "New"), "new desc", nil, nil)
+	err := svc.Update(context.Background(),cat.ID, uniqueTitle(t, "New"), "new desc", nil, nil)
 	require.NoError(t, err)
 
 	// Verify updated
@@ -178,7 +179,7 @@ func TestPG_Update_EmptyName(t *testing.T) {
 
 	cat := seedCategory(t, tx, uniqueTitle(t, "Cat"), nil)
 
-	err := svc.Update(cat.ID, "", "desc", nil, nil)
+	err := svc.Update(context.Background(),cat.ID, "", "desc", nil, nil)
 	assert.EqualError(t, err, "分类名称不能为空")
 }
 
@@ -188,7 +189,7 @@ func TestPG_Update_SelfReference(t *testing.T) {
 
 	cat := seedCategory(t, tx, uniqueTitle(t, "SelfRef"), nil)
 
-	err := svc.Update(cat.ID, uniqueTitle(t, "Updated"), "", nil, &cat.ID)
+	err := svc.Update(context.Background(),cat.ID, uniqueTitle(t, "Updated"), "", nil, &cat.ID)
 	assert.EqualError(t, err, "invalid circular reference")
 }
 
@@ -197,7 +198,7 @@ func TestPG_Update_NonExistentID(t *testing.T) {
 	svc := NewCategoryService(tx)
 
 	// Update with non-existent ID should not error (GORM: 0 rows affected, no error)
-	err := svc.Update(99999, uniqueTitle(t, "Ghost"), "desc", nil, nil)
+	err := svc.Update(context.Background(),99999, uniqueTitle(t, "Ghost"), "desc", nil, nil)
 	assert.NoError(t, err)
 }
 
@@ -211,7 +212,7 @@ func TestPG_Delete_HappyPath(t *testing.T) {
 
 	cat := seedCategory(t, tx, uniqueTitle(t, "ToDelete"), nil)
 
-	err := svc.Delete(cat.ID)
+	err := svc.Delete(context.Background(),cat.ID)
 	require.NoError(t, err)
 
 	// Verify category is gone
@@ -231,7 +232,7 @@ func TestPG_Delete_WithCards_NullifiesCategory(t *testing.T) {
 	tx.Model(&struct{}{}).Table("cards").Where("id = ?", card.ID).
 		Update("category_id", cat.ID)
 
-	err := svc.Delete(cat.ID)
+	err := svc.Delete(context.Background(),cat.ID)
 	require.NoError(t, err)
 
 	// Verify card's category_id is now nil
@@ -248,7 +249,7 @@ func TestPG_Delete_HasChildren_Blocked(t *testing.T) {
 	parent := seedCategory(t, tx, uniqueTitle(t, "Parent"), nil)
 	_ = seedCategory(t, tx, uniqueTitle(t, "Child"), &parent.ID)
 
-	err := svc.Delete(parent.ID)
+	err := svc.Delete(context.Background(),parent.ID)
 	assert.EqualError(t, err, "category has children")
 }
 
@@ -304,7 +305,7 @@ func TestPG_GetClusters_HappyPath(t *testing.T) {
 	tx.Model(&struct{}{}).Table("cards").Where("id = ?", card1.ID).Update("category_id", cat.ID)
 	tx.Model(&struct{}{}).Table("cards").Where("id = ?", card2.ID).Update("category_id", cat.ID)
 
-	clusters, err := svc.GetClusters(cat.ID)
+	clusters, err := svc.GetClusters(context.Background(),cat.ID)
 	require.NoError(t, err)
 	assert.Len(t, clusters, 2)
 }
@@ -315,7 +316,7 @@ func TestPG_GetClusters_EmptyCategory(t *testing.T) {
 
 	cat := seedCategory(t, tx, uniqueTitle(t, "EmptyCat"), nil)
 
-	clusters, err := svc.GetClusters(cat.ID)
+	clusters, err := svc.GetClusters(context.Background(),cat.ID)
 	require.NoError(t, err)
 	assert.Empty(t, clusters)
 }
@@ -324,7 +325,7 @@ func TestPG_GetClusters_NonExistentCategory(t *testing.T) {
 	tx := testTx(t)
 	svc := NewCategoryService(tx)
 
-	clusters, err := svc.GetClusters(99999)
+	clusters, err := svc.GetClusters(context.Background(),99999)
 	require.NoError(t, err)
 	assert.Empty(t, clusters)
 }
@@ -341,14 +342,14 @@ func TestPG_Category_Create_Concurrent(t *testing.T) {
 	name := fmt.Sprintf("[concurrent:%d] RaceCat", rnd)
 
 	// First create should succeed
-	_, err := svc.Create(name, "desc", nil, nil)
+	_, err := svc.Create(context.Background(),name, "desc", nil, nil)
 	require.NoError(t, err)
 
 	// Concurrent creates with same name should fail on unique constraint
 	errCh := make(chan error, 5)
 	for i := 0; i < 5; i++ {
 		go func() {
-			_, e := svc.Create(name, "dup", nil, nil)
+			_, e := svc.Create(context.Background(),name, "dup", nil, nil)
 			errCh <- e
 		}()
 	}

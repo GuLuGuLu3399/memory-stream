@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -129,7 +130,7 @@ func handleWSCreateEdge(hub *ws.Hub, edgeSvc *services.EdgeService, payload json
 		return
 	}
 
-	if err := edgeSvc.CreateEdge(req.SourceID, req.TargetID, req.RelationType); err != nil {
+	if err := edgeSvc.CreateEdge(context.Background(), req.SourceID, req.TargetID, req.RelationType); err != nil {
 		hub.BroadcastEvent(ws.WSEvent{
 			Event:   "ERROR",
 			Payload: ws.ErrorPayload{Message: "failed to create edge: " + err.Error()},
@@ -167,7 +168,7 @@ func handleWSDeleteEdge(hub *ws.Hub, edgeSvc *services.EdgeService, payload json
 		return
 	}
 
-	if err := edgeSvc.DeleteEdge(req.SourceID, req.TargetID); err != nil {
+	if err := edgeSvc.DeleteEdge(context.Background(), req.SourceID, req.TargetID); err != nil {
 		hub.BroadcastEvent(ws.WSEvent{
 			Event:   "ERROR",
 			Payload: ws.ErrorPayload{Message: "failed to delete edge: " + err.Error()},

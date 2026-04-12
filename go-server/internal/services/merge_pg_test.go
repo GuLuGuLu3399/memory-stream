@@ -3,6 +3,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -22,7 +23,7 @@ func TestPG_MergeCards_HappyPath_NoEdges(t *testing.T) {
 	victim1 := seedCard(t, tx, uniqueTitle(t, "Victim1"), "I die")
 	victim2 := seedCard(t, tx, uniqueTitle(t, "Victim2"), "I also die")
 
-	result, err := MergeCards(tx, MergeRequest{
+	result, err := MergeCards(context.Background(),tx, MergeRequest{
 		SurvivorID: survivor.ID,
 		VictimIDs:  []string{victim1.ID, victim2.ID},
 	})
@@ -47,7 +48,7 @@ func TestPG_MergeCards_HappyPath_WithIncomingEdges(t *testing.T) {
 	// victim → external (outgoing edge from victim)
 	seedEdge(t, tx, victim.ID, external.ID, "sequence")
 
-	result, err := MergeCards(tx, MergeRequest{
+	result, err := MergeCards(context.Background(),tx, MergeRequest{
 		SurvivorID: survivor.ID,
 		VictimIDs:  []string{victim.ID},
 	})
@@ -76,7 +77,7 @@ func TestPG_MergeCards_SurvivorInVictims(t *testing.T) {
 
 	card := seedCard(t, tx, uniqueTitle(t, "SelfMerge"), "content")
 
-	result, err := MergeCards(tx, MergeRequest{
+	result, err := MergeCards(context.Background(),tx, MergeRequest{
 		SurvivorID: card.ID,
 		VictimIDs:  []string{card.ID},
 	})
@@ -92,7 +93,7 @@ func TestPG_MergeCards_CardNotFound(t *testing.T) {
 
 	survivor := seedCard(t, tx, uniqueTitle(t, "Real"), "content")
 
-	result, err := MergeCards(tx, MergeRequest{
+	result, err := MergeCards(context.Background(),tx, MergeRequest{
 		SurvivorID: survivor.ID,
 		VictimIDs:  []string{"00000000-0000-0000-0000-00000000dead"},
 	})
@@ -116,7 +117,7 @@ func TestPG_MergeCards_IncomingSelfLoop(t *testing.T) {
 	// survivor → victim edge (will become survivor → survivor = self-loop)
 	seedEdge(t, tx, survivor.ID, victim.ID, "reference")
 
-	result, err := MergeCards(tx, MergeRequest{
+	result, err := MergeCards(context.Background(),tx, MergeRequest{
 		SurvivorID: survivor.ID,
 		VictimIDs:  []string{victim.ID},
 	})
@@ -138,7 +139,7 @@ func TestPG_MergeCards_OutgoingSelfLoop_Reference(t *testing.T) {
 	// victim → survivor edge (will become survivor → survivor = self-loop)
 	seedEdge(t, tx, victim.ID, survivor.ID, "reference")
 
-	result, err := MergeCards(tx, MergeRequest{
+	result, err := MergeCards(context.Background(),tx, MergeRequest{
 		SurvivorID: survivor.ID,
 		VictimIDs:  []string{victim.ID},
 	})
@@ -156,7 +157,7 @@ func TestPG_MergeCards_OutgoingSelfLoop_Sequence(t *testing.T) {
 	// victim → survivor sequence edge (self-loop removed)
 	seedEdge(t, tx, victim.ID, survivor.ID, "sequence")
 
-	result, err := MergeCards(tx, MergeRequest{
+	result, err := MergeCards(context.Background(),tx, MergeRequest{
 		SurvivorID: survivor.ID,
 		VictimIDs:  []string{victim.ID},
 	})
@@ -179,7 +180,7 @@ func TestPG_MergeCards_DeduplicateMigratedEdges(t *testing.T) {
 	seedEdge(t, tx, survivor.ID, external.ID, "reference")
 	seedEdge(t, tx, victim.ID, external.ID, "reference")
 
-	_, err := MergeCards(tx, MergeRequest{
+	_, err := MergeCards(context.Background(),tx, MergeRequest{
 		SurvivorID: survivor.ID,
 		VictimIDs:  []string{victim.ID},
 	})
@@ -210,7 +211,7 @@ func TestPG_MergeCards_ComplexGraph(t *testing.T) {
 	seedEdge(t, tx, A.ID, C.ID, "reference") // cross-ref
 
 	// Merge B and C into A (survivor)
-	result, err := MergeCards(tx, MergeRequest{
+	result, err := MergeCards(context.Background(),tx, MergeRequest{
 		SurvivorID: A.ID,
 		VictimIDs:  []string{B.ID, C.ID},
 	})
@@ -262,14 +263,14 @@ func TestPG_MergeCards_ConcurrentNoDeadlock(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_, errors[0] = MergeCards(db, MergeRequest{
+		_, errors[0] = MergeCards(context.Background(),db, MergeRequest{
 			SurvivorID: cards[0].ID,
 			VictimIDs:  []string{cards[1].ID, cards[2].ID},
 		})
 	}()
 	go func() {
 		defer wg.Done()
-		_, errors[1] = MergeCards(db, MergeRequest{
+		_, errors[1] = MergeCards(context.Background(),db, MergeRequest{
 			SurvivorID: cards[0].ID,
 			VictimIDs:  []string{cards[3].ID},
 		})

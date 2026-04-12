@@ -8,7 +8,7 @@
 </script>
 
 <template>
-  <div class="px-8 pb-3 mb-1">
+  <div class="pb-3 mb-1">
     <div class="h-px bg-gradient-to-r from-transparent via-ms-copper/40 to-transparent" />
   </div>
 </template>

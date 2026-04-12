@@ -38,7 +38,7 @@ func (h *EdgeHandler) Create(c *gin.Context) {
 	if relationType == "" {
 		relationType = "reference"
 	}
-	if err := h.edgeSvc.CreateEdge(req.SourceID, req.TargetID, relationType); err != nil {
+	if err := h.edgeSvc.CreateEdge(c.Request.Context(), req.SourceID, req.TargetID, relationType); err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}
@@ -70,7 +70,7 @@ func (h *EdgeHandler) Delete(c *gin.Context) {
 		appErr.Respond(c, appErr.NewBadRequestWithLog("参数解析失败", err.Error()))
 		return
 	}
-	if err := h.edgeSvc.DeleteEdge(req.SourceID, req.TargetID); err != nil {
+	if err := h.edgeSvc.DeleteEdge(c.Request.Context(), req.SourceID, req.TargetID); err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}
@@ -102,7 +102,7 @@ func (h *EdgeHandler) Update(c *gin.Context) {
 		appErr.Respond(c, appErr.NewBadRequestWithLog("参数解析失败", err.Error()))
 		return
 	}
-	if err := h.edgeSvc.UpdateEdgeType(req.SourceID, req.TargetID, req.RelationType); err != nil {
+	if err := h.edgeSvc.UpdateEdgeType(c.Request.Context(), req.SourceID, req.TargetID, req.RelationType); err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}

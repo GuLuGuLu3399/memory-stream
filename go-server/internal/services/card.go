@@ -40,7 +40,7 @@ func NewCardService(db *gorm.DB, rdb *redis.Client) *CardService {
 	return &CardService{db: db, rdb: rdb}
 }
 
-func (s *CardService) FindOrCreateByTitle(title string) (*models.Card, error) {
+func (s *CardService) FindOrCreateByTitle(ctx context.Context, title string) (*models.Card, error) {
 	var result models.Card
 
 	if err := s.db.Where("title = ?", title).First(&result).Error; err == nil {
@@ -60,7 +60,7 @@ func (s *CardService) FindOrCreateByTitle(title string) (*models.Card, error) {
 	return &result, nil
 }
 
-func (s *CardService) CreateCard(title string, rawMd string, excerpt string, astData models.JSONB, tocData models.JSONB) (*models.Card, error) {
+func (s *CardService) CreateCard(ctx context.Context, title string, rawMd string, excerpt string, astData models.JSONB, tocData models.JSONB) (*models.Card, error) {
 	if rawMd == "" {
 		return nil, errors.New("card content cannot be empty")
 	}
@@ -98,8 +98,7 @@ func (s *CardService) CreateCard(title string, rawMd string, excerpt string, ast
 	return &card, nil
 }
 
-func (s *CardService) GetCardByID(id string) (*models.Card, error) {
-	ctx := context.Background()
+func (s *CardService) GetCardByID(ctx context.Context, id string) (*models.Card, error) {
 	cacheKey := fmt.Sprintf("card:detail:%s", id)
 
 	if s.rdb != nil {
@@ -127,7 +126,7 @@ func (s *CardService) GetCardByID(id string) (*models.Card, error) {
 	return &card, nil
 }
 
-func (s *CardService) ListCards(page CursorPage) (*PaginatedResult, error) {
+func (s *CardService) ListCards(ctx context.Context, page CursorPage) (*PaginatedResult, error) {
 	if page.Limit < 1 || page.Limit > 100 {
 		page.Limit = 20
 	}
@@ -171,7 +170,7 @@ func (s *CardService) ListCards(page CursorPage) (*PaginatedResult, error) {
 	}, nil
 }
 
-func (s *CardService) GetDiscover(sort string, page OffsetPage) (*PaginatedResult, error) {
+func (s *CardService) GetDiscover(ctx context.Context, sort string, page OffsetPage) (*PaginatedResult, error) {
 	if page.Page < 1 {
 		page.Page = 1
 	}
@@ -225,7 +224,7 @@ func (s *CardService) GetDiscover(sort string, page OffsetPage) (*PaginatedResul
 	}, nil
 }
 
-func (s *CardService) UpdateCard(id string, title string, rawMd string, excerpt string, astData models.JSONB, tocData models.JSONB, categoryID *uint) error {
+func (s *CardService) UpdateCard(ctx context.Context, id string, title string, rawMd string, excerpt string, astData models.JSONB, tocData models.JSONB, categoryID *uint) error {
 	updates := map[string]interface{}{
 		"title":    title,
 		"raw_md":   rawMd,
@@ -241,18 +240,17 @@ func (s *CardService) UpdateCard(id string, title string, rawMd string, excerpt 
 
 	err := s.db.Model(&models.Card{}).Where("id = ?", id).Updates(updates).Error
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update card %s: %w", id, err)
 	}
 
 	if s.rdb != nil {
-		ctx := context.Background()
 		s.rdb.Del(ctx, fmt.Sprintf("card:detail:%s", id))
 	}
 
 	return nil
 }
 
-func (s *CardService) DeleteCard(id string) error {
+func (s *CardService) DeleteCard(ctx context.Context, id string) error {
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("source_id = ? OR target_id = ?", id, id).Delete(&models.CardEdge{}).Error; err != nil {
 			return err
@@ -266,18 +264,17 @@ func (s *CardService) DeleteCard(id string) error {
 		return tx.Where("id = ?", id).Delete(&models.Card{}).Error
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete card %s: %w", id, err)
 	}
 
 	if s.rdb != nil {
-		ctx := context.Background()
 		s.rdb.Del(ctx, fmt.Sprintf("card:detail:%s", id))
 	}
 
 	return nil
 }
 
-func (s *CardService) IncrementView(cardID string) error {
+func (s *CardService) IncrementView(ctx context.Context, cardID string) error {
 	if cardID == "root" {
 		var realID string
 		err := s.db.Raw(`
@@ -305,8 +302,7 @@ func (s *CardService) IncrementView(cardID string) error {
 	`, cardID).Error
 }
 
-func (s *CardService) GetGraphWithCache(cardID string, depth int) (*GraphResult, error) {
-	ctx := context.Background()
+func (s *CardService) GetGraphWithCache(ctx context.Context, cardID string, depth int) (*GraphResult, error) {
 	cacheKey := fmt.Sprintf("graph:detail:%s:%d", cardID, depth)
 
 	if s.rdb != nil {
@@ -320,7 +316,7 @@ func (s *CardService) GetGraphWithCache(cardID string, depth int) (*GraphResult,
 	}
 
 	graphSvc := NewGraphService(s.db)
-	result, err := graphSvc.GetGraph(cardID, depth)
+	result, err := graphSvc.GetGraph(ctx, cardID, depth)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +376,7 @@ func extractContextSnippet(rawMd string, targetTitle string) string {
 
 // GetBacklinks 获取所有指向当前卡片的边（反向引用）。
 // 利用 idx_card_edges_target 索引高效查询。
-func (s *CardService) GetBacklinks(cardID string) ([]BacklinkItem, error) {
+func (s *CardService) GetBacklinks(ctx context.Context, cardID string) ([]BacklinkItem, error) {
 	var targetCard models.Card
 	if err := s.db.Select("title").First(&targetCard, "id = ?", cardID).Error; err != nil {
 		return nil, err
@@ -416,11 +412,10 @@ func (s *CardService) GetBacklinks(cardID string) ([]BacklinkItem, error) {
 	return results, nil
 }
 
-func (s *CardService) InvalidateGraphCache(cardID string) {
+func (s *CardService) InvalidateGraphCache(ctx context.Context, cardID string) {
 	if s.rdb == nil {
 		return
 	}
-	ctx := context.Background()
 	var cursor uint64
 	for {
 		keys, nextCursor, err := s.rdb.Scan(ctx, cursor, fmt.Sprintf("graph:detail:%s:*", cardID), 100).Result()

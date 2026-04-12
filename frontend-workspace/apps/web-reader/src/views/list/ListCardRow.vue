@@ -23,6 +23,7 @@ interface Props {
   card: CardIndex;
   isSelected: boolean;
   isActive: boolean;
+  isMobile?: boolean;
 }
 
 defineProps<Props>();
@@ -34,11 +35,15 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="tablet-row group relative pl-6 pr-12 py-5 cursor-pointer"
-    :class="[isSelected ? 'is-selected' : '']"
+    class="tablet-row group relative cursor-pointer"
+    :class="[
+      isSelected ? 'is-selected' : '',
+      isMobile ? 'is-mobile px-3 py-3' : 'pl-6 pr-12 py-5',
+    ]"
     @click="emit('select')">
-    <!-- Connection line to spine -->
+    <!-- Connection line to spine (desktop only) -->
     <div
+      v-if="!isMobile"
       class="absolute left-0 top-4.5 w-3 h-0.5 z-10 transition-opacity duration-300 overflow-hidden"
       :class="[
         card.relation === 'sequence'
@@ -51,8 +56,7 @@ const emit = defineEmits<{
       />
       <div
         v-else
-        class="w-full h-full bg-gradient-to-r from-ms-copper/40 via-ms-copper/15 to-transparent"
-        style="background-image: repeating-linear-gradient(90deg, rgba(90,79,62,0.4) 0px, rgba(90,79,62,0.4) 3px, transparent 3px, transparent 6px);"
+        class="w-full h-full spine-dash-line"
       />
     </div>
 
@@ -65,9 +69,9 @@ const emit = defineEmits<{
       </div>
 
       <!-- Title row -->
-      <div class="flex items-center gap-3 mb-2">
+      <div class="flex items-center gap-2 mb-2 min-w-0">
         <h3
-          class="text-base font-serif font-semibold tracking-wide transition-colors duration-300 truncate flex-1"
+          class="text-base font-serif font-semibold tracking-wide transition-colors duration-300 truncate flex-1 min-w-0"
           :class="isSelected ? 'text-ms-ivory' : 'text-ms-bone-dim group-hover:text-ms-bone'"
         >
           {{ card.title || '无标题' }}
@@ -96,7 +100,7 @@ const emit = defineEmits<{
       </div>
 
       <!-- Excerpt — 碑文 -->
-      <p class="text-ms-smoke/60 text-sm truncate leading-relaxed tracking-wide group-hover:text-ms-bone-dim/80 transition-colors duration-500">
+      <p class="excerpt-text text-ms-smoke/60 text-sm leading-relaxed tracking-wide group-hover:text-ms-bone-dim/80 transition-colors duration-500">
         {{ card.excerpt || '暂无摘要' }}
       </p>
     </div>
@@ -111,6 +115,18 @@ const emit = defineEmits<{
     margin-left: 6px;
     padding: 14px 18px 14px 16px;
     border-radius: 1px;
+    overflow: hidden;
+    min-width: 0;
+}
+
+/* Mobile: tighter tablet */
+.is-mobile .tablet {
+    max-width: none;
+    margin-left: 0;
+    padding: 10px 14px 10px 12px;
+}
+
+.is-mobile .tablet-row {
     overflow: hidden;
 }
 
@@ -226,5 +242,29 @@ const emit = defineEmits<{
 .ember-stamp--lit {
     background: rgba(166, 38, 38, 0.06);
     border: 1px solid rgba(166, 38, 38, 0.15);
+}
+
+/* ── Excerpt truncation ── */
+.excerpt-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.is-mobile .excerpt-text {
+    -webkit-line-clamp: 1;
+}
+
+/* ── Spine dashed connection line ── */
+.spine-dash-line {
+    background-image: repeating-linear-gradient(
+        90deg,
+        rgba(90, 79, 62, 0.4) 0px,
+        rgba(90, 79, 62, 0.4) 3px,
+        transparent 3px,
+        transparent 6px
+    );
 }
 </style>

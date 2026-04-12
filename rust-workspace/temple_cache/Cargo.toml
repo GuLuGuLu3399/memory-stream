@@ -1,0 +1,17 @@
+[package]
+name = "temple-cache"
+version = "0.1.0"
+edition = "2021"
+description = "Memory Stream — 零 I/O 内存热数据池"
+
+[dependencies]
+temple-core = { path = "../temple_core" }
+ast-core = { path = "../ast-core" }
+md-parser = { path = "../md-parser" }
+ast-renderer = { path = "../ast-renderer" }
+
+dashmap = "6"
+rayon = "1.10"
+notify = { version = "7", features = ["macos_kqueue"] }
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -9,8 +9,10 @@
  */
 
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from "vue";
-
 import { storeToRefs } from "pinia";
+import { useBreakpoints } from "../composables/useBreakpoints";
+
+const { isMobile } = useBreakpoints();
 import MarkdownViewer from "@memory-stream/ui-shared/components/MarkdownViewer.vue";
 import { useGraphStore } from "../store/useGraphStore";
 import { useCards } from "../composables/useCards";
@@ -40,47 +42,23 @@ const calculateProgress = () => {
     readProgress.value = maxScroll <= 0 ? 100 : Math.round((scrollTop / maxScroll) * 100);
 };
 
+/** Throttled scroll handler using rAF */
+let scrollRaf = 0;
+const onScrollThrottled = () => {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+        calculateProgress();
+        scrollRaf = 0;
+    });
+};
+
 const { activeSlug, delayedRefresh } = useActiveHeading(proseRef);
 
 const toggleProseWidth = () => {
     proseWidth.value = proseWidth.value === 'prose' ? 'reading' : 'prose';
 };
 
-// 下滑退出手势
-let swipeStartY = 0;
-let swipeTracking = false;
-const SWIPE_THRESHOLD = 100;
-
-const onTouchStart = (e: TouchEvent) => {
-    const touch = e.touches[0];
-    swipeStartY = touch.clientY;
-    swipeTracking = true;
-};
-
-const onTouchMove = (e: TouchEvent) => {
-    if (!swipeTracking) return;
-    const touch = e.touches[0];
-    const dy = touch.clientY - swipeStartY;
-    const dx = Math.abs(touch.clientX - e.touches[0].clientX);
-
-    // 如果水平滑动大于垂直，取消追踪
-    if (dx > Math.abs(dy) && dx > 10) {
-        swipeTracking = false;
-        return;
-    }
-};
-
-const onTouchEnd = (e: TouchEvent) => {
-    if (!swipeTracking) return;
-    swipeTracking = false;
-
-    const touch = e.changedTouches[0];
-    const dy = touch.clientY - swipeStartY;
-
-    if (dy > SWIPE_THRESHOLD) {
-        store.toggleZenMode();
-    }
-};
+// 手势已移除：退出仅通过按钮（移动端 × 帘幕按钮 / 桌面端帘杆 + ESC）
 
 watch([zenMode, selectedId], async ([zen, id]) => {
     if (!zen || !id) {
@@ -112,15 +90,19 @@ watch(zenMode, (zen) => {
         // 3s 后显示退出提示，再 5s 后隐藏
         showExitHint.value = false;
         if (exitHintTimer) clearTimeout(exitHintTimer);
+        if (exitHintTimer2) clearTimeout(exitHintTimer2);
         exitHintTimer = setTimeout(() => {
+            exitHintTimer = null;
             showExitHint.value = true;
-            exitHintTimer = setTimeout(() => {
+            exitHintTimer2 = setTimeout(() => {
+                exitHintTimer2 = null;
                 showExitHint.value = false;
             }, 5000);
         }, 3000);
     } else {
         showExitHint.value = false;
         if (exitHintTimer) clearTimeout(exitHintTimer);
+        if (exitHintTimer2) clearTimeout(exitHintTimer2);
     }
 });
 
@@ -139,6 +121,7 @@ let exitRodTimer: ReturnType<typeof setTimeout> | null = null;
 // ── 退出提示：首次进入禅模式后短暂显示 ──
 const showExitHint = ref(false);
 let exitHintTimer: ReturnType<typeof setTimeout> | null = null;
+let exitHintTimer2: ReturnType<typeof setTimeout> | null = null;
 
 function onZenMouseMove(e: MouseEvent) {
     if (!zenMode.value) return;
@@ -166,6 +149,8 @@ onUnmounted(() => {
     document.removeEventListener("mousemove", onZenMouseMove);
     if (exitRodTimer) clearTimeout(exitRodTimer);
     if (exitHintTimer) clearTimeout(exitHintTimer);
+    if (exitHintTimer2) clearTimeout(exitHintTimer2);
+    if (scrollRaf) cancelAnimationFrame(scrollRaf);
 });
 </script>
 
@@ -173,10 +158,7 @@ onUnmounted(() => {
     <Teleport to="body">
         <Transition name="ms-scale">
             <div v-if="zenMode && detail"
-                class="fixed inset-0 z-fullscreen bg-ms-xuan flex zen-container zen-vignette"
-                @touchstart="onTouchStart"
-                @touchmove="onTouchMove"
-                @touchend="onTouchEnd">
+                class="fixed inset-0 z-fullscreen bg-ms-xuan flex zen-container zen-vignette">
 
                 <!-- 金缮顶线装饰 - 笔触动画 -->
                 <div class="zen-gold-topline">
@@ -190,9 +172,9 @@ onUnmounted(() => {
                 <div class="zen-guideline-left"></div>
                 <div class="zen-guideline-right"></div>
 
-                <!-- 金缮帘杆 — 鼠标靠近顶部浮现的退出入口 -->
+                <!-- 金缮帘杆 — 桌面端鼠标靠近顶部浮现 -->
                 <Transition name="zen-rod">
-                    <button v-if="showExitRod"
+                    <button v-if="showExitRod && !isMobile"
                         class="zen-exit-rod"
                         @click="exitZen"
                         title="退出禅模式 (ESC)">
@@ -206,9 +188,22 @@ onUnmounted(() => {
                     </button>
                 </Transition>
 
+                <!-- 移动端底部退出帘幕 — 卷轴收卷 -->
+                <Transition name="zen-veil">
+                    <button v-if="isMobile" class="zen-scroll-exit" @click="exitZen" title="退出禅模式">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 6C4 6 5.5 4 8 4C10.5 4 12 7 12 7C12 7 13.5 4 16 4C18.5 4 20 6 20 6" />
+                            <path d="M4 18C4 18 5.5 20 8 20C10.5 20 12 17 12 17C12 17 13.5 20 16 20C18.5 20 20 18 20 18" />
+                            <line x1="12" y1="7" x2="12" y2="17" />
+                        </svg>
+                    </button>
+                </Transition>
+
                 <!-- 全屏 Markdown 阅读 -->
-                <div class="flex-1 overflow-y-auto scrollbar-thin text-stone-300 relative z-[2]" ref="proseRef" @scroll="calculateProgress">
-                    <div class="mx-auto px-8 py-16 zen-content-area [&_li_p]:m-0 [&_li]:my-1" :class="proseMaxWidth" @dblclick="toggleProseWidth">
+                <div class="flex-1 overflow-y-auto scrollbar-thin text-stone-300 relative z-[2]" ref="proseRef" @scroll="onScrollThrottled">
+                    <div class="mx-auto zen-content-area [&_li_p]:m-0 [&_li]:my-1"
+                        :class="[proseMaxWidth, isMobile ? 'px-4 py-12' : 'px-8 py-16']"
+                        @dblclick="!isMobile && toggleProseWidth()">
                         <!-- 标题 - 淡入上滑动画 -->
                         <Transition name="ms-fade-slide-up" appear>
                             <h1 class="text-3xl font-bold text-zinc-200 mb-8 leading-tight font-serif">
@@ -227,7 +222,8 @@ onUnmounted(() => {
                 </div>
 
                 <!-- 悬浮阅读罗盘 -->
-                <div v-if="tocItems.length > 0" class="fixed bottom-6 right-6 z-[3]">
+                <div v-if="tocItems.length > 0" class="fixed z-[3]"
+                    :class="isMobile ? 'bottom-16 right-4' : 'bottom-6 right-6'">
                     <FloatingCompass :toc-items="tocItems" :active-slug="activeSlug" :container-el="proseRef"
                         :read-progress="readProgress" />
                 </div>
@@ -245,9 +241,10 @@ onUnmounted(() => {
 
                 <!-- 禅模式退出提示 — 首次进入 3s 后显示，5s 后消失 -->
                 <Transition name="fade">
-                    <div v-if="showExitHint" class="fixed top-8 left-1/2 -translate-x-1/2 z-[3]">
+                    <div v-if="showExitHint" class="fixed left-1/2 -translate-x-1/2 z-[3]"
+                        :class="isMobile ? 'bottom-20' : 'top-8'">
                         <span class="text-xs font-mono text-ms-ash bg-ms-xuan/80 border border-ms-copper/30 px-3 py-1.5 rounded">
-                            鼠标移至顶部可退出禅模式 · ESC
+                            {{ isMobile ? '点击右下角卷轴退出禅模式' : '鼠标移至顶部可退出禅模式 · ESC' }}
                         </span>
                     </div>
                 </Transition>
@@ -269,6 +266,56 @@ onUnmounted(() => {
         transparent 50%,
         rgba(10, 8, 6, 0.4) 100%
     );
+}
+
+/* ── 移动端退出按钮 — 卷轴收卷 ── */
+.zen-scroll-exit {
+    position: fixed;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(14, 13, 10, 0.8);
+    border: 1px solid rgba(58, 50, 40, 0.45);
+    color: rgba(138, 126, 110, 0.45);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+
+.zen-scroll-exit:active {
+    background: rgba(166, 38, 38, 0.12);
+    border-color: rgba(166, 38, 38, 0.35);
+    color: rgba(166, 38, 38, 0.7);
+    transform: scale(0.88);
+    box-shadow: 0 0 12px rgba(166, 38, 38, 0.15);
+}
+
+/* 卷轴出入动画 */
+.zen-veil-enter-active {
+    transition: all 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition-delay: 300ms;
+}
+
+.zen-veil-leave-active {
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.zen-veil-enter-from {
+    opacity: 0;
+    transform: scale(0.5) rotate(-15deg);
+}
+
+.zen-veil-leave-to {
+    opacity: 0;
+    transform: scale(0.8);
 }
 
 /* ── 金缮帘杆：退出禅境的隐形入口 ── */

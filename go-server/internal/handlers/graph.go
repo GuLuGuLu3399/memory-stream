@@ -25,7 +25,7 @@ func NewGraphHandler(graphSvc *services.GraphService, cardSvc *services.CardServ
 func (h *GraphHandler) Outline(c *gin.Context) {
 	categoryIDStr := c.Query("category_id")
 
-	outline, err := h.graphSvc.GetOutline(categoryIDStr)
+	outline, err := h.graphSvc.GetOutline(c.Request.Context(), categoryIDStr)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -37,7 +37,7 @@ func (h *GraphHandler) Outline(c *gin.Context) {
 // All returns the complete graph with all nodes and edges.
 // GET /graph
 func (h *GraphHandler) All(c *gin.Context) {
-	graph, err := h.graphSvc.GetAllGraph()
+	graph, err := h.graphSvc.GetAllGraph(c.Request.Context())
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -56,13 +56,13 @@ func (h *GraphHandler) Detail(c *gin.Context) {
 		depth = 2
 	}
 
-	graph, err := h.graphSvc.GetGraph(cardID, depth)
+	graph, err := h.graphSvc.GetGraph(c.Request.Context(), cardID, depth)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}
 
-	err = h.cardSvc.IncrementView(cardID)
+	err = h.cardSvc.IncrementView(c.Request.Context(), cardID)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"sort"
 	"time"
@@ -27,7 +28,7 @@ type MergeResult struct {
 // All edges pointing to/from victims are redirected to the survivor.
 // Duplicate edges are removed, and self-loops for sequence edges are cleaned up.
 // The entire operation is atomic within a single PostgreSQL transaction.
-func MergeCards(db *gorm.DB, req MergeRequest) (*MergeResult, error) {
+func MergeCards(ctx context.Context, db *gorm.DB, req MergeRequest) (*MergeResult, error) {
 	// Validation: survivor not in victims
 	for _, vid := range req.VictimIDs {
 		if vid == req.SurvivorID {
@@ -93,7 +94,7 @@ func MergeCards(db *gorm.DB, req MergeRequest) (*MergeResult, error) {
 			Find(&existingSurvivorEdges).Error; err != nil {
 			return err
 		}
-		existingEdgeKeys := make(map[string]bool)
+		existingEdgeKeys := make(map[string]bool, len(existingSurvivorEdges))
 		for _, e := range existingSurvivorEdges {
 			existingEdgeKeys[e.SourceID+":"+e.TargetID] = true
 		}

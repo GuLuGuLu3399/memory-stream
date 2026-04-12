@@ -1,0 +1,12 @@
+[package]
+name = "temple-search"
+version = "0.1.0"
+edition = "2021"
+description = "Memory Stream — 毫秒级全文搜索引擎"
+
+[dependencies]
+temple-core = { path = "../temple_core" }
+tantivy = "0.22"
+jieba-rs = "0.7"
+serde = { workspace = true }
+serde_json = { workspace = true }

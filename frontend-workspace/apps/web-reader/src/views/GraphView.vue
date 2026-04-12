@@ -125,11 +125,11 @@ function resetViewport() {
     fitView({ padding: 0.2, duration: 800, maxZoom: 1.2 });
 }
 
-function resetLayout() {
+async function resetLayout() {
     try {
         const measuredNodes = getNodes.value as Node[];
         const currentEdges = getEdges.value as Edge[];
-        const layouted = layoutMultiComponent(measuredNodes, currentEdges);
+        const layouted = await layoutMultiComponent(measuredNodes, currentEdges);
         nodes.value = layouted;
     } catch (err) {
         console.error("❌ Dagre 重置布局失败:", err);
@@ -143,14 +143,14 @@ function resetLayout() {
 // ── Dagre 布局锁（防重入） ──
 let layoutDone = false;
 
-onNodesInitialized(() => {
+onNodesInitialized(async () => {
     if (layoutDone) return;
     layoutDone = true;
 
     try {
         const measuredNodes = getNodes.value as Node[];
         const currentEdges = getEdges.value as Edge[];
-        const layouted = layoutMultiComponent(measuredNodes, currentEdges);
+        const layouted = await layoutMultiComponent(measuredNodes, currentEdges);
         nodes.value = layouted;
     } catch (err) {
         console.error("❌ Dagre 布局失败:", err);

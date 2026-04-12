@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -40,7 +41,7 @@ func TestSearchCards_BasicSearch(t *testing.T) {
 		AddRow("uuid-2", "Go Basics", "Introduction to Go", 0.7)
 	mock.ExpectQuery("SELECT id.*rank").WithArgs("golang", "golang", 20, 0).WillReturnRows(searchRows)
 
-	results, total, err := svc.SearchCards("golang", 20, 0)
+	results, total, err := svc.SearchCards(context.Background(),"golang", 20, 0)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 2, total)
@@ -64,7 +65,7 @@ func TestSearchCards_ChineseSearch(t *testing.T) {
 		AddRow("uuid-4", "知识图谱", "这是一个知识图谱系统", 0.9)
 	mock.ExpectQuery("SELECT id.*rank").WithArgs("知识图谱", "知识图谱", 20, 0).WillReturnRows(searchRows)
 
-	results, total, err := svc.SearchCards("知识图谱", 20, 0)
+	results, total, err := svc.SearchCards(context.Background(),"知识图谱", 20, 0)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, total)
@@ -82,7 +83,7 @@ func TestSearchCards_EmptyQuery(t *testing.T) {
 
 	svc := NewSearchService(db)
 
-	results, total, err := svc.SearchCards("", 20, 0)
+	results, total, err := svc.SearchCards(context.Background(),"", 20, 0)
 
 	assert.Error(t, err)
 	assert.Equal(t, 0, total)
@@ -104,7 +105,7 @@ func TestSearchCards_Pagination(t *testing.T) {
 		AddRow("uuid-12", "Result 12", "Content 12", 0.35)
 	mock.ExpectQuery("SELECT id.*rank").WithArgs("test", "test", 10, 10).WillReturnRows(searchRows)
 
-	results, total, err := svc.SearchCards("test", 10, 10)
+	results, total, err := svc.SearchCards(context.Background(),"test", 10, 10)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 25, total)
@@ -125,7 +126,7 @@ func TestSearchCards_NoResults(t *testing.T) {
 	searchRows := sqlmock.NewRows([]string{"id", "title", "excerpt", "rank"})
 	mock.ExpectQuery("SELECT id.*rank").WithArgs("nonexistent", "nonexistent", 20, 0).WillReturnRows(searchRows)
 
-	results, total, err := svc.SearchCards("nonexistent", 20, 0)
+	results, total, err := svc.SearchCards(context.Background(),"nonexistent", 20, 0)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 0, total)
@@ -147,7 +148,7 @@ func TestSearchCards_LimitCappedTo100(t *testing.T) {
 		AddRow("uuid-1", "Test", "Content", 0.5)
 	mock.ExpectQuery("SELECT id.*rank").WithArgs("test", "test", 100, 0).WillReturnRows(searchRows)
 
-	results, total, err := svc.SearchCards("test", 200, 0)
+	results, total, err := svc.SearchCards(context.Background(),"test", 200, 0)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 5, total)
