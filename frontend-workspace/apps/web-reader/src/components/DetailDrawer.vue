@@ -26,7 +26,7 @@ import { useCards } from "../composables/useCards";
 import type { CardDetail } from "../composables/useCards";
 import { useBreakpoints } from "../composables/useBreakpoints";
 import { useSwipeClose } from "../composables/useSwipeClose";
-import { Maximize2, Minimize2, ArrowLeft, Link2, ChevronDown, ChevronUp, Calendar, Hash } from "lucide-vue-next";
+import { ArrowLeft, Link2, ChevronDown, ChevronUp, Calendar, Hash } from "lucide-vue-next";
 import { api } from "../api";
 
 interface BacklinkItem {
@@ -137,19 +137,12 @@ function getBadgeClass(relationType: string): string {
         :width="panelWidth"
         @close="onBackdropClick">
 
-        <!-- Header -->
+        <!-- Header — 双击标题区进入禅模式 -->
         <template #header>
-            <h2 class="text-sm font-bold text-ms-ivory truncate pr-4">
+            <h2 class="text-sm font-bold text-ms-ivory truncate pr-4 select-none"
+                @dblclick="store.toggleZenMode()">
                 {{ detail?.title || "加载中..." }}
             </h2>
-            <button
-                v-if="detail"
-                class="w-7 h-7 flex items-center justify-center text-ms-smoke border border-transparent hover:text-xuepo hover:bg-xuepo/10 hover:border-xuepo/30 hover:shadow-[1px_1px_0_0_rgba(0,0,0,0.4)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all duration-150"
-                :title="store.zenMode ? '退出专注' : '专注模式'"
-                @click="store.toggleZenMode()">
-                <Maximize2 v-if="!store.zenMode" :size="14" />
-                <Minimize2 v-else :size="14" />
-            </button>
         </template>
 
         <!-- Content Area with Texture Overlay -->
@@ -160,6 +153,15 @@ function getBadgeClass(relationType: string): string {
 
             <!-- Paper-grain texture overlay -->
             <div class="detail-drawer__texture" />
+
+            <!-- 左侧隐形机械把手 — 禅模式触发 -->
+            <button
+                v-if="detail"
+                class="zen-edge-handle"
+                :class="{ 'zen-edge-handle--active': store.zenMode }"
+                :title="store.zenMode ? '退出禅模式' : '进入禅模式'"
+                @click.stop="store.toggleZenMode()"
+            />
 
             <!-- Loading State -->
             <div v-if="loading" class="detail-drawer__loading">
@@ -278,6 +280,61 @@ function getBadgeClass(relationType: string): string {
     opacity: 0.03;
     z-index: 1;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* ── 左侧隐形机械把手 ── */
+.zen-edge-handle {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    width: 6px;
+    height: 64px;
+    border-radius: 9999px;
+    background: theme('colors.ms-copper');
+    opacity: 0.2;
+    border: none;
+    padding: 0;
+    cursor: w-resize;
+    transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: none;
+}
+
+.zen-edge-handle:hover {
+    opacity: 0.7;
+    background: theme('colors.ms-ash');
+    height: 72px;
+    transform: translate(-60%, -50%);
+    box-shadow: -2px 0 6px rgba(138, 126, 110, 0.15);
+}
+
+.zen-edge-handle:active {
+    opacity: 1;
+    background: theme('colors.xuepo.DEFAULT');
+    height: 68px;
+    transform: translate(-70%, -50%);
+    box-shadow: -4px 0 12px rgba(166, 38, 38, 0.25);
+    transition-duration: 100ms;
+}
+
+/* 禅模式激活 — 把手变为血珀色，移至屏幕最左缘 */
+.zen-edge-handle--active {
+    background: theme('colors.xuepo.DEFAULT');
+    opacity: 0.35;
+    box-shadow: -1px 0 4px rgba(166, 38, 38, 0.2);
+}
+
+.zen-edge-handle--active:hover {
+    opacity: 0.8;
+    background: theme('colors.xuepo.600');
+    box-shadow: -3px 0 10px rgba(166, 38, 38, 0.3);
+}
+
+.zen-edge-handle--active:active {
+    opacity: 1;
+    background: theme('colors.ms-gold');
+    box-shadow: -4px 0 14px rgba(201, 168, 76, 0.35);
 }
 
 .detail-drawer__loading {
