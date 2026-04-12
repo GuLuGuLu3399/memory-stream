@@ -93,8 +93,9 @@ const goldDivider = "w-6 h-px bg-gradient-to-r from-transparent via-ms-gold/40 t
                     :class="templeColumnClass(viewMode === 'list')"
                     title="列表视图 (L)">
                     <List :size="20" />
-                    <!-- 激活态血珀辉光 -->
+                    <!-- 激活态血珀辉光 + 左侧指示条 -->
                     <div v-if="viewMode === 'list'" class="absolute inset-0 rounded-altar shadow-altar-glow-sm border border-xuepo/20" />
+                    <div v-if="viewMode === 'list'" class="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-xuepo indicator-glow" />
                     <!-- 雕纹背景 -->
                     <div class="absolute inset-0 rounded-altar bg-gradient-to-br from-ms-copper/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
@@ -106,6 +107,7 @@ const goldDivider = "w-6 h-px bg-gradient-to-r from-transparent via-ms-gold/40 t
                     title="图谱视图 (G)">
                     <Network :size="20" />
                     <div v-if="viewMode === 'graph'" class="absolute inset-0 rounded-altar shadow-altar-glow-sm border border-xuepo/20" />
+                    <div v-if="viewMode === 'graph'" class="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-xuepo indicator-glow" />
                     <div class="absolute inset-0 rounded-altar bg-gradient-to-br from-ms-copper/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
             </div>
@@ -115,20 +117,34 @@ const goldDivider = "w-6 h-px bg-gradient-to-r from-transparent via-ms-gold/40 t
                 <!-- 金箔分隔 -->
                 <div :class="goldDivider" />
 
-                <!-- WebSocket 火焰状态 -->
+                <!-- WebSocket 火焰状态 — 增强辨识 -->
                 <div class="flex flex-col items-center gap-1 mt-1"
                     :title="`WS: ${authenticated ? '已连接 ' + latency + 'ms' : connected ? '认证中...' : '离线'}`">
-                    <div class="relative w-8 h-8 flex items-center justify-center">
+                    <div class="relative w-8 h-8 flex items-center justify-center ws-status-orb"
+                        :class="{
+                            'ws-status-orb--connected': authenticated,
+                            'ws-status-orb--authing': connected && !authenticated,
+                            'ws-status-orb--offline': !connected
+                        }">
                         <!-- 火焰图标 -->
-                        <FlameIcon :size="18" :class="{
-                            'text-ms-success/80 animate-pulse': authenticated,
-                            'text-ms-gold/70 animate-bounce': connected && !authenticated,
+                        <FlameIcon :size="16" :class="{
+                            'text-ms-success': authenticated,
+                            'text-ms-gold': connected && !authenticated,
                             'text-xuepo/60': !connected
                         }" />
-                        <!-- 辉光效果 -->
-                        <div v-if="authenticated" class="absolute inset-0 rounded-full bg-ms-success/20 blur-md animate-pulse" />
+                        <!-- 外圈状态环 -->
+                        <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 32 32">
+                            <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1"
+                                :class="authenticated ? 'text-ms-success/30' : connected ? 'text-ms-gold/20' : 'text-ms-copper/20'" />
+                            <circle v-if="authenticated" cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1.5"
+                                stroke-dasharray="88" :stroke-dashoffset="88 - (latency > 0 ? Math.min(latency / 100, 1) * 88 : 44)"
+                                stroke-linecap="round" class="text-ms-success/70 transition-all duration-700" />
+                        </svg>
                     </div>
-                    <span v-if="authenticated && latency > 0" class="text-3xs font-mono text-ms-ash">{{ latency }}ms</span>
+                    <span v-if="latency > 0" class="text-3xs font-mono"
+                        :class="latency < 50 ? 'text-ms-success/70' : latency < 150 ? 'text-ms-gold/70' : 'text-xuepo/60'">
+                        {{ latency }}ms
+                    </span>
                 </div>
             </div>
         </div>
@@ -166,5 +182,40 @@ const goldDivider = "w-6 h-px bg-gradient-to-r from-transparent via-ms-gold/40 t
 /* ── 血珀辉光增强 ── */
 .shadow-altar-glow-sm {
     box-shadow: 0 0 8px rgba(166, 38, 38, 0.2), 0 0 16px rgba(166, 38, 38, 0.1);
+}
+
+/* ── 左侧血珀指示条 ── */
+.indicator-glow {
+    animation: indicatorPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes indicatorPulse {
+    0%, 100% { box-shadow: 1px 0 6px rgba(166, 38, 38, 0.3); }
+    50% { box-shadow: 2px 0 10px rgba(166, 38, 38, 0.5); }
+}
+
+/* ── WS 状态光球 ── */
+.ws-status-orb {
+    border-radius: 50%;
+    transition: all 300ms ease;
+}
+
+.ws-status-orb--connected {
+    background: radial-gradient(circle, rgba(90, 156, 96, 0.1) 0%, transparent 70%);
+    box-shadow: 0 0 8px rgba(90, 156, 96, 0.15);
+}
+
+.ws-status-orb--authing {
+    background: radial-gradient(circle, rgba(201, 168, 76, 0.1) 0%, transparent 70%);
+    animation: authOrbPulse 1.5s ease-in-out infinite;
+}
+
+.ws-status-orb--offline {
+    background: radial-gradient(circle, rgba(166, 38, 38, 0.06) 0%, transparent 70%);
+}
+
+@keyframes authOrbPulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(201, 168, 76, 0.1); }
+    50% { box-shadow: 0 0 10px rgba(201, 168, 76, 0.25); }
 }
 </style>

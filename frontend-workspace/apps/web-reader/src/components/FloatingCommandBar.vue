@@ -23,17 +23,17 @@ const {
     density,
 } = storeToRefs(store);
 
-// ── 视图切换按钮样式 — 新粗野主义 ──
+// ── 视图切换按钮样式 — 新粗野主义 + 底部指示 ──
 const viewBtnClass = (active: boolean) =>
-    `flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-all duration-150 ${active
+    `relative flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-all duration-150 ${active
         ? "bg-xuepo/15 text-xuepo font-bold border border-xuepo/40 shadow-[2px_2px_0_0_rgba(0,0,0,0.6)]"
         : "text-ms-smoke border border-transparent hover:text-ms-bone hover:border-ms-copper hover:shadow-[1px_1px_0_0_rgba(0,0,0,0.4)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
     }`;
 
-// ── 控制面板小按钮样式 — 新粗野主义 ──
+// ── 控制面板小按钮样式 — 新粗野主义 + 激活态增强 ──
 const ctrlBtnClass = (active: boolean) =>
     `flex items-center gap-1 px-2.5 py-1.5 text-1.5xs font-mono transition-all duration-150 ${active
-        ? "bg-xuepo/10 text-xuepo border border-xuepo/30 shadow-[2px_2px_0_0_rgba(0,0,0,0.5)]"
+        ? "bg-xuepo/12 text-xuepo border border-xuepo/35 shadow-[2px_2px_0_0_rgba(0,0,0,0.5)]"
         : "text-ms-smoke border border-ms-copper/40 shadow-[1px_1px_0_0_rgba(0,0,0,0.4)] hover:text-ms-bone hover:border-ms-copper hover:shadow-[2px_2px_0_0_rgba(0,0,0,0.5)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
     }`;
 </script>
@@ -54,9 +54,11 @@ const ctrlBtnClass = (active: boolean) =>
             <!-- 视图切换 -->
             <button @click="store.setViewMode('list')" :class="viewBtnClass(viewMode === 'list')">
                 <List :size="13" /> 列表
+                <div v-if="viewMode === 'list'" class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-[3px] rounded-full bg-xuepo shadow-[0_0_6px_rgba(166,38,38,0.5)]" />
             </button>
             <button @click="store.setViewMode('graph')" :class="viewBtnClass(viewMode === 'graph')">
                 <Network :size="13" /> 图谱
+                <div v-if="viewMode === 'graph'" class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-[3px] rounded-full bg-xuepo shadow-[0_0_6px_rgba(166,38,38,0.5)]" />
             </button>
 
             <div class="w-px h-5 bg-ms-copper/60" />

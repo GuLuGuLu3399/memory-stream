@@ -112,17 +112,22 @@ const handlePointLeave = () => {
 
                 <!-- 三列数据 -->
                 <div class="lot-stats">
-                    <div class="lot-stat">
+                    <div class="lot-stat lot-stat--gold">
                         <span class="lot-stat__value lot-stat__value--gold">{{ totalNodes }}</span>
                         <span class="lot-stat__label">穴位</span>
                     </div>
-                    <div class="lot-stat">
-                        <span class="lot-stat__value" :class="todayCount > 0 ? 'text-xuepo' : 'text-ms-ash'">
-                            {{ todayCount > 0 ? `+${todayCount}` : '0' }}
-                        </span>
+                    <div class="lot-stat" :class="todayCount > 0 ? 'lot-stat--active' : ''">
+                        <div class="lot-stat__value-row">
+                            <span class="lot-stat__value" :class="todayCount > 0 ? 'text-xuepo' : 'text-ms-ash'">
+                                {{ todayCount > 0 ? `+${todayCount}` : '0' }}
+                            </span>
+                            <svg v-if="todayCount > 0" class="lot-stat__trend" viewBox="0 0 10 10" fill="none">
+                                <path d="M5 1L9 6H1L5 1Z" fill="currentColor" />
+                            </svg>
+                        </div>
                         <span class="lot-stat__label">今日</span>
                     </div>
-                    <div class="lot-stat">
+                    <div class="lot-stat lot-stat--ember">
                         <span class="lot-stat__value lot-stat__value--ember">{{ avgHot }}</span>
                         <span class="lot-stat__label">均热</span>
                     </div>
@@ -311,9 +316,9 @@ const handlePointLeave = () => {
 /* 三列数据 */
 .lot-stats {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
     margin-bottom: 14px;
 }
 
@@ -323,6 +328,45 @@ const handlePointLeave = () => {
     flex-direction: column;
     align-items: center;
     gap: 4px;
+    padding: 8px 4px;
+    border-radius: 3px;
+    background: rgba(18, 16, 12, 0.5);
+    border: 1px solid rgba(58, 50, 40, 0.2);
+    transition: all 200ms ease;
+}
+
+.lot-stat--gold {
+    background: linear-gradient(135deg, rgba(201, 168, 76, 0.06) 0%, rgba(18, 16, 12, 0.5) 100%);
+    border-color: rgba(201, 168, 76, 0.12);
+}
+
+.lot-stat--ember {
+    background: linear-gradient(135deg, rgba(217, 119, 6, 0.06) 0%, rgba(18, 16, 12, 0.5) 100%);
+    border-color: rgba(217, 119, 6, 0.12);
+}
+
+.lot-stat--active {
+    background: linear-gradient(135deg, rgba(166, 38, 38, 0.1) 0%, rgba(18, 16, 12, 0.5) 100%);
+    border-color: rgba(166, 38, 38, 0.25);
+    box-shadow: 0 0 8px rgba(166, 38, 38, 0.08);
+}
+
+.lot-stat__value-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.lot-stat__trend {
+    width: 8px;
+    height: 8px;
+    color: #a62626;
+    animation: trendBounce 2s ease-in-out infinite;
+}
+
+@keyframes trendBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
 }
 
 .lot-stat__value {
