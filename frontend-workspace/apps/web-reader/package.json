@@ -22,6 +22,7 @@
     "pinia": "^3.0.4",
     "potpack": "^2.1.0",
     "vue": "^3.5.31",
+    "vue-router": "^5.0.4",
     "wasm-engine": "file:../../../rust-workspace/wasm-engine/pkg",
     "zod": "^4.3.6"
   },

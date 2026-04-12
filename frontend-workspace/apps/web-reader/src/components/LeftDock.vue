@@ -11,11 +11,13 @@
  */
 import { ref, onMounted, onUnmounted } from "vue";
 import { storeToRefs } from "pinia";
+import { useRouter } from "vue-router";
 import { List, Network, Flame as FlameIcon } from "lucide-vue-next";
 import { useGraphStore } from "../store/useGraphStore";
 import { wsConnected, wsAuthenticated, wsLatency } from "../composables/useGraphSync";
 
 const store = useGraphStore();
+const router = useRouter();
 const { viewMode } = storeToRefs(store);
 const connected = wsConnected;
 const authenticated = wsAuthenticated;
@@ -88,7 +90,7 @@ const goldDivider = "w-6 h-px bg-gradient-to-r from-transparent via-ms-gold/40 t
                 <div :class="goldDivider" />
 
                 <!-- 列表视图 -->
-                <button @click="store.setViewMode('list')"
+                <button @click="router.push('/list')"
                     class="relative w-12 h-12 flex items-center justify-center rounded-altar temple-column-btn"
                     :class="templeColumnClass(viewMode === 'list')"
                     title="列表视图 (L)">
@@ -101,7 +103,7 @@ const goldDivider = "w-6 h-px bg-gradient-to-r from-transparent via-ms-gold/40 t
                 </button>
 
                 <!-- 图谱视图 -->
-                <button @click="store.setViewMode('graph')"
+                <button @click="router.push('/graph')"
                     class="relative w-12 h-12 flex items-center justify-center rounded-altar temple-column-btn"
                     :class="templeColumnClass(viewMode === 'graph')"
                     title="图谱视图 (G)">

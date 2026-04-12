@@ -3,18 +3,19 @@
  * App.vue — 血肉神殿沉浸式入口
  *
  * 架构：
+ * - vue-router 驱动视图切换（/list, /graph）
+ * - KeepAlive 保留 VueFlow 图谱状态
+ * - ?card=<id> query param 同步 DetailDrawer
  * - LeftDock：殿门旌旗（导航 + 控制面板）
- * - v-show：零延迟切换且保留 VueFlow 状态
  * - DetailDrawer：经文卷轴（右侧阅读抽屉）
  * - ZenReader：内殿祭坛（全屏禅模式）
  * - SearchBar：铜镜搜索（Cmd+K）
  * - EntranceAnimation：入殿动画
  */
 
-import { ref, onErrorCaptured, onUnmounted } from "vue";
+import { ref, watch, onErrorCaptured, onUnmounted } from "vue";
 import { storeToRefs } from "pinia";
-import ListView from "./views/ListView.vue";
-import GraphView from "./views/GraphView.vue";
+import { useRouter, useRoute } from "vue-router";
 import DetailDrawer from "./components/DetailDrawer.vue";
 import LeftDock from "./components/LeftDock.vue";
 import SearchBar from "./components/SearchBar.vue";
@@ -24,13 +25,47 @@ import { useGraphStore } from "./store/useGraphStore";
 import { useKeyboardNav } from "./composables/useKeyboardNav";
 
 const store = useGraphStore();
-const { viewMode } = storeToRefs(store);
+const { viewMode, selectedId } = storeToRefs(store);
+const router = useRouter();
+const route = useRoute();
 
 // ── 全局键盘导航（含 Cmd+K） ──
 useKeyboardNav();
 
-// ── GraphView fitView ref ──
-const graphViewRef = ref<InstanceType<typeof GraphView> | null>(null);
+// ── Route ↔ Store 双向同步 ──
+// route → store：URL 变化时更新 store
+watch(
+  () => route.name,
+  (name) => {
+    if (name === "list" || name === "graph") {
+      viewMode.value = name;
+    }
+  },
+);
+
+// route.query.card → selectedId
+watch(
+  () => route.query.card as string | undefined,
+  (cardId) => {
+    const currentId = selectedId.value;
+    if (cardId && cardId !== currentId) {
+      selectedId.value = cardId;
+    } else if (!cardId && currentId) {
+      selectedId.value = null;
+    }
+  },
+);
+
+// selectedId → route.query.card
+watch(selectedId, (id) => {
+  const current = route.query.card as string | undefined;
+  if (id && id !== current) {
+    router.replace({ query: { ...route.query, card: id } });
+  } else if (!id && current) {
+    const { card, ...rest } = route.query;
+    router.replace({ query: rest });
+  }
+});
 
 // ── 全局错误边界 ──
 const hasError = ref(false);
@@ -95,10 +130,6 @@ async function copyErrorMessage() {
 
 // ── 入场动画（首次加载后自动消失） ──
 const showEntrance = ref(true);
-
-function handleFitView() {
-  graphViewRef.value?.fitView();
-}
 </script>
 
 <template>
@@ -141,16 +172,20 @@ function handleFitView() {
         </div>
       </div>
     </div>
-    <!-- ── 主内容区（全屏，无顶部 padding） ── -->
+
+    <!-- ── 主内容区：router-view + KeepAlive + Transition ── -->
     <main id="main-content" class="flex-1 relative overflow-hidden" role="main" aria-label="知识图谱视图">
-      <GraphView v-show="viewMode === 'graph'" ref="graphViewRef" class="view-layer absolute inset-0"
-        :class="{ 'view-active': viewMode === 'graph' }" />
-      <ListView v-show="viewMode === 'list'" class="view-layer absolute inset-0"
-        :class="{ 'view-active': viewMode === 'list' }" />
+      <router-view v-slot="{ Component, route: currentRoute }">
+        <Transition name="ms-page" mode="out-in">
+          <KeepAlive>
+            <component :is="Component" :key="currentRoute.path" />
+          </KeepAlive>
+        </Transition>
+      </router-view>
     </main>
 
     <!-- ── 殿门旌旗 ── -->
-    <LeftDock @fit-view="handleFitView" />
+    <LeftDock />
 
     <!-- ── 经文卷轴 ── -->
     <DetailDrawer />
@@ -165,21 +200,3 @@ function handleFitView() {
     <EntranceAnimation v-if="showEntrance" @done="showEntrance = false" />
   </div>
 </template>
-
-<style>
-/* ── 视图切换：opacity + translateY 纵深感 ── */
-.view-layer {
-  opacity: 0;
-  transform: translateY(4px);
-  transition:
-    opacity 350ms cubic-bezier(0.25, 0.1, 0.25, 1),
-    transform 350ms cubic-bezier(0.25, 0.1, 0.25, 1);
-  pointer-events: none;
-}
-
-.view-layer.view-active {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-</style>

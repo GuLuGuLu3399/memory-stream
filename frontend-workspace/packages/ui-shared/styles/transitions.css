@@ -100,6 +100,8 @@
   .ms-slide-down-leave-active,
   .ms-morph-enter-active,
   .ms-morph-leave-active,
+  .ms-page-enter-active,
+  .ms-page-leave-active,
   .ms-spring-scale-enter-active,
   .ms-spring-scale-leave-active {
     transition-duration: 0ms !important;
@@ -141,6 +143,25 @@
 .ms-morph-enter-from,
 .ms-morph-leave-to {
   transform: scale(0.92);
+  opacity: 0;
+}
+
+/* ===== PAGE (Route transitions) ===== */
+.ms-page-enter-active {
+  transition: transform 350ms cubic-bezier(0.16, 1, 0.3, 1), opacity 350ms ease;
+}
+
+.ms-page-leave-active {
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1), opacity 250ms ease;
+}
+
+.ms-page-enter-from {
+  transform: scale(0.97);
+  opacity: 0;
+}
+
+.ms-page-leave-to {
+  transform: scale(0.97);
   opacity: 0;
 }
 

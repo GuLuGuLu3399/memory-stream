@@ -4,6 +4,7 @@
  */
 
 import { storeToRefs } from "pinia";
+import { useRouter } from "vue-router";
 import {
     List,
     Network,
@@ -17,6 +18,7 @@ import {
 import { useGraphStore } from "../store/useGraphStore";
 
 const store = useGraphStore();
+const router = useRouter();
 const {
     viewMode,
     sortBy,
@@ -52,11 +54,11 @@ const ctrlBtnClass = (active: boolean) =>
             <div class="w-px h-5 bg-ms-copper/60" />
 
             <!-- 视图切换 -->
-            <button @click="store.setViewMode('list')" :class="viewBtnClass(viewMode === 'list')">
+            <button @click="router.push('/list')" :class="viewBtnClass(viewMode === 'list')">
                 <List :size="13" /> 列表
                 <div v-if="viewMode === 'list'" class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-[3px] rounded-full bg-xuepo shadow-[0_0_6px_rgba(166,38,38,0.5)]" />
             </button>
-            <button @click="store.setViewMode('graph')" :class="viewBtnClass(viewMode === 'graph')">
+            <button @click="router.push('/graph')" :class="viewBtnClass(viewMode === 'graph')">
                 <Network :size="13" /> 图谱
                 <div v-if="viewMode === 'graph'" class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-[3px] rounded-full bg-xuepo shadow-[0_0_6px_rgba(166,38,38,0.5)]" />
             </button>
