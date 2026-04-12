@@ -298,8 +298,18 @@ watchEffect(() => {
 </template>
 
 <style scoped>
-/* ── Spine beam — blood amber column ── */
+/* ── Spine beam — 血珀香柱光柱 ── */
 .spine-beam {
-  background: radial-gradient(ellipse at center, rgba(166, 38, 38, 0.06) 0%, transparent 70%);
+    background:
+        radial-gradient(ellipse 30% 100% at 50% 50%,
+            rgba(166, 38, 38, 0.04) 0%,
+            rgba(166, 38, 38, 0.08) 50%,
+            transparent 100%),
+        linear-gradient(180deg,
+            transparent 0%,
+            rgba(166, 38, 38, 0.03) 10%,
+            rgba(166, 38, 38, 0.05) 50%,
+            rgba(166, 38, 38, 0.03) 90%,
+            transparent 100%);
 }
 </style>
