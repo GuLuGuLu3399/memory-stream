@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
- * StatsWidget — 灵签（血肉神殿）
+ * StatsWidget — 灵签长条（血肉神殿）
  *
- * 折叠态：血珀封印 — 呼吸脉动的方形符印
- * 展开态：墨玉签文 — 三列数据 + sparkline 心电图
- * 关闭：极简下收箭头（▼），暗示"合上签文"
+ * 水平长条固定在列表底部，替代旧的方格折叠态。
+ * 常驻显示所有数据：排序切换 · 总数 · 今日 · 均热 · sparkline
+ * 不再需要折叠/展开交互。
  */
 
 import { ref, computed } from "vue";
@@ -17,404 +17,250 @@ const props = defineProps<{
     sparklineData: number[];
 }>();
 
-const expanded = ref(false);
-const collapsed = ref(true); // 封印可见性：仅在签文完全收合后显示
+const emit = defineEmits<{
+    toggleSort: [];
+}>();
+
 const hoveredPoint = ref<number | null>(null);
-
-function openLot() {
-    collapsed.value = false;
-    expanded.value = true;
-}
-
-function onLotAfterLeave() {
-    collapsed.value = true;
-}
 
 const sparklinePoints = computed(() => {
     const data = props.sparklineData;
     if (!data || data.length < 2) return "";
     const max = Math.max(...data, 1);
-    const w = 200;
-    const h = 32;
+    const w = 160;
+    const h = 24;
     const step = w / (data.length - 1);
     return data
-        .map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h * 0.8 - h * 0.1).toFixed(1)}`)
+        .map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * h * 0.75 - h * 0.1).toFixed(1)}`)
         .join(" ");
 });
 
 const sparklinePolygon = computed(() => {
     const points = sparklinePoints.value;
     if (!points) return "";
-    return `0,32 ${points} 200,32`;
+    return `0,24 ${points} 160,24`;
 });
 
 const dataPoints = computed(() => {
     const data = props.sparklineData;
     if (!data || data.length < 2) return [];
     const max = Math.max(...data, 1);
-    const w = 200;
-    const h = 32;
+    const w = 160;
+    const h = 24;
     const step = w / (data.length - 1);
     return data.map((v, i) => ({
         x: i * step,
-        y: h - (v / max) * h * 0.8 - h * 0.1,
+        y: h - (v / max) * h * 0.75 - h * 0.1,
         value: Math.round(v),
-        index: i
+        index: i,
     }));
 });
 
 const handlePointHover = (index: number | null) => {
     hoveredPoint.value = index;
 };
-
-const handlePointLeave = () => {
-    hoveredPoint.value = null;
-};
 </script>
 
 <template>
-    <div class="fixed right-6 bottom-6 z-30 select-none">
-        <!-- 折叠态：血珀封印（签文离场动画结束后才显示） -->
-        <Transition name="seal-pop">
-            <button
-                v-if="collapsed"
-                @click="openLot"
-                class="seal"
-            :class="todayCount > 0 ? 'seal--alive' : 'seal--dormant'"
-        >
-            <span class="seal-value" :class="todayCount > 0 ? 'text-xuepo' : 'text-ms-smoke'">
-                {{ todayCount > 0 ? `+${todayCount}` : totalNodes }}
-            </span>
-            <!-- 底部微光边 -->
-            <div class="seal-edge" />
+    <div class="fortune-strip">
+        <!-- 左侧金色装饰端 -->
+        <div class="fortune-strip__endcap" />
+
+        <!-- 排序切换 -->
+        <button class="fortune-strip__sort" @click="emit('toggleSort')">
+            <svg class="w-3 h-3 transition-transform duration-300" :class="sortLabel === '热度排序' ? 'rotate-180' : ''"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+            <span>{{ sortLabel }}</span>
         </button>
-        </Transition>
 
-        <!-- 展开态：墨玉签文 -->
-        <Transition name="lot-unfold" @after-leave="onLotAfterLeave">
-            <div v-if="expanded" class="lot-panel">
-                <!-- 签文顶部装饰线 -->
-                <div class="lot-rule" />
+        <!-- 分隔符 -->
+        <div class="fortune-strip__sep" />
 
-                <!-- 头部 -->
-                <div class="lot-header">
-                    <div class="flex items-center gap-2">
-                        <span class="lot-dot" />
-                        <span class="lot-title">灵签</span>
-                    </div>
-                    <!-- 极简收合指示：下收线 -->
-                    <button @click="expanded = false" class="lot-collapse" title="收合签文">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 4.5L6 8L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                    </button>
-                </div>
+        <!-- 数据区 -->
+        <div class="fortune-strip__stats">
+            <!-- 总数 -->
+            <div class="fortune-strip__stat fortune-strip__stat--gold">
+                <span class="fortune-strip__value fortune-strip__value--gold">{{ totalNodes }}</span>
+                <span class="fortune-strip__label">穴位</span>
+            </div>
 
-                <!-- 三列数据 -->
-                <div class="lot-stats">
-                    <div class="lot-stat lot-stat--gold">
-                        <span class="lot-stat__value lot-stat__value--gold">{{ totalNodes }}</span>
-                        <span class="lot-stat__label">穴位</span>
-                    </div>
-                    <div class="lot-stat" :class="todayCount > 0 ? 'lot-stat--active' : ''">
-                        <div class="lot-stat__value-row">
-                            <span class="lot-stat__value" :class="todayCount > 0 ? 'text-xuepo' : 'text-ms-ash'">
-                                {{ todayCount > 0 ? `+${todayCount}` : '0' }}
-                            </span>
-                            <svg v-if="todayCount > 0" class="lot-stat__trend" viewBox="0 0 10 10" fill="none">
-                                <path d="M5 1L9 6H1L5 1Z" fill="currentColor" />
-                            </svg>
-                        </div>
-                        <span class="lot-stat__label">今日</span>
-                    </div>
-                    <div class="lot-stat lot-stat--ember">
-                        <span class="lot-stat__value lot-stat__value--ember">{{ avgHot }}</span>
-                        <span class="lot-stat__label">均热</span>
-                    </div>
-                </div>
-
-                <!-- Sparkline 心电图 -->
-                <div v-if="sparklineData.length >= 2" class="sparkline-container">
-                    <svg class="w-full h-full" viewBox="0 0 200 32" preserveAspectRatio="none">
-                        <defs>
-                            <linearGradient id="sparkGradLot" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stop-color="rgba(166,38,38,0.25)" />
-                                <stop offset="100%" stop-color="rgba(166,38,38,0)" />
-                            </linearGradient>
-                        </defs>
-                        <polygon v-if="sparklinePolygon" :points="sparklinePolygon"
-                            fill="url(#sparkGradLot)" class="sparkline-area" />
-                        <polyline v-if="sparklinePoints" :points="sparklinePoints" fill="none"
-                            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                            class="text-xuepo sparkline-line" />
-                        <!-- 悬停数据点 -->
-                        <g v-if="hoveredPoint !== null && dataPoints[hoveredPoint]">
-                            <circle
-                                :cx="dataPoints[hoveredPoint].x"
-                                :cy="dataPoints[hoveredPoint].y"
-                                r="3"
-                                class="fill-xuepo" />
-                            <circle
-                                :cx="dataPoints[hoveredPoint].x"
-                                :cy="dataPoints[hoveredPoint].y"
-                                r="6"
-                                class="fill-xuepo/15" />
-                        </g>
+            <!-- 今日 -->
+            <div class="fortune-strip__stat" :class="todayCount > 0 ? 'fortune-strip__stat--active' : ''">
+                <div class="fortune-strip__value-row">
+                    <span class="fortune-strip__value" :class="todayCount > 0 ? 'text-xuepo' : 'text-ms-ash'">
+                        {{ todayCount > 0 ? `+${todayCount}` : '0' }}
+                    </span>
+                    <svg v-if="todayCount > 0" class="fortune-strip__trend" viewBox="0 0 10 10" fill="none">
+                        <path d="M5 1L9 6H1L5 1Z" fill="currentColor" />
                     </svg>
-
-                    <!-- 悬停热区 + 数值提示 -->
-                    <div v-for="(point, idx) in dataPoints" :key="idx"
-                        class="sparkline-zone"
-                        :style="{ left: `${(point.x / 200) * 100}%`, width: `${100 / dataPoints.length}%` }"
-                        @mouseenter="handlePointHover(idx)">
-                        <Transition name="lot-tip">
-                            <div v-if="hoveredPoint === idx" class="sparkline-tip">
-                                {{ point.value }}
-                            </div>
-                        </Transition>
-                    </div>
                 </div>
+                <span class="fortune-strip__label">今日</span>
+            </div>
 
-                <!-- 底部签注 -->
-                <div class="lot-footer">
-                    <span class="lot-sort-badge">{{ sortLabel }}</span>
+            <!-- 均热 -->
+            <div class="fortune-strip__stat fortune-strip__stat--ember">
+                <span class="fortune-strip__value fortune-strip__value--ember">{{ avgHot }}</span>
+                <span class="fortune-strip__label">均热</span>
+            </div>
+        </div>
+
+        <!-- 分隔符 -->
+        <div class="fortune-strip__sep" />
+
+        <!-- Sparkline -->
+        <div v-if="sparklineData.length >= 2" class="fortune-strip__sparkline">
+            <svg class="w-full h-full" viewBox="0 0 160 24" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="sparkGradStrip" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="rgba(166,38,38,0.2)" />
+                        <stop offset="100%" stop-color="rgba(166,38,38,0)" />
+                    </linearGradient>
+                </defs>
+                <polygon v-if="sparklinePolygon" :points="sparklinePolygon" fill="url(#sparkGradStrip)" />
+                <polyline v-if="sparklinePoints" :points="sparklinePoints" fill="none" stroke="currentColor"
+                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-xuepo/70" />
+                <!-- 悬停数据点 -->
+                <g v-if="hoveredPoint !== null && dataPoints[hoveredPoint]">
+                    <circle :cx="dataPoints[hoveredPoint].x" :cy="dataPoints[hoveredPoint].y" r="2.5"
+                        class="fill-xuepo" />
+                </g>
+            </svg>
+            <div v-for="(point, idx) in dataPoints" :key="idx" class="sparkline-zone"
+                :style="{ left: `${(point.x / 160) * 100}%`, width: `${100 / dataPoints.length}%` }"
+                @mouseenter="handlePointHover(idx)">
+                <div v-if="hoveredPoint === idx" class="sparkline-tip">
+                    {{ point.value }}
                 </div>
             </div>
-        </Transition>
+        </div>
+
+        <!-- 右侧金色装饰端 -->
+        <div class="fortune-strip__endcap" />
     </div>
 </template>
 
 <style scoped>
-/* ═══ 折叠态：血珀封印 ═══ */
-.seal {
-    position: relative;
-    width: 44px;
-    height: 44px;
+/* ═══ 灵签长条 ═══ */
+.fortune-strip {
     display: flex;
     align-items: center;
-    justify-content: center;
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    cursor: pointer;
-    transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+    height: 40px;
+    background: #141210;
+    border-top: 1px solid rgba(58, 50, 40, 0.5);
+    padding: 0 16px;
+    gap: 0;
+    user-select: none;
+    flex-shrink: 0;
 }
 
-.seal--dormant {
-    --c-bg: #1c1814;
-    --c-border: #3a3228;
+/* 金色装饰端帽 */
+.fortune-strip__endcap {
+    width: 2px;
+    height: 16px;
+    background: linear-gradient(180deg, transparent, rgba(201, 168, 76, 0.3), transparent);
+    flex-shrink: 0;
 }
 
-.seal--alive {
-    --c-bg: rgba(166, 38, 38, 0.08);
-    --c-border: rgba(166, 38, 38, 0.25);
-    box-shadow: 0 0 12px rgba(166, 38, 38, 0.12);
-    animation: sealBreathe 3s ease-in-out infinite;
-}
-
-.seal:hover {
-    transform: scale(1.08);
-    border-color: #4a4238;
-}
-
-.seal--alive:hover {
-    border-color: rgba(166, 38, 38, 0.4);
-    box-shadow: 0 0 16px rgba(166, 38, 38, 0.2);
-}
-
-.seal-value {
-    font-size: 15px;
-    font-weight: 700;
-    font-family: 'JetBrains Mono', monospace;
-    position: relative;
-    z-index: 1;
-}
-
-.seal-edge {
-    position: absolute;
-    bottom: 0;
-    left: 20%;
-    right: 20%;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.15), transparent);
-}
-
-@keyframes sealBreathe {
-    0%, 100% { box-shadow: 0 0 8px rgba(166, 38, 38, 0.08); }
-    50% { box-shadow: 0 0 16px rgba(166, 38, 38, 0.18); }
-}
-
-/* ═══ 展开态：墨玉签文 ═══ */
-.lot-panel {
-    width: 240px;
-    background: #1c1814;
-    border: 1px solid #3a3228;
-    border-radius: 3px;
-    padding: 16px 18px;
-    box-shadow:
-        0 4px 16px rgba(0, 0, 0, 0.4),
-        0 0 24px rgba(0, 0, 0, 0.2);
-    transform-origin: bottom right;
-}
-
-/* 顶部金缮装饰线 */
-.lot-rule {
-    height: 1px;
-    margin-bottom: 14px;
-    background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.25) 30%, rgba(201, 168, 76, 0.25) 70%, transparent);
-}
-
-/* 头部 */
-.lot-header {
+/* 排序按钮 */
+.fortune-strip__sort {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-}
-
-.lot-dot {
-    width: 4px;
-    height: 4px;
-    background: #a62626;
-    border-radius: 50%;
-    animation: dotPulse 2.5s ease-in-out infinite;
-}
-
-@keyframes dotPulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-}
-
-.lot-title {
-    font-size: 11px;
-    font-family: 'JetBrains Mono', monospace;
-    color: #8a7e6e;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-}
-
-/* 收合按钮：极简下收箭头 */
-.lot-collapse {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    background: transparent;
-    border: 1px solid transparent;
-    color: #5a4f3e;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 150ms ease;
-}
-
-.lot-collapse:hover {
-    color: #c8bfa8;
-    background: rgba(58, 50, 40, 0.3);
-    border-color: rgba(58, 50, 40, 0.5);
-}
-
-/* 三列数据 */
-.lot-stats {
-    display: flex;
-    align-items: stretch;
-    justify-content: space-between;
     gap: 6px;
-    margin-bottom: 14px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #c8bfa8;
+    background: transparent;
+    border: 1px solid rgba(58, 50, 40, 0.4);
+    cursor: pointer;
+    transition: all 150ms ease;
+    flex-shrink: 0;
 }
 
-.lot-stat {
-    flex: 1;
+.fortune-strip__sort:hover {
+    color: #e8dfd0;
+    border-color: rgba(58, 50, 40, 0.7);
+    background: rgba(58, 50, 40, 0.15);
+}
+
+.fortune-strip__sort:active {
+    transform: translateY(1px);
+}
+
+/* 分隔符 */
+.fortune-strip__sep {
+    width: 1px;
+    height: 18px;
+    background: rgba(58, 50, 40, 0.4);
+    margin: 0 12px;
+    flex-shrink: 0;
+}
+
+/* 数据区 */
+.fortune-strip__stats {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 8px 4px;
-    border-radius: 3px;
-    background: rgba(18, 16, 12, 0.5);
-    border: 1px solid rgba(58, 50, 40, 0.2);
-    transition: all 200ms ease;
+    gap: 16px;
+    flex-shrink: 0;
 }
 
-.lot-stat--gold {
-    background: linear-gradient(135deg, rgba(201, 168, 76, 0.06) 0%, rgba(18, 16, 12, 0.5) 100%);
-    border-color: rgba(201, 168, 76, 0.12);
+.fortune-strip__stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.lot-stat--ember {
-    background: linear-gradient(135deg, rgba(217, 119, 6, 0.06) 0%, rgba(18, 16, 12, 0.5) 100%);
-    border-color: rgba(217, 119, 6, 0.12);
-}
-
-.lot-stat--active {
-    background: linear-gradient(135deg, rgba(166, 38, 38, 0.1) 0%, rgba(18, 16, 12, 0.5) 100%);
-    border-color: rgba(166, 38, 38, 0.25);
-    box-shadow: 0 0 8px rgba(166, 38, 38, 0.08);
-}
-
-.lot-stat__value-row {
+.fortune-strip__value-row {
     display: flex;
     align-items: center;
     gap: 3px;
 }
 
-.lot-stat__trend {
-    width: 8px;
-    height: 8px;
-    color: #a62626;
-    animation: trendBounce 2s ease-in-out infinite;
-}
-
-@keyframes trendBounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-2px); }
-}
-
-.lot-stat__value {
-    font-size: 20px;
+.fortune-strip__value {
+    font-size: 14px;
     font-weight: 700;
     font-family: 'JetBrains Mono', monospace;
     line-height: 1;
 }
 
-.lot-stat__value--gold {
+.fortune-strip__value--gold {
     color: #c9a84c;
 }
 
-.lot-stat__value--ember {
+.fortune-strip__value--ember {
     color: #d97706;
 }
 
-.lot-stat__label {
-    font-size: 9px;
+.fortune-strip__label {
+    font-size: 11px;
     font-family: 'JetBrains Mono', monospace;
     color: #5a4f3e;
-    letter-spacing: 0.05em;
 }
 
-/* ═══ Sparkline ═══ */
-.sparkline-container {
+.fortune-strip__trend {
+    width: 7px;
+    height: 7px;
+    color: #a62626;
+}
+
+.fortune-strip__stat--active .fortune-strip__trend {
+    animation: trendBounce 2s ease-in-out infinite;
+}
+
+@keyframes trendBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-1.5px); }
+}
+
+/* Sparkline */
+.fortune-strip__sparkline {
     position: relative;
-    height: 32px;
-    margin-bottom: 10px;
-}
-
-.sparkline-line {
-    stroke-dasharray: 600;
-    stroke-dashoffset: 600;
-    animation: sparkDraw 1s cubic-bezier(0.37, 0, 0.63, 1) forwards;
-}
-
-.sparkline-area {
-    opacity: 0;
-    animation: sparkFade 0.6s ease-out 0.2s forwards;
-}
-
-@keyframes sparkDraw {
-    to { stroke-dashoffset: 0; }
-}
-
-@keyframes sparkFade {
-    to { opacity: 1; }
+    width: 160px;
+    height: 24px;
+    flex-shrink: 0;
+    margin-left: auto;
 }
 
 .sparkline-zone {
@@ -430,7 +276,7 @@ const handlePointLeave = () => {
     left: 50%;
     transform: translateX(-50%);
     margin-bottom: 4px;
-    padding: 2px 6px;
+    padding: 2px 5px;
     font-size: 10px;
     font-family: 'JetBrains Mono', monospace;
     color: #e8dfd0;
@@ -439,67 +285,5 @@ const handlePointLeave = () => {
     border-radius: 2px;
     white-space: nowrap;
     pointer-events: none;
-}
-
-/* ═══ 底部签注 ═══ */
-.lot-footer {
-    padding-top: 10px;
-    border-top: 1px solid rgba(58, 50, 40, 0.4);
-}
-
-.lot-sort-badge {
-    font-size: 10px;
-    font-family: 'JetBrains Mono', monospace;
-    color: #c8bfa8;
-    background: #12100c;
-    padding: 3px 8px;
-    border: 1px solid #3a3228;
-    border-radius: 2px;
-}
-
-/* ═══ Tooltip 动画 ═══ */
-.lot-tip-enter-active,
-.lot-tip-leave-active {
-    transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.lot-tip-enter-from,
-.lot-tip-leave-to {
-    opacity: 0;
-    transform: translate(-50%, 3px);
-}
-
-/* ═══ 面板展开动画 ═══ */
-.lot-unfold-enter-active {
-    transition: all 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.lot-unfold-leave-active {
-    transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.lot-unfold-enter-from,
-.lot-unfold-leave-to {
-    opacity: 0;
-    transform: scale(0.85);
-}
-
-/* ═══ 封印出入动画 ═══ */
-.seal-pop-enter-active {
-    transition: all 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.seal-pop-leave-active {
-    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.seal-pop-enter-from {
-    opacity: 0;
-    transform: scale(0.6);
-}
-
-.seal-pop-leave-to {
-    opacity: 0;
-    transform: scale(0.8);
 }
 </style>

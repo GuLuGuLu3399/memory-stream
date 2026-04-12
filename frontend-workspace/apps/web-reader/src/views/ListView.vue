@@ -230,11 +230,7 @@ watchEffect(() => {
 
       <!-- Header -->
       <div class="max-w-4xl mx-auto">
-        <ListViewHeader
-          :sort-by="sortBy"
-          :item-count="filteredCards.length"
-          @toggle-sort="toggleSort"
-        />
+        <ListViewHeader />
       </div>
 
       <div class="max-w-4xl mx-auto">
@@ -288,7 +284,7 @@ watchEffect(() => {
       />
     </div>
 
-    <!-- Floating stats widget -->
+    <!-- 灵签长条 -->
     <StatsWidget
       v-if="filteredCards.length > 0"
       :total-nodes="filteredCards.length"
@@ -296,6 +292,7 @@ watchEffect(() => {
       :avg-hot="avgHot"
       :sort-label="sortLabel"
       :sparkline-data="filteredCards.slice(0, 20).map(c => c.hot_score || 0)"
+      @toggle-sort="toggleSort"
     />
   </div>
 </template>
