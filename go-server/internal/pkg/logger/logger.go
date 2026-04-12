@@ -5,7 +5,7 @@ import "go.uber.org/zap"
 var Log *zap.SugaredLogger
 
 func Init() {
-	l, _ := zap.NewProduction()
+	l, _ := zap.NewDevelopment()
 	Log = l.Sugar()
 }
 

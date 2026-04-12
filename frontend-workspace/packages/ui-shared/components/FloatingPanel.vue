@@ -13,7 +13,7 @@
  * </FloatingPanel>
  */
 
-import { computed, watch, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 
 const props = withDefaults(defineProps<{
   open: boolean

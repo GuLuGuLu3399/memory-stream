@@ -27,7 +27,7 @@ fn render_wikilinks(text: &str, card_name_to_id: Option<&HashMap<String, String>
     let mut last_end = 0;
 
     for caps in WIKILINK_REGEX.captures_iter(text) {
-        let full_match = caps.get(0).unwrap();
+        let Some(full_match) = caps.get(0) else { continue };
 
         if full_match.start() > last_end {
             result.push_str(&escape_html(&text[last_end..full_match.start()]));
@@ -39,18 +39,18 @@ fn render_wikilinks(text: &str, card_name_to_id: Option<&HashMap<String, String>
         // 尝试从映射中获取 UUID
         if let Some(uuid) = card_name_to_id.and_then(|map| map.get(card_name)) {
             // 有 UUID：渲染为带 href 的链接
-            write!(
+            let _ = write!(
                 result,
                 r#"<a href="/cards/{}" class="reference-link">{}</a>"#,
                 escape_html(uuid),
                 escaped_name
-            ).unwrap();
+            );
         } else {
             // 无 UUID：渲染为 data-card-name 属性
-            write!(
+            let _ = write!(
                 result,
                 r#"<a class="reference-link" data-card-name="{escaped_name}">{escaped_name}</a>"#
-            ).unwrap();
+            );
         }
 
         last_end = full_match.end();
@@ -208,7 +208,7 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
                                     AlignType::Right => " style=\"text-align:right\"",
                                     AlignType::None => "",
                                 });
-                            write!(html, "<th{align}>").unwrap();
+                            let _ = write!(html, "<th{align}>");
                             if let AstNode::TableCell {
                                 children: cell_children,
                             } = cell
@@ -237,7 +237,7 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
                                     AlignType::Right => " style=\"text-align:right\"",
                                     AlignType::None => "",
                                 });
-                            write!(html, "<td{align}>").unwrap();
+                            let _ = write!(html, "<td{align}>");
                             if let AstNode::TableCell {
                                 children: cell_children,
                             } = cell

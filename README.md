@@ -96,12 +96,12 @@ cd frontend-workspace && pnpm --filter admin-tauri tauri dev
 
 ## 设计系统
 
-| Token       | 值        | 用途     |
-| ----------- | --------- | -------- |
-| `ms-deep`   | `#0d0d0d` | 主背景   |
-| `ms-panel`  | `#1a1a1a` | 面板背景 |
-| `ms-border` | `#333`    | 边框     |
-| `neon`      | `#00e5ff` | 主强调色 |
+双端独立主题，共享 z-index / 字体 / 间距体系：
+
+| 端 | 主题 | 基底色 | 强调色 | 辅助色 |
+|---|------|--------|--------|--------|
+| Web Reader | 血肉神殿 | `ms-xuan` `#0a0806` → `ms-xiang` `#1c1814` | `xuepo` `#a62626` (血珀红) | `ms-gold` `#c9a84c` · `ms-patina` `#4a7c6f` |
+| Admin Tauri | 机械祭坛 | `ms-deep` `#0d0d0d` → `ms-panel` `#1a1a1a` | `neon` `#00e5ff` (霓虹青) | `brass` `#b8860b` |
 
 **动效法则：** 所有交互过渡 ≤ 250ms · 抽屉滑入 300ms Expo-Out · 图谱归位 800ms
 

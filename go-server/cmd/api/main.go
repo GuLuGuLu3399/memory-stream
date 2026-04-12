@@ -47,7 +47,7 @@ func main() {
 	searchHandler := handlers.NewSearchHandler(searchSvc)
 
 	r := gin.New()
-	r.Use(middleware.CORSConfig(), errors.ErrorHandler())
+	r.Use(gin.Logger(), middleware.CORSConfig(), errors.ErrorHandler())
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
