@@ -20,12 +20,15 @@ DEV_PID_FILE := .dev-pids
 .PHONY: help \
         dev stop \
         build build-rust build-frontend build-go build-wasm build-tauri \
+        dist dist-linux dist-web \
         lint lint-rust lint-go lint-frontend \
         test test-rust test-go test-frontend \
         fmt fmt-rust fmt-go \
         ci \
         install clean \
         docker-up docker-down
+
+DIST_DIR := dist
 
 # ============================================================================
 # Help
@@ -100,8 +103,8 @@ build: build-rust build-frontend build-go ## Production build all
 build-rust: ## cargo build (release)
 	cd rust-workspace && cargo build --release
 
-build-frontend: ## pnpm build
-	cd frontend-workspace && pnpm build
+build-frontend: ## Build web-reader SPA
+	cd frontend-workspace/apps/web-reader && pnpm build
 
 build-go: ## go build server binary
 	cd go-server && go build -o bin/server ./cmd/api
@@ -113,6 +116,25 @@ build-wasm: ## Build WASM engine for web-reader
 
 build-tauri: ## Build Tauri desktop app
 	cd frontend-workspace/apps/admin-tauri && pnpm tauri build
+
+# ============================================================================
+# Distribution (Linux server + Web SPA)
+# ============================================================================
+
+dist: dist-linux dist-web ## Build distributable Linux server + Web SPA
+
+dist-linux: ## Cross-compile Go server for Linux amd64
+	@mkdir -p $(DIST_DIR)
+	cd go-server && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
+		-ldflags="-s -w" -o ../$(DIST_DIR)/server ./cmd/api
+	@echo "[+] Linux binary -> $(DIST_DIR)/server"
+
+dist-web: ## Build web-reader SPA (vite build, skip type check)
+	cd frontend-workspace/apps/web-reader && npx vite build
+	@mkdir -p $(DIST_DIR)/web
+	@rm -rf $(DIST_DIR)/web/*
+	@cp -r frontend-workspace/apps/web-reader/dist/. $(DIST_DIR)/web/
+	@echo "[+] Web SPA -> $(DIST_DIR)/web/"
 
 # ============================================================================
 # CI (full pipeline: lint → test → build)
@@ -137,6 +159,6 @@ docker-down: ## Stop and remove containers
 
 clean: ## Remove all build artifacts
 	cd rust-workspace && cargo clean 2>/dev/null || true
-	rm -rf go-server/bin
+	rm -rf go-server/bin $(DIST_DIR)
 	rm -f $(DEV_PID_FILE)
 	@echo "[+] Cleaned all build artifacts"

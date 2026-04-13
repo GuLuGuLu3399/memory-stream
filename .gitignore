@@ -20,3 +20,4 @@ go-server/nul
 .vscode/
 .sisyphus/
 .dev-pids
+dist/
