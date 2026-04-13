@@ -1,24 +1,27 @@
 <script setup lang="ts">
 /**
- * BacklinksRadar — Horizontal scrolling backlinks panel
+ * ConnectionRadar — Bidirectional connection display
  *
- * Features:
- * - Horizontal scroll with card pills
- * - Shows backlink source, relation type, and snippet
- * - Brass glow border styling
+ * Shows inbound, outbound, and bidirectional connections with
+ * clear direction indicators. Bidirectional links (A→B AND B→A)
+ * are highlighted with amber glow and ⇌ marker.
  */
 
 import { computed } from 'vue'
 
-export interface BacklinkItem {
-  source_id: string
-  source_title: string
-  relation_type: string
-  context_snippet?: string
+export interface ConnectionItem {
+  cardId: string
+  cardTitle: string
+  direction: 'inbound' | 'outbound' | 'bidirectional'
+  relationType: string
+  contextSnippet?: string
 }
 
+/** @deprecated Use ConnectionItem instead */
+export type BacklinkItem = ConnectionItem
+
 interface Props {
-  backlinks: BacklinkItem[]
+  connections: ConnectionItem[]
   loading: boolean
 }
 
@@ -28,7 +31,23 @@ const emit = defineEmits<{
   navigate: [cardId: string]
 }>()
 
-const hasBacklinks = computed(() => props.backlinks && props.backlinks.length > 0)
+const hasConnections = computed(() => props.connections.length > 0)
+
+const inboundCount = computed(() =>
+  props.connections.filter(c => c.direction === 'inbound' || c.direction === 'bidirectional').length
+)
+const outboundCount = computed(() =>
+  props.connections.filter(c => c.direction === 'outbound' || c.direction === 'bidirectional').length
+)
+const bidirCount = computed(() =>
+  props.connections.filter(c => c.direction === 'bidirectional').length
+)
+
+// Sort: bidirectional first, then inbound, then outbound
+const sortedConnections = computed(() => {
+  const order = { bidirectional: 0, inbound: 1, outbound: 2 }
+  return [...props.connections].sort((a, b) => order[a.direction] - order[b.direction])
+})
 
 function getRelationColor(type: string): string {
   return type === 'sequence' ? '#00e5ff' : '#6b7280'
@@ -36,42 +55,57 @@ function getRelationColor(type: string): string {
 </script>
 
 <template>
-  <div v-if="hasBacklinks" class="backlinks-radar">
-    <div class="backlinks-radar__header">
-      <span class="backlinks-radar__prefix">❯</span>
-      <span class="backlinks-radar__label">INCOMING_LINKS</span>
-      <span class="backlinks-radar__separator">::</span>
-      <span class="backlinks-radar__count">{{ backlinks.length }}</span>
+  <div v-if="hasConnections" class="connection-radar">
+    <div class="cr-header">
+      <span class="cr-prefix">&#9670;</span>
+      <span class="cr-label">CONNECTIONS</span>
+      <span class="cr-sep">::</span>
+      <span class="cr-total">{{ connections.length }}</span>
+      <div class="cr-dirs">
+        <span class="cr-dir cr-dir--in">&larr; {{ inboundCount }}</span>
+        <span class="cr-dir-sep">&middot;</span>
+        <span class="cr-dir cr-dir--out">&rarr; {{ outboundCount }}</span>
+        <template v-if="bidirCount > 0">
+          <span class="cr-dir-sep">&middot;</span>
+          <span class="cr-dir cr-dir--bidi">&harr; {{ bidirCount }}</span>
+        </template>
+      </div>
     </div>
 
-    <div class="backlinks-radar__list">
+    <div class="cr-list">
       <div
-        v-for="(link, index) in backlinks"
-        :key="link.source_id"
-        class="backlinks-radar__item"
+        v-for="(conn, index) in sortedConnections"
+        :key="conn.cardId"
+        class="cr-item"
+        :class="[`cr-item--${conn.direction}`]"
       >
-        <div class="backlinks-radar__pill">
-          <div class="backlinks-radar__relation" :style="{ color: getRelationColor(link.relation_type) }">
-            {{ link.relation_type }}
+        <div class="cr-pill">
+          <div class="cr-meta">
+            <span class="cr-arrow" :class="`cr-arrow--${conn.direction}`">
+              {{ conn.direction === 'bidirectional' ? '\u21CC' : conn.direction === 'inbound' ? '\u2190' : '\u2192' }}
+            </span>
+            <span class="cr-relation" :style="{ color: getRelationColor(conn.relationType) }">
+              {{ conn.relationType }}
+            </span>
           </div>
           <button
-            @click="emit('navigate', link.source_id)"
-            class="backlinks-radar__title"
+            @click="emit('navigate', conn.cardId)"
+            class="cr-title"
           >
-            {{ link.source_title }}
+            {{ conn.cardTitle }}
           </button>
-          <p v-if="link.context_snippet" class="backlinks-radar__snippet">
-            ...{{ link.context_snippet }}...
+          <p v-if="conn.contextSnippet" class="cr-snippet">
+            ...{{ conn.contextSnippet }}...
           </p>
         </div>
-        <div v-if="index < backlinks.length - 1" class="backlinks-radar__separator-v" />
+        <div v-if="index < sortedConnections.length - 1" class="cr-divider" />
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.backlinks-radar {
+.connection-radar {
   flex-shrink: 0;
   background: rgba(5, 5, 5, 0.95);
   backdrop-filter: blur(8px);
@@ -79,78 +113,141 @@ function getRelationColor(type: string): string {
   padding: 12px 24px;
 }
 
-.backlinks-radar__header {
+/* ===== Header ===== */
+.cr-header {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 11px;
   font-family: 'JetBrains Mono', monospace;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   color: #6b7280;
 }
 
-.backlinks-radar__prefix {
-  color: #00e5ff;
-  animation: pulse-glow 2s ease-in-out infinite;
+.cr-prefix {
+  color: #d97706;
+  text-shadow: 0 0 8px rgba(217, 119, 6, 0.5);
+  animation: radar-pulse 3s ease-in-out infinite;
 }
 
-@keyframes pulse-glow {
-  0%, 100% { opacity: 1; text-shadow: 0 0 8px rgba(0, 229, 255, 0.4); }
-  50% { opacity: 0.7; text-shadow: 0 0 4px rgba(0, 229, 255, 0.2); }
+@keyframes radar-pulse {
+  0%, 100% { opacity: 1; text-shadow: 0 0 8px rgba(217, 119, 6, 0.5); }
+  50% { opacity: 0.6; text-shadow: 0 0 4px rgba(217, 119, 6, 0.2); }
 }
 
-.backlinks-radar__label {
+.cr-label {
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
-.backlinks-radar__separator {
+.cr-sep {
   color: #374151;
-  margin: 0 4px;
+  margin: 0 2px;
 }
 
-.backlinks-radar__count {
-  color: #00e5ff;
+.cr-total {
+  color: #d97706;
   font-weight: 700;
-  text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+  text-shadow: 0 0 8px rgba(217, 119, 6, 0.4);
 }
 
-.backlinks-radar__list {
+.cr-dirs {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cr-dir {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.cr-dir--in { color: #00e5ff; }
+.cr-dir--out { color: #9ca3af; }
+.cr-dir--bidi { color: #d97706; font-weight: 600; }
+
+.cr-dir-sep {
+  color: #374151;
+  font-size: 10px;
+}
+
+/* ===== List ===== */
+.cr-list {
   display: flex;
   gap: 16px;
   overflow-x: auto;
   padding-bottom: 4px;
 }
 
-.backlinks-radar__list::-webkit-scrollbar {
-  height: 4px;
+.cr-list::-webkit-scrollbar {
+  height: 3px;
 }
 
-.backlinks-radar__list::-webkit-scrollbar-thumb {
-  background: rgba(184, 134, 11, 0.3);
+.cr-list::-webkit-scrollbar-thumb {
+  background: rgba(217, 119, 6, 0.3);
   border-radius: 2px;
 }
 
-.backlinks-radar__item {
+/* ===== Items ===== */
+.cr-item {
   display: flex;
   align-items: flex-start;
   gap: 16px;
   flex-shrink: 0;
 }
 
-.backlinks-radar__pill {
+.cr-pill {
   padding: 6px 0;
+  position: relative;
 }
 
-.backlinks-radar__relation {
+/* Bidirectional amber left-bar + glow */
+.cr-item--bidirectional .cr-pill::before {
+  content: '';
+  position: absolute;
+  inset: -2px -6px;
+  background: rgba(217, 119, 6, 0.04);
+  border-left: 2px solid #d97706;
+  border-radius: 2px;
+}
+
+.cr-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.cr-arrow {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cr-arrow--bidirectional {
+  color: #d97706;
+  text-shadow: 0 0 6px rgba(217, 119, 6, 0.4);
+}
+
+.cr-arrow--inbound {
+  color: #00e5ff;
+  opacity: 0.7;
+}
+
+.cr-arrow--outbound {
+  color: #6b7280;
+  opacity: 0.7;
+}
+
+.cr-relation {
   font-size: 10px;
   font-family: 'JetBrains Mono', monospace;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin-bottom: 4px;
 }
 
-.backlinks-radar__title {
+.cr-title {
   font-size: 13px;
   color: #d1d5db;
   text-align: left;
@@ -161,11 +258,11 @@ function getRelationColor(type: string): string {
   transition: color 0.15s;
 }
 
-.backlinks-radar__title:hover {
-  color: #00e5ff;
+.cr-title:hover {
+  color: #d97706;
 }
 
-.backlinks-radar__snippet {
+.cr-snippet {
   font-size: 11px;
   color: #6b7280;
   font-style: italic;
@@ -176,10 +273,10 @@ function getRelationColor(type: string): string {
   white-space: nowrap;
 }
 
-.backlinks-radar__separator-v {
+.cr-divider {
   width: 1px;
   height: 32px;
-  background: linear-gradient(to bottom, transparent, rgba(184, 134, 11, 0.3), transparent);
+  background: linear-gradient(to bottom, transparent, rgba(217, 119, 6, 0.3), transparent);
   flex-shrink: 0;
 }
 </style>

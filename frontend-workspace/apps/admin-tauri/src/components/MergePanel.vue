@@ -92,7 +92,7 @@ const availableVictimCards = computed(() => {
 </script>
 
 <template>
-  <div class="fixed inset-x-0 bottom-0 top-titlebar z-overlay bg-ms-deep flex flex-col">
+  <div class="fixed inset-x-0 bottom-0 top-titlebar z-panel bg-ms-deep flex flex-col">
     <!-- Header Bar -->
     <div class="merge-panel__header">
       <div class="flex items-center gap-3">

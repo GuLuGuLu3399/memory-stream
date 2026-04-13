@@ -125,6 +125,15 @@ const flowEdges = computed(() => {
     cardCatMap.set(c.id, c.category_id ?? null);
   }
 
+  // Detect bidirectional edge pairs (A→B AND B→A)
+  const edgePairCount = new Map<string, number>()
+  for (const e of localEdges.value) {
+    if (validNodeIds.has(e.source) && validNodeIds.has(e.target)) {
+      const pairKey = [e.source, e.target].sort().join('::')
+      edgePairCount.set(pairKey, (edgePairCount.get(pairKey) || 0) + 1)
+    }
+  }
+
   return localEdges.value
     .filter((e) => validNodeIds.has(e.source) && validNodeIds.has(e.target))
     .map((e, i) => {
@@ -135,12 +144,18 @@ const flowEdges = computed(() => {
       const sourceCatId = cardCatMap.get(e.source);
       const edgeColor = sourceCatId ? categoryColorMap.value.get(sourceCatId) : null;
 
+      const pairKey = [e.source, e.target].sort().join('::')
+      const isBidirectional = (edgePairCount.get(pairKey) || 0) > 1
+
       let stroke: string;
       let strokeWidth: number;
 
       if (isSelected) {
         stroke = edgeColor || "#00e5ff";
         strokeWidth = 3;
+      } else if (isBidirectional) {
+        stroke = edgeColor || "#d97706";
+        strokeWidth = 2.5;
       } else if (e.relation === "sequence") {
         stroke = edgeColor || "#00e5ff";
         strokeWidth = 2;
@@ -157,7 +172,10 @@ const flowEdges = computed(() => {
         selectable: true,
         // 不用 Vue Flow animated（底层是 animated stroke-dasharray，导致主干变虚线）
         animated: false,
-        class: e.relation === "sequence" ? 'astrolabe-edge--sequence' : '',
+        class: [
+          e.relation === "sequence" ? 'astrolabe-edge--sequence' : '',
+          isBidirectional ? 'astrolabe-edge--bidirectional' : '',
+        ].filter(Boolean).join(' '),
         style: {
           stroke,
           strokeWidth,
@@ -395,6 +413,7 @@ onUnmounted(() => {
     <div class="px-3 pb-2 text-2xs font-mono">
       <div class="legend-item">━━ 实线 = 主干（手动连接）</div>
       <div class="legend-item">╌╌ 虚线 = 参考（[[链接]] 自动生成）</div>
+      <div class="legend-item legend-item--bidi">&#9646;&#8644;&#9646; 琥珀 = 双向连接</div>
     </div>
   </aside>
 </template>
@@ -452,10 +471,20 @@ onUnmounted(() => {
   }
 }
 
+/* ===== Bidirectional edge glow ===== */
+.astrolabe-edge--bidirectional {
+  filter: drop-shadow(0 0 4px rgba(217, 119, 6, 0.5));
+}
+
 /* ===== Edge type legend (brass color scheme) ===== */
 .legend-item {
   color: #c9a84c;
   opacity: 0.7;
+}
+
+.legend-item--bidi {
+  color: #d97706;
+  opacity: 1;
 }
 
 /* ===== Summon panel ===== */

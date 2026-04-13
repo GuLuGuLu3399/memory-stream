@@ -21,7 +21,7 @@ import type { EditorView } from '@codemirror/view'
 const CodemirrorEditor = defineAsyncComponent(() => import('./CodemirrorEditor.vue'))
 import ForgeHeader from './forge/ForgeHeader.vue'
 import ForgePreview from './forge/ForgePreview.vue'
-import BacklinksRadar, { type BacklinkItem } from './forge/BacklinksRadar.vue'
+import BacklinksRadar, { type ConnectionItem } from './forge/BacklinksRadar.vue'
 import ForgeEmptyState from './forge/ForgeEmptyState.vue'
 import { useForgeRender } from './forge/useForgeRender'
 
@@ -38,11 +38,13 @@ const {
   justSaved,
   categories,
   backlinks,
+  localNodes,
+  localEdges,
 } = storeToRefs(store)
 const { isRightPanelOpen, isMergeConsoleOpen } = storeToRefs(layoutStore)
 
 // Editor ref for image paste handling
-const codemirrorRef = ref<{ editorView: EditorView | null } | null>(null)
+const codemirrorRef = ref<{ editorView: EditorView | null; format: () => Promise<boolean> } | null>(null)
 
 // View mode state
 const viewMode = ref<ViewMode>('split')
@@ -55,6 +57,88 @@ const isDragging = ref(false)
 const { html, isRendering, triggerRender } = useForgeRender(
   () => activeCard.value?.content ?? ''
 )
+
+// ============================================================================
+// Bidirectional Connection Composition
+// ============================================================================
+
+const connections = computed<ConnectionItem[]>(() => {
+  if (!activeCard.value?.id) return []
+  const cardId = activeCard.value.id
+
+  // Outgoing edges from local graph
+  const outgoingMap = new Map<string, string>()
+  for (const e of localEdges.value) {
+    if (e.source === cardId) outgoingMap.set(e.target, e.relation)
+  }
+
+  // Incoming — backlinks API (richer data with snippets)
+  const incomingMap = new Map<string, { title: string; relation: string; snippet?: string }>()
+  for (const bl of backlinks.value) {
+    incomingMap.set(bl.source_id, {
+      title: bl.source_title,
+      relation: bl.relation_type,
+      snippet: bl.context_snippet,
+    })
+  }
+  // Supplement from localEdges for incoming not covered by backlinks API
+  for (const e of localEdges.value) {
+    if (e.target === cardId && !incomingMap.has(e.source)) {
+      const node = localNodes.value.find(n => n.id === e.source)
+      incomingMap.set(e.source, {
+        title: node?.title || e.source,
+        relation: e.relation,
+      })
+    }
+  }
+
+  const result: ConnectionItem[] = []
+  const seen = new Set<string>()
+
+  // Bidirectional: appears in both directions
+  for (const [targetId, outRelation] of outgoingMap) {
+    if (incomingMap.has(targetId)) {
+      const inData = incomingMap.get(targetId)!
+      result.push({
+        cardId: targetId,
+        cardTitle: inData.title,
+        direction: 'bidirectional',
+        relationType: outRelation,
+        contextSnippet: inData.snippet,
+      })
+      seen.add(targetId)
+    }
+  }
+
+  // Pure inbound
+  for (const [sourceId, data] of incomingMap) {
+    if (!seen.has(sourceId)) {
+      result.push({
+        cardId: sourceId,
+        cardTitle: data.title,
+        direction: 'inbound',
+        relationType: data.relation,
+        contextSnippet: data.snippet,
+      })
+      seen.add(sourceId)
+    }
+  }
+
+  // Pure outbound
+  for (const [targetId, relation] of outgoingMap) {
+    if (!seen.has(targetId)) {
+      const node = localNodes.value.find(n => n.id === targetId)
+      result.push({
+        cardId: targetId,
+        cardTitle: node?.title || targetId,
+        direction: 'outbound',
+        relationType: relation,
+      })
+    }
+  }
+
+  return result
+})
 
 // Validation state
 const validationError = ref('')
@@ -378,8 +462,8 @@ const shouldDimForMerge = computed(() => isMergeConsoleOpen.value)
 
         <!-- Backlinks Radar -->
         <BacklinksRadar
-          v-if="activeCard.id && backlinks.length > 0"
-          :backlinks="backlinks as BacklinkItem[]"
+          v-if="activeCard.id && connections.length > 0"
+          :connections="connections"
           :loading="false"
           @navigate="store.loadAndActivateCard"
         />

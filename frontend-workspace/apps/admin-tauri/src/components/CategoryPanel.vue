@@ -169,31 +169,34 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
 
 <template>
   <Teleport to="body">
-    <Transition name="ms-slide-right">
+    <Transition name="ms-fade">
       <div
         v-if="isCategoryPanelOpen"
         class="fixed inset-x-0 bottom-0 top-titlebar z-panel"
         @click.self="layoutStore.closeCategoryPanel()"
       >
-        <!-- Blur backdrop -->
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-md" />
 
         <!-- Panel container -->
         <div
-          class="absolute inset-4 md:inset-8 bg-ms-panel rounded-sharp border border-ms-border shadow-2xl overflow-hidden flex flex-col"
+          class="absolute inset-4 md:inset-8 bg-ms-panel border border-ms-border shadow-2xl overflow-hidden flex flex-col"
         >
           <!-- Header -->
           <div
-            class="h-14 flex items-center px-6 border-b border-ms-border shrink-0"
+            class="h-12 flex items-center justify-between px-5 border-b border-ms-border bg-ms-carbon shrink-0"
           >
-            <Settings :size="18" class="text-brass mr-2" />
-            <h2 class="text-sm font-bold text-white tracking-wider">分类管理</h2>
+            <div class="flex items-center gap-3">
+              <Settings :size="14" class="text-brass" />
+              <span class="text-xs font-mono font-bold text-slate-300 tracking-wider">CATEGORIES</span>
+              <span class="text-2xs text-slate-600 font-mono">— 分类档案库</span>
+            </div>
             <button
               @click="layoutStore.closeCategoryPanel()"
-              class="ml-auto w-8 h-8 flex items-center justify-center rounded-sharp text-slate-500 hover:text-slate-300 hover:bg-ms-surface transition-all"
+              class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-ms-surface/50 transition-all"
               title="关闭"
             >
-              <X :size="18" />
+              <X :size="16" />
             </button>
           </div>
 
@@ -264,7 +267,10 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
 
                 <!-- Section A: Data Readout -->
                 <div class="mb-6">
-                  <h3 class="text-2xs font-mono text-slate-600 uppercase tracking-widest mb-3">DATA READOUT</h3>
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-brass text-[8px]">&#9672;</span>
+                    <h3 class="text-2xs font-mono text-slate-500 uppercase tracking-widest font-bold">[ DATA READOUT ]</h3>
+                  </div>
                   <div class="grid grid-cols-2 gap-3">
                     <div class="bg-ms-deep border border-ms-border p-3">
                       <div class="text-2xl font-mono text-brass">{{ categoryCardCount }}</div>
@@ -279,7 +285,10 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
 
                 <!-- Section B: Quick Index -->
                 <div class="mb-6">
-                  <h3 class="text-2xs font-mono text-slate-600 uppercase tracking-widest mb-3">QUICK INDEX</h3>
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-brass text-[8px]">&#9672;</span>
+                    <h3 class="text-2xs font-mono text-slate-500 uppercase tracking-widest font-bold">[ QUICK INDEX ]</h3>
+                  </div>
                   <div v-if="categoryCards.length > 0" class="space-y-1">
                     <div v-for="card in categoryCards" :key="card.id"
                       class="flex items-center justify-between px-3 py-1.5 bg-ms-deep/50 border border-ms-border/50 group hover:shadow-brass-glow-sm transition-all">
@@ -314,7 +323,10 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
 
                 <!-- Section C: Edit + Danger Zone -->
                 <div>
-                  <h3 class="text-2xs font-mono text-slate-600 uppercase tracking-widest mb-3">EDIT</h3>
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-brass text-[8px]">&#9672;</span>
+                    <h3 class="text-2xs font-mono text-slate-500 uppercase tracking-widest font-bold">[ EDIT ]</h3>
+                  </div>
                   <div class="space-y-4">
                     <div>
                       <label class="block text-xs text-slate-400 mb-1.5">分类名称</label>
@@ -354,7 +366,10 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
 
                   <!-- Danger Zone -->
                   <div class="mt-6 pt-4 border-t border-ms-border/50">
-                    <h3 class="text-2xs font-mono text-red-500/60 uppercase tracking-widest mb-3">DANGER ZONE</h3>
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-red-500/60 text-[8px]">&#9672;</span>
+                    <h3 class="text-2xs font-mono text-red-500/60 uppercase tracking-widest font-bold">[ DANGER ZONE ]</h3>
+                  </div>
                     <button @click="handleDelete(selectedId, categories.find(c => c.id === selectedId)?.name || '')"
                       class="w-full px-4 py-2 text-sm text-red-400 bg-transparent border border-red-500/30 rounded-sharp hover:bg-red-500/10 transition-all">
                       删除分类
@@ -373,6 +388,7 @@ async function handleMoveCard(cardId: string, targetCategoryId: number) {
         </div>
       </div>
     </Transition>
+
   </Teleport>
 </template>
 

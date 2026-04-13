@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -339,8 +340,12 @@ type BacklinkItem struct {
 	ContextSnippet string `json:"context_snippet"`
 }
 
-// extractContextSnippet extracts ±30 characters around the [[targetTitle]] wikilink.
-// Returns empty string if not found. Adds "..." at boundaries if content was trimmed.
+// extractContextSnippet finds the markdown block containing the wikilink to
+// targetTitle, sanitizes it to plain text, and returns a clean context snippet.
+//
+// Block-level capture: instead of crude radius slicing, this walks the line
+// structure to find the containing paragraph/heading/list-item block (bounded
+// by blank lines), then strips all markdown syntax before truncating.
 func extractContextSnippet(rawMd string, targetTitle string) string {
 	wikilink := "[[" + targetTitle + "]]"
 	pos := strings.Index(rawMd, wikilink)
@@ -348,30 +353,104 @@ func extractContextSnippet(rawMd string, targetTitle string) string {
 		return ""
 	}
 
-	const contextLen = 30
-	wikilinkEnd := pos + len(wikilink)
-
-	// Calculate start and end positions with bounds checking
-	start := pos - contextLen
-	if start < 0 {
-		start = 0
+	// Split into lines and locate which line contains the wikilink
+	lines := strings.Split(rawMd, "\n")
+	byteOffset := 0
+	targetIdx := -1
+	for i, line := range lines {
+		if byteOffset <= pos && pos < byteOffset+len(line)+1 {
+			targetIdx = i
+			break
+		}
+		byteOffset += len(line) + 1
 	}
-	end := wikilinkEnd + contextLen
-	if end > len(rawMd) {
-		end = len(rawMd)
-	}
-
-	snippet := rawMd[start:end]
-
-	// Add ellipsis if truncated
-	if start > 0 {
-		snippet = "..." + snippet
-	}
-	if end < len(rawMd) {
-		snippet = snippet + "..."
+	if targetIdx == -1 {
+		return ""
 	}
 
-	return snippet
+	// Walk up: expand to block start (stop at blank line)
+	start := targetIdx
+	for i := targetIdx - 1; i >= 0; i-- {
+		if strings.TrimSpace(lines[i]) == "" {
+			break
+		}
+		start = i
+	}
+
+	// Walk down: expand to block end (stop at blank line)
+	end := targetIdx
+	for i := targetIdx + 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "" {
+			break
+		}
+		end = i
+	}
+
+	// Extract block content and sanitize
+	block := strings.Join(lines[start:end+1], "\n")
+	clean := sanitizeSnippet(block)
+
+	// Truncate to max length at a word boundary
+	const maxSnippetLen = 80
+	runes := []rune(clean)
+	if len(runes) > maxSnippetLen {
+		cut := maxSnippetLen
+		for cut > maxSnippetLen*2/3 {
+			r := runes[cut-1]
+			if r == ' ' || r == ',' || r == '，' || r == '。' || r == '、' {
+				break
+			}
+			cut--
+		}
+		return strings.TrimSpace(string(runes[:cut])) + "..."
+	}
+
+	return clean
+}
+
+// sanitizeSnippet strips markdown syntax from a text block,
+// returning clean plain text suitable for display as a context snippet.
+func sanitizeSnippet(text string) string {
+	// Remove fenced code blocks (```...```)
+	text = regexp.MustCompile("(?s)```.*?```").ReplaceAllString(text, "")
+
+	// Remove remaining code fence markers and inline backticks
+	text = strings.ReplaceAll(text, "```", "")
+	text = strings.ReplaceAll(text, "`", "")
+
+	// Extract image alt text: ![alt](url) → alt
+	text = regexp.MustCompile(`!\[([^\]]*)\]\([^)]*\)`).ReplaceAllString(text, "$1")
+
+	// Extract link text: [text](url) → text
+	text = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`).ReplaceAllString(text, "$1")
+
+	// Extract wikilink text: [[target]] → target
+	text = regexp.MustCompile(`\[\[([^\]]+)\]\]`).ReplaceAllString(text, "$1")
+
+	// Remove bold/italic markers: ***text***, **text**, *text*
+	text = regexp.MustCompile(`\*{1,3}([^*]+)\*{1,3}`).ReplaceAllString(text, "$1")
+	text = regexp.MustCompile(`_{1,3}([^_]+)_{1,3}`).ReplaceAllString(text, "$1")
+
+	// Remove heading markers: # ## ### etc.
+	text = regexp.MustCompile(`(?m)^#{1,6}\s+`).ReplaceAllString(text, "")
+
+	// Remove blockquote markers: > text
+	text = regexp.MustCompile(`(?m)^>\s?`).ReplaceAllString(text, "")
+
+	// Remove horizontal rules: --- or ***
+	text = regexp.MustCompile(`(?m)^[-*]{3,}\s*$`).ReplaceAllString(text, "")
+
+	// Remove unordered list markers: - or * followed by space
+	text = regexp.MustCompile(`(?m)^[-*]\s+`).ReplaceAllString(text, "")
+
+	// Remove ordered list markers: 1. etc.
+	text = regexp.MustCompile(`(?m)^\d+\.\s+`).ReplaceAllString(text, "")
+
+	// Flatten newlines into spaces and collapse whitespace
+	text = strings.ReplaceAll(text, "\n", " ")
+	text = strings.Join(strings.Fields(text), " ")
+
+	return strings.TrimSpace(text)
 }
 
 // GetBacklinks 获取所有指向当前卡片的边（反向引用）。

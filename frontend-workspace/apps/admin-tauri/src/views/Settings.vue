@@ -165,29 +165,28 @@ function getStatusColor(status: TestStatus): string {
 </script>
 
 <template>
+  <Teleport to="body">
   <Transition name="ms-fade">
     <div
       v-if="isSettingsOpen"
-      class="fixed inset-x-0 bottom-0 top-titlebar z-panel flex items-center justify-center bg-ms-deep/95 backdrop-blur-sm"
+      class="fixed inset-x-0 bottom-0 top-titlebar z-panel flex items-center justify-center bg-black/70 backdrop-blur-md"
       @click.self="close"
     >
       <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-ms-panel border border-ms-border shadow-2xl" style="box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(42,42,42,0.5);">
 
         <!-- Header -->
-        <div class="h-14 flex items-center justify-between px-6 border-b border-ms-border bg-ms-carbon shrink-0">
+        <div class="h-12 flex items-center justify-between px-5 border-b border-ms-border bg-ms-carbon shrink-0">
           <div class="flex items-center gap-3">
-            <span class="text-neon text-lg">◆</span>
-            <span class="text-sm font-mono font-bold text-slate-300 tracking-wider">
-              SYSTEM CONFIG
-            </span>
-            <span class="text-xs text-slate-600 font-mono">— 系统配置舱</span>
+            <span class="text-neon text-sm">◆</span>
+            <span class="text-xs font-mono font-bold text-slate-300 tracking-wider">SYSTEM CONFIG</span>
+            <span class="text-2xs text-slate-600 font-mono">— 系统配置舱</span>
           </div>
           <button
             @click="close"
-            class="text-slate-500 hover:text-slate-300 transition-colors p-1"
+            class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-ms-surface/50 transition-all"
             title="关闭"
           >
-            <X class="w-5 h-5" />
+            <X :size="16" />
           </button>
         </div>
 
@@ -244,7 +243,7 @@ function getStatusColor(status: TestStatus): string {
                   v-model="form.api_base_url"
                   type="text"
                   placeholder="http://localhost:8080/api/v1"
-                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-cyan-500/50 transition-colors"
+                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-brass/50 transition-colors"
                 />
                 <div class="w-8"></div>
               </div>
@@ -254,13 +253,13 @@ function getStatusColor(status: TestStatus): string {
                   v-model="form.ws_url"
                   type="text"
                   placeholder="ws://localhost:8080/api/v1/ws"
-                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-cyan-500/50 transition-colors"
+                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-brass/50 transition-colors"
                 />
                 <div class="flex items-center gap-2">
                   <button
                     @click="testNetwork"
                     :disabled="networkStatus === 'testing'"
-                    class="text-cyan-400 border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-1.5 text-xs font-mono transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="text-neon border border-neon/30 bg-neon/10 hover:bg-neon/20 px-3 py-1.5 text-xs font-mono transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     TEST
                   </button>
@@ -291,7 +290,7 @@ function getStatusColor(status: TestStatus): string {
                   v-model="form.s3_endpoint"
                   type="text"
                   placeholder="https://s3.amazonaws.com"
-                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-cyan-500/50 transition-colors"
+                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-brass/50 transition-colors"
                 />
                 <div class="w-8"></div>
               </div>
@@ -301,7 +300,7 @@ function getStatusColor(status: TestStatus): string {
                   v-model="form.s3_region"
                   type="text"
                   placeholder="us-east-1"
-                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-cyan-500/50 transition-colors"
+                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-brass/50 transition-colors"
                 />
                 <div class="w-8"></div>
               </div>
@@ -311,7 +310,7 @@ function getStatusColor(status: TestStatus): string {
                   v-model="form.s3_bucket"
                   type="text"
                   placeholder="my-bucket"
-                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-cyan-500/50 transition-colors"
+                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-brass/50 transition-colors"
                 />
                 <div class="w-8"></div>
               </div>
@@ -321,7 +320,7 @@ function getStatusColor(status: TestStatus): string {
                   v-model="form.s3_access_key"
                   type="password"
                   placeholder="••••••••"
-                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-cyan-500/50 transition-colors"
+                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-brass/50 transition-colors"
                 />
                 <Shield class="w-4 h-4 text-slate-600" />
               </div>
@@ -331,7 +330,7 @@ function getStatusColor(status: TestStatus): string {
                   v-model="form.s3_secret_key"
                   type="password"
                   placeholder="••••••••••••••••"
-                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-cyan-500/50 transition-colors"
+                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-brass/50 transition-colors"
                 />
                 <div class="flex items-center gap-2">
                   <Shield class="w-4 h-4 text-slate-600" />
@@ -344,7 +343,7 @@ function getStatusColor(status: TestStatus): string {
                     type="button"
                     @click="form.s3_use_path_style = !form.s3_use_path_style"
                     class="relative w-9 h-5 rounded-full transition-colors"
-                    :class="form.s3_use_path_style ? 'bg-cyan-500/40' : 'bg-slate-700'"
+                    :class="form.s3_use_path_style ? 'bg-neon/40' : 'bg-slate-700'"
                   >
                     <span
                       class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-300 transition-transform"
@@ -361,13 +360,13 @@ function getStatusColor(status: TestStatus): string {
                   v-model="form.s3_public_url_base"
                   type="text"
                   placeholder="https://cdn.example.com"
-                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-cyan-500/50 transition-colors"
+                  class="bg-ms-panel border border-ms-border px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-brass/50 transition-colors"
                 />
                 <div class="flex items-center gap-2">
                   <button
                     @click="testStorage"
                     :disabled="storageStatus === 'testing'"
-                    class="text-cyan-400 border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-1.5 text-xs font-mono transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="text-neon border border-neon/30 bg-neon/10 hover:bg-neon/20 px-3 py-1.5 text-xs font-mono transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     TEST
                   </button>
@@ -394,7 +393,7 @@ function getStatusColor(status: TestStatus): string {
         </div>
 
         <!-- Footer Actions -->
-        <div class="h-16 flex items-center justify-between px-6 border-t border-ms-border bg-ms-carbon">
+        <div class="h-12 flex items-center justify-between px-5 border-t border-ms-border bg-ms-carbon">
           <button
             @click="testAll"
             :disabled="networkStatus === 'testing' || storageStatus === 'testing'"
@@ -426,6 +425,7 @@ function getStatusColor(status: TestStatus): string {
       </div>
     </div>
   </Transition>
+  </Teleport>
 </template>
 
 <style scoped>

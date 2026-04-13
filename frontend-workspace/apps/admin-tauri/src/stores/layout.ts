@@ -48,6 +48,8 @@ export const useLayoutStore = defineStore("layout", () => {
   }
 
   function openCategoryPanel() {
+    isSettingsOpen.value = false;
+    isMergeConsoleOpen.value = false;
     isCategoryPanelOpen.value = true;
   }
 
@@ -56,10 +58,14 @@ export const useLayoutStore = defineStore("layout", () => {
   }
 
   function openSettings() {
+    isCategoryPanelOpen.value = false;
+    isMergeConsoleOpen.value = false;
     isSettingsOpen.value = true;
   }
 
   function openMergeConsole() {
+    isSettingsOpen.value = false;
+    isCategoryPanelOpen.value = false;
     isMergeConsoleOpen.value = true;
   }
 
