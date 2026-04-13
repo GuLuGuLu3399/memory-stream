@@ -13,11 +13,3 @@ md-parser = {path = "../md-parser"}
 ms-toc-extractor = {path = "../ms-toc-extractor"}
 serde_json = {workspace = true}
 wasm-bindgen = "0.2"
-
-# WASM 体积优化 profile：LTO + 单 codegen-unit + panic abort
-[profile.release]
-codegen-units = 1 # 单编译单元，更小体积
-lto = true # 跨 crate LTO
-opt-level = "z" # 优化体积
-panic = "abort" # 去除 unwind 表，减少 5-10% 体积
-strip = true # 去除调试符号
