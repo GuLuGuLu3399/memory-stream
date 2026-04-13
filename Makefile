@@ -121,16 +121,18 @@ build-tauri: ## Build Tauri desktop app
 # Distribution (Linux server + Web SPA)
 # ============================================================================
 
-dist: dist-linux dist-web ## Build distributable Linux server + Web SPA
+dist: dist-linux dist-web ## Build distributable Linux server + Web SPA (production config)
 
 dist-linux: ## Cross-compile Go server for Linux amd64
 	@mkdir -p $(DIST_DIR)
 	cd go-server && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
 		-ldflags="-s -w" -o ../$(DIST_DIR)/server ./cmd/api
+	@cp go-server/.env.production $(DIST_DIR)/.env.example
 	@echo "[+] Linux binary -> $(DIST_DIR)/server"
+	@echo "[+] Config template -> $(DIST_DIR)/.env.example"
 
-dist-web: ## Build web-reader SPA (vite build, skip type check)
-	cd frontend-workspace/apps/web-reader && npx vite build
+dist-web: ## Build web-reader SPA with .env.production
+	cd frontend-workspace/apps/web-reader && npx vite build --mode production
 	@mkdir -p $(DIST_DIR)/web
 	@rm -rf $(DIST_DIR)/web/*
 	@cp -r frontend-workspace/apps/web-reader/dist/. $(DIST_DIR)/web/
