@@ -95,7 +95,7 @@ describe("useBreakpoints", () => {
         return createMockMediaQuery(false) as unknown as MediaQueryList;
       });
 
-      const { current, isMobile } = useBreakpoints();
+      const { current, isMobile: _isMobile } = useBreakpoints();
 
       // Note: onMounted doesn't run in this test context
       // The initial value depends on the matchMedia result at setup time
@@ -113,7 +113,7 @@ describe("useBreakpoints", () => {
         return createMockMediaQuery(false) as unknown as MediaQueryList;
       });
 
-      const { current, isMobile, isTablet, isDesktop } = useBreakpoints();
+      const { current: _current, isMobile, isTablet, isDesktop } = useBreakpoints();
 
       // The composable checks matches, but onMounted isn't triggered in tests
       // We're verifying the reactive properties exist
@@ -163,7 +163,7 @@ describe("useBreakpoints", () => {
         return createMockMediaQuery(false) as unknown as MediaQueryList;
       });
 
-      const { result: breakpoints, cleanup } = withSetup(() => useBreakpoints());
+      const { result: _breakpoints, cleanup } = withSetup(() => useBreakpoints());
 
       expect(mobileListener.addEventListener).toHaveBeenCalledWith("change", expect.any(Function));
       expect(tabletListener.addEventListener).toHaveBeenCalledWith("change", expect.any(Function));

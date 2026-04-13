@@ -42,8 +42,8 @@ describe("useCards", () => {
     it("should load card index successfully", async () => {
       const mockData = {
         data: [
-          { id: "card-1", title: "Card 1", raw_md: "Content", excerpt: "Excerpt 1", category_id: null, created_at: "2024-01-01", updated_at: "2024-01-02", metrics: null },
-          { id: "card-2", title: "Card 2", raw_md: "Content", excerpt: "Excerpt 2", category_id: null, created_at: "2024-01-01", updated_at: "2024-01-02", metrics: { card_id: "card-2", view_count: 10, hot_score: 5, updated_at: "" } },
+          { id: "card-1", title: "Card 1", raw_md: "Content", excerpt: "Excerpt 1", category_id: null, created_at: "2024-01-01", updated_at: "2024-01-02", metrics: null, ast_data: null },
+          { id: "card-2", title: "Card 2", raw_md: "Content", excerpt: "Excerpt 2", category_id: null, created_at: "2024-01-01", updated_at: "2024-01-02", metrics: { card_id: "card-2", view_count: 10, hot_score: 5, updated_at: "" }, ast_data: null },
         ],
         has_more: false,
         total_count: 2,

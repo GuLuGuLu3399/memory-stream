@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { ref, nextTick } from "vue"
+import { ref, nextTick, type Ref } from "vue"
 import { useGraphSync, wsConnected, wsAuthenticated, wsLatency } from "../useGraphSync"
-import { api, getAuthToken } from "../../api"
 
 vi.mock("../../api", () => ({
   api: { getFullGraph: vi.fn() },
@@ -14,14 +13,33 @@ import { getAuthToken as _getAuthToken } from "../../api"
 
 describe("useGraphSync", () => {
   let capturedWs: any
-  let mockNodes: ReturnType<typeof ref<any[]>>
-  let mockEdges: ReturnType<typeof ref<any[]>>
+  let mockNodes: Ref<any[], any[]>
+  let mockEdges: Ref<any[], any[]>
+
+  class MockWS {
+    static CONNECTING = 0
+    static OPEN = 1
+    static CLOSING = 2
+    static CLOSED = 3
+    readyState = 0
+    onopen: (() => void) | null = null
+    onclose: (() => void) | null = null
+    onmessage: ((e: { data: string }) => void) | null = null
+    onerror: ((e: Error) => void) | null = null
+    send = vi.fn()
+    close = vi.fn()
+    url: string
+    constructor(url: string) {
+      this.url = url
+      capturedWs = this
+    }
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
     capturedWs = null
-    mockNodes = ref([])
-    mockEdges = ref([])
+    mockNodes = ref<any[]>([]) as Ref<any[], any[]>
+    mockEdges = ref<any[]>([]) as Ref<any[], any[]>
 
     wsConnected.value = false
     wsAuthenticated.value = false
@@ -30,22 +48,7 @@ describe("useGraphSync", () => {
     vi.mocked(_getAuthToken).mockReturnValue("test-token")
     vi.mocked(_api.getFullGraph).mockResolvedValue({ nodes: [], edges: [] })
 
-    vi.stubGlobal("WebSocket", class MockWS {
-      static CONNECTING = 0
-      static OPEN = 1
-      static CLOSING = 2
-      static CLOSED = 3
-      readyState = 0
-      onopen: any = null
-      onclose: any = null
-      onmessage: any = null
-      onerror: any = null
-      send = vi.fn()
-      close = vi.fn()
-      constructor(public url: string) {
-        capturedWs = this
-      }
-    })
+    vi.stubGlobal("WebSocket", MockWS)
   })
 
   /** Connect and fire onopen so AUTH is sent */
@@ -77,7 +80,7 @@ describe("useGraphSync", () => {
   })
 
   it("should handle CARD_CREATED and CARD_DELETED events", async () => {
-    const { connected, authenticated } = await connectAndOpen()
+    const { connected: _connected, authenticated } = await connectAndOpen()
 
     capturedWs.onmessage({ data: JSON.stringify({ event: "AUTH_OK", payload: {} }) })
     await nextTick()
@@ -89,7 +92,7 @@ describe("useGraphSync", () => {
     }) })
     await nextTick()
     expect(mockNodes.value).toHaveLength(1)
-    expect(mockNodes.value[0].id).toBe("new-card")
+    expect(mockNodes.value?.[0]?.id).toBe("new-card")
 
     mockEdges.value = [
       { id: "e-new-card-other", source: "new-card", target: "other" } as any,

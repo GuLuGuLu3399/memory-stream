@@ -8,7 +8,7 @@
  * - 金缮装饰线、血珀脉动、墨玉签文
  */
 
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onUnmounted, watch } from "vue";
 import { useBreakpoints } from "../composables/useBreakpoints";
 
 const { isMobile } = useBreakpoints();

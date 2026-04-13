@@ -74,7 +74,7 @@ watch(query, (q) => {
             if (gen !== searchGeneration) return;
             results.value = response.results.map(r => ({
                 ...r,
-                relationType: r.relationType,
+                relationType: (r as { relationType?: "sequence" | "reference" }).relationType,
             }));
             resetSelection();
         } catch (error) {

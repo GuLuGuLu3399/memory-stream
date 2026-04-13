@@ -83,12 +83,9 @@ function getNodeDimensions(n: Node): { width: number; height: number } {
 /**
  * 构建 graphology 无向图
  */
-function buildGraphologyGraph(
-  Graph: import("graphology").default,
-  nodeIds: string[],
-  edges: SerializableEdge[],
-) {
-  const graph = new Graph({ multi: false, type: "undirected" });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildGraphologyGraph(GraphCtor: any, nodeIds: string[], edges: SerializableEdge[]): any {
+  const graph = new GraphCtor({ multi: false, type: "undirected" });
 
   for (const id of nodeIds) {
     graph.addNode(id);
@@ -137,7 +134,16 @@ function filterComponentEdges(
  * 对单个连通分量执行 Dagre 布局
  */
 function layoutComponentDagre(
-  dagre: typeof import("dagre").default,
+  dagreMod: {
+    graphlib: { Graph: new () => {
+      setDefaultEdgeLabel(fn: () => {}): void;
+      setGraph(opts: Record<string, unknown>): void;
+      setNode(id: string, attrs: Record<string, unknown>): void;
+      setEdge(source: string, target: string): void;
+      node(id: string): { x: number; y: number } | undefined;
+    } };
+    layout(g: unknown): void;
+  },
   nodeIds: string[],
   componentEdges: SerializableEdge[],
   isOrphan: boolean,
@@ -150,7 +156,7 @@ function layoutComponentDagre(
     return positions;
   }
 
-  const g = new dagre.graphlib.Graph();
+  const g = new dagreMod.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({
     rankdir: "LR",
@@ -169,7 +175,7 @@ function layoutComponentDagre(
     g.setEdge(edge.source, edge.target);
   }
 
-  dagre.layout(g);
+  dagreMod.layout(g);
 
   for (const nodeId of nodeIds) {
     const pos = g.node(nodeId);
@@ -257,7 +263,7 @@ export async function computePositions(
   for (const componentNodeIds of components) {
     const isOrphan = componentNodeIds.length === 1;
     const componentEdges = filterComponentEdges(componentNodeIds, edgeSet);
-    const positions = layoutComponentDagre(dagre, componentNodeIds, componentEdges, isOrphan, nodeDimensions);
+    const positions = layoutComponentDagre(dagre as any, componentNodeIds, componentEdges, isOrphan, nodeDimensions);
     const bbox = computeBoundingBox(positions, isOrphan, nodeDimensions);
 
     layouts.push({ nodeIds: componentNodeIds, positions, bbox, isOrphan });

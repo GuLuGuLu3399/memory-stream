@@ -168,8 +168,8 @@ describe("useGraph", () => {
 
       const edge = edges.value[0];
       expect(edge.animated).toBe(true);
-      expect(edge.style?.stroke).toBe("#00e5ff");
-      expect(edge.style?.strokeWidth).toBe(2);
+      expect((edge.style as Record<string, unknown>)?.stroke).toBe("#00e5ff");
+      expect((edge.style as Record<string, unknown>)?.strokeWidth).toBe(2);
     });
 
     it("should use default depth of 2", async () => {
