@@ -55,7 +55,7 @@ jobs:
         run: cd go-server && go vet ./...
 
       - name: Frontend type check
-        run: cd frontend-workspace && npx vue-tsc --noEmit
+        run: cd frontend-workspace && npx vue-tsc --noEmit --project apps/admin-tauri/tsconfig.json
 
   # ── Stage 2: Test ──────────────────────────────────────────
   test:

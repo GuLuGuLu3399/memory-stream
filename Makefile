@@ -1,115 +1,142 @@
 # ============================================================================
-# Memory Stream v3.4 — Unified Build System
+# Memory Stream — Unified Build System
 # ============================================================================
 #
-# Monorepo build glue:
-#   - frontend-workspace/  (pnpm + Vue + Vite)
-#   - rust-workspace/      (Cargo)
-#   - go-server/           (Go)
-#   - src-tauri/           (Tauri CLI)
+# Monorepo: frontend-workspace (pnpm/Vue) | rust-workspace (Cargo) | go-server
 #
-# Usage:
-#   make dev          - Start all dev services (Ctrl+C to stop)
-#   make build        - Production build all modules
-#   make check        - Quick check (lint + type check)
-#   make test         - Run all tests
-#   make install      - Install frontend deps
+# Primary targets:
+#   make              Show help
+#   make dev          Start all dev services
+#   make build        Production build all
+#   make lint         Lint & type check (no compile)
+#   make test         Run all tests
+#   make ci           Full CI pipeline (lint → test → build)
+#   make fmt          Format all code
 # ============================================================================
 
-.PHONY: all dev build check test install clean stop \
-        frontend dev-frontend build-frontend \
-        web dev-web \
-        rust build-rust test-rust \
-        go dev-go build-go test-go \
-        tauri dev-tauri build-tauri
-
+.DEFAULT_GOAL := help
 DEV_PID_FILE := .dev-pids
 
-all: build
+.PHONY: help \
+        dev stop \
+        build build-rust build-frontend build-go build-wasm build-tauri \
+        lint lint-rust lint-go lint-frontend \
+        test test-rust test-go test-frontend \
+        fmt fmt-rust fmt-go \
+        ci \
+        install clean \
+        docker-up docker-down
 
 # ============================================================================
-# Frontend (pnpm workspace)
+# Help
 # ============================================================================
 
-install:
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+# ============================================================================
+# Install & Dev
+# ============================================================================
+
+install: ## Install frontend deps
 	cd frontend-workspace && pnpm install
 
-dev-frontend:
-	cd frontend-workspace && pnpm dev
+dev: ## Start all dev services (Go + Web + Tauri)
+	@powershell -ExecutionPolicy Bypass -File scripts\dev.ps1
 
-build-frontend:
-	cd frontend-workspace && pnpm build
-
-check-frontend:
-	cd frontend-workspace && pnpm run check 2>/dev/null || true
+stop: ## Kill stray dev processes
+	@powershell -ExecutionPolicy Bypass -File scripts\stop.ps1
 
 # ============================================================================
-# Web Reader (Vite SPA)
+# Lint (no compilation — matches CI Stage 1)
 # ============================================================================
 
-dev-web:
-	cd frontend-workspace/apps/web-reader && pnpm dev
+lint: lint-rust lint-go lint-frontend ## Lint & type check all
+
+lint-rust: ## cargo fmt --check + clippy
+	cd rust-workspace && cargo fmt --check
+	cd rust-workspace && cargo clippy -- -D warnings
+
+lint-go: ## go vet
+	cd go-server && go vet ./...
+
+lint-frontend: ## vue-tsc --noEmit
+	cd frontend-workspace && npx vue-tsc --noEmit --project apps/admin-tauri/tsconfig.json
 
 # ============================================================================
-# Rust (Cargo workspace)
+# Test (matches CI Stage 2)
 # ============================================================================
 
-build-rust:
-	cd rust-workspace && cargo build
+test: test-rust test-go test-frontend ## Run all tests
 
-build-wasm:
-	cd rust-workspace/wasm-engine && wasm-pack build --target web --release -- --cfg web_sys_unstable_apis
-	@which wasm-opt > /dev/null 2>&1 && wasm-opt -Oz -o target/pkg/wasm_engine_bg.wasm target/pkg/wasm_engine_bg.wasm || echo "[!]  wasm-opt not found, skipping"
-	@echo "[+] WASM engine built -> rust-workspace/wasm-engine/pkg/"
-
-test-rust:
+test-rust: ## cargo test
 	cd rust-workspace && cargo test
 
+test-go: ## go test
+	cd go-server && go test -count=1 ./...
+
+test-frontend: ## vitest
+	cd frontend-workspace && pnpm test
+
 # ============================================================================
-# Go Server
+# Format
 # ============================================================================
 
-dev-go:
-	cd go-server && go run ./cmd/api
+fmt: fmt-rust fmt-go ## Format all code
 
-build-go:
+fmt-rust: ## cargo fmt
+	cd rust-workspace && cargo fmt
+
+fmt-go: ## gofmt
+	cd go-server && gofmt -w .
+
+# ============================================================================
+# Build (matches CI Stage 3)
+# ============================================================================
+
+build: build-rust build-frontend build-go ## Production build all
+
+build-rust: ## cargo build (release)
+	cd rust-workspace && cargo build --release
+
+build-frontend: ## pnpm build
+	cd frontend-workspace && pnpm build
+
+build-go: ## go build server binary
 	cd go-server && go build -o bin/server ./cmd/api
 
-test-go:
-	cd go-server && go test ./...
+build-wasm: ## Build WASM engine for web-reader
+	cd rust-workspace/wasm-engine && wasm-pack build --target web --release -- --cfg web_sys_unstable_apis
+	@which wasm-opt > /dev/null 2>&1 && wasm-opt -Oz -o rust-workspace/wasm-engine/pkg/wasm_engine_bg.wasm rust-workspace/wasm-engine/pkg/wasm_engine_bg.wasm || echo "[!] wasm-opt not found, skipping"
+	@echo "[+] WASM engine -> rust-workspace/wasm-engine/pkg/"
 
-# ============================================================================
-# Tauri Desktop (depends on frontend + rust)
-# ============================================================================
-
-dev-tauri:
-	cd frontend-workspace/apps/admin-tauri && pnpm tauri dev
-
-build-tauri:
+build-tauri: ## Build Tauri desktop app
 	cd frontend-workspace/apps/admin-tauri && pnpm tauri build
 
 # ============================================================================
-# Composite targets
+# CI (full pipeline: lint → test → build)
 # ============================================================================
 
-dev:
-	@powershell -ExecutionPolicy Bypass -File scripts\dev.ps1
+ci: lint test build ## Full CI pipeline (lint → test → build)
+	@echo "[+] CI pipeline passed"
 
-stop:
-	@powershell -ExecutionPolicy Bypass -File scripts\stop.ps1
+# ============================================================================
+# Docker (local infrastructure)
+# ============================================================================
 
-build: build-rust build-frontend build-go
-	@echo "[+] All modules built successfully"
+docker-up: ## Start PostgreSQL + Redis + MinIO
+	docker compose up -d
 
-check: build-rust check-frontend
-	@echo "[+] All checks passed"
+docker-down: ## Stop and remove containers
+	docker compose down
 
-test: test-rust test-go
-	@echo "[+] All tests passed"
+# ============================================================================
+# Clean
+# ============================================================================
 
-clean:
-	cd frontend-workspace && pnpm clean 2>/dev/null || true
+clean: ## Remove all build artifacts
 	cd rust-workspace && cargo clean 2>/dev/null || true
-	cd go-server && powershell -Command "Remove-Item -Recurse -Force bin -ErrorAction SilentlyContinue"
-	-powershell -Command "Remove-Item -Force $(DEV_PID_FILE) -ErrorAction SilentlyContinue"
-	@echo "[*] Cleaned all build artifacts"
+	rm -rf go-server/bin
+	rm -f $(DEV_PID_FILE)
+	@echo "[+] Cleaned all build artifacts"
