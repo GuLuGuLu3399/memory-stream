@@ -200,9 +200,16 @@ func TestGenesisAdmin_Success(t *testing.T) {
 		WithArgs("admin").
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 
+	// Insert admin user
 	mock.ExpectQuery(`INSERT INTO "users"`).
 		WithArgs("adminuser", sqlmock.AnyArg(), "admin", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("test-admin-id"))
+
+	// Insert guest user (auto-created)
+	mock.ExpectQuery(`INSERT INTO "users"`).
+		WithArgs("guest", sqlmock.AnyArg(), "guest", sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("test-guest-id"))
+
 	mock.ExpectCommit()
 
 	user, err := svc.GenesisAdmin(context.Background(), "adminuser", "adminpass123")

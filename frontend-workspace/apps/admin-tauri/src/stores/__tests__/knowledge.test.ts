@@ -482,10 +482,11 @@ describe("useKnowledgeStore", () => {
         y: 0,
       };
       await store.saveDraft();
-      expect(mockInvoke).toHaveBeenCalledWith("save_draft", {
+      expect(mockInvoke).toHaveBeenCalledWith("auto_save_draft", {
         cardId: "card-1",
+        title: "Test",
         rawMd: "Draft content",
-        astData: null,
+        categoryId: null,
       });
     });
     it("should not save draft if no activeCard id", async () => {

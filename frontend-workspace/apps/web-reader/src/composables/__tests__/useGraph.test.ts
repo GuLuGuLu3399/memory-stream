@@ -47,14 +47,13 @@ describe("useGraph", () => {
           { id: "node-1", title: "Card 1" },
           { id: "node-2", title: "Card 2" },
         ],
-        edges: [
-          { source: "node-1", target: "node-2", relation: "sequence" },
-        ],
+        edges: [{ source: "node-1", target: "node-2", relation: "sequence" }],
       };
 
       vi.mocked(api.getFullGraph).mockResolvedValue(mockGraphData);
 
-      const { nodes, edges, loading, error, isEmpty, loadFullGraph } = useGraph();
+      const { nodes, edges, loading, error, isEmpty, loadFullGraph } =
+        useGraph();
 
       const promise = loadFullGraph();
       expect(loading.value).toBe(true);
@@ -103,7 +102,11 @@ describe("useGraph", () => {
           { id: "connected-node-2", title: "Connected 2" },
         ],
         edges: [
-          { source: "connected-node-1", target: "connected-node-2", relation: "reference" },
+          {
+            source: "connected-node-1",
+            target: "connected-node-2",
+            relation: "reference",
+          },
         ],
       };
 
@@ -115,7 +118,9 @@ describe("useGraph", () => {
       await nextTick();
 
       const orphanNode = nodes.value.find((n) => n.id === "orphan-node");
-      const connectedNode1 = nodes.value.find((n) => n.id === "connected-node-1");
+      const connectedNode1 = nodes.value.find(
+        (n) => n.id === "connected-node-1",
+      );
 
       expect(orphanNode?.data.isOrphan).toBe(true);
       expect(connectedNode1?.data.isOrphan).toBe(false);
@@ -154,9 +159,7 @@ describe("useGraph", () => {
           { id: "node-1", title: "Card 1" },
           { id: "node-2", title: "Card 2" },
         ],
-        edges: [
-          { source: "node-1", target: "node-2", relation: "sequence" },
-        ],
+        edges: [{ source: "node-1", target: "node-2", relation: "sequence" }],
       };
 
       vi.mocked(api.getFullGraph).mockResolvedValue(mockGraphData);
@@ -243,9 +246,7 @@ describe("useGraph", () => {
           { id: "node-a", title: "A" },
           { id: "node-b", title: "B" },
         ],
-        edges: [
-          { source: "node-a", target: "node-b", relation: "reference" },
-        ],
+        edges: [{ source: "node-a", target: "node-b", relation: "reference" }],
       };
 
       vi.mocked(api.getFullGraph).mockResolvedValue(mockGraphData);
@@ -259,7 +260,7 @@ describe("useGraph", () => {
       expect(edge.id).toBe("e-node-a-node-b");
       expect(edge.source).toBe("node-a");
       expect(edge.target).toBe("node-b");
-      expect(edge.type).toBe("smoothstep");
+      expect(edge.type).toBe("default");
       expect(edge.data.type).toBe("reference");
     });
   });
