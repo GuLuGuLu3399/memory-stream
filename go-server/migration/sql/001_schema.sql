@@ -20,7 +20,7 @@
 --   D4: category_id 允许 NULL（Inbox 未分类）
 --   D5: 移除 is_visible（显隐属客户端视图状态）
 --   D6: excerpt 使用 TEXT（无长度限制）
---   D7: toc_data 预置（TOC 树 JSON，GIN 索引）
+--   D7: toc_data 预置（TOC 树 JSON）
 --   D8: categories 支持层级（parent_id 自引用 + sort_order）
 --   D9: cards 全文搜索（search_vector 生成列 + GIN 索引）
 -- ============================================================================
@@ -83,9 +83,6 @@ CREATE INDEX idx_cards_updated_at_desc  ON cards (updated_at DESC);
 CREATE INDEX idx_cards_category_id      ON cards (category_id);
 CREATE INDEX idx_cards_title            ON cards (title);
 CREATE UNIQUE INDEX idx_cards_title_unique ON cards (title) WHERE title IS NOT NULL AND title != '';
-CREATE INDEX idx_cards_ast_data_gin     ON cards USING GIN (ast_data);
-CREATE INDEX idx_cards_category_created ON cards (category_id, created_at DESC);
-CREATE INDEX idx_cards_toc_data         ON cards USING GIN (toc_data) WHERE toc_data IS NOT NULL;
 CREATE INDEX idx_cards_search_vector    ON cards USING GIN (search_vector);
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗

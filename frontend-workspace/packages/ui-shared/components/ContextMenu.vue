@@ -19,6 +19,7 @@
  */
 
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { LAYER_Z_INDEX } from '../styles/layers'
 
 export interface ContextMenuItem {
   id: string
@@ -104,28 +105,17 @@ onUnmounted(() => {
 <template>
   <Teleport to="body">
     <Transition name="ctx-fade">
-      <div
-        v-if="visible"
-        ref="menuRef"
-        class="ctx-menu"
-        :style="{ left: `${adjustedPos.x}px`, top: `${adjustedPos.y}px` }"
-        role="menu"
-      >
+      <div v-if="visible" ref="menuRef" class="ctx-menu"
+        :style="{ left: `${adjustedPos.x}px`, top: `${adjustedPos.y}px`, zIndex: String(LAYER_Z_INDEX.dropdown) }"
+        role="menu">
         <template v-for="(item, i) in items" :key="item.id">
           <div v-if="item.separator" class="ctx-menu__separator" />
-          <button
-            v-else
-            class="ctx-menu__item"
-            :class="{
-              'ctx-menu__item--active': i === activeIndex,
-              'ctx-menu__item--danger': item.danger,
-              'ctx-menu__item--disabled': item.disabled,
-            }"
-            role="menuitem"
-            :disabled="item.disabled"
-            @click="!item.disabled && emit('select', item.id)"
-            @mouseenter="activeIndex = i"
-          >
+          <button v-else class="ctx-menu__item" :class="{
+            'ctx-menu__item--active': i === activeIndex,
+            'ctx-menu__item--danger': item.danger,
+            'ctx-menu__item--disabled': item.disabled,
+          }" role="menuitem" :disabled="item.disabled" @click="!item.disabled && emit('select', item.id)"
+            @mouseenter="activeIndex = i">
             <component :is="item.icon" v-if="item.icon" class="ctx-menu__icon" />
             <span>{{ item.label }}</span>
           </button>
@@ -138,7 +128,6 @@ onUnmounted(() => {
 <style scoped>
 .ctx-menu {
   position: fixed;
-  z-index: 200;
   min-width: 160px;
   padding: 4px;
   background: #12100c;
@@ -196,9 +185,11 @@ onUnmounted(() => {
 .ctx-fade-enter-active {
   transition: opacity 100ms ease;
 }
+
 .ctx-fade-leave-active {
   transition: opacity 80ms ease;
 }
+
 .ctx-fade-enter-from,
 .ctx-fade-leave-to {
   opacity: 0;

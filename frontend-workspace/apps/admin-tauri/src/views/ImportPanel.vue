@@ -7,12 +7,14 @@ import { FileArchive, FileText, X, Loader2 } from 'lucide-vue-next'
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import type { RenderResult, TocNodeDto } from '@memory-stream/types/ipc'
+import { extractMsg } from '../composables/useTempleError'
 
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const layoutStore = useLayoutStore()
 const knowledgeStore = useKnowledgeStore()
 const { isImportPanelOpen } = storeToRefs(layoutStore)
+const { categories } = storeToRefs(knowledgeStore)
 
 interface ImportCard {
   title: string
@@ -26,6 +28,131 @@ interface PreviewCard extends ImportCard {
   id: string
   status: 'new' | 'duplicate'
   skip: boolean
+  categoryPath: string | null
+}
+
+interface CardSearchItem {
+  id: string
+  title: string
+  category_id: number | null
+}
+
+interface CardSearchResponse {
+  data: CardSearchItem[]
+}
+
+function normalizeSourcePath(sourcePath: string): string {
+  return sourcePath.replace(/\\/g, '/').trim()
+}
+
+function getSourceFolderSegments(sourcePath: string): string[] {
+  const normalized = normalizeSourcePath(sourcePath)
+  if (!normalized) return []
+
+  const parts = normalized.split('/').filter(Boolean)
+  if (parts.length < 2) return []
+
+  return parts.slice(0, -1).filter(Boolean)
+}
+
+function getImportedCategorySegments(card: ImportCard): string[] {
+  const folderSegments = getSourceFolderSegments(card.source_path)
+  if (folderSegments.length > 0) return folderSegments
+
+  const fallback = card.category?.trim()
+  return fallback ? [fallback] : []
+}
+
+function formatCategoryPath(segments: string[]): string | null {
+  return segments.length > 0 ? segments.join(' / ') : null
+}
+
+function makeDuplicateKey(title: string, categoryPath: string | null): string {
+  return `${title.trim().toLowerCase()}::${(categoryPath ?? 'null').trim().toLowerCase()}`
+}
+
+function findCategoryByNameAndParent(name: string, parentId: number | null) {
+  return categories.value.find(c => {
+    const sameName = c.name.trim().toLowerCase() === name.trim().toLowerCase()
+    const sameParent = (c.parent_id ?? null) === parentId
+    return sameName && sameParent
+  })
+}
+
+function resolveCategoryPathById(categoryId: number | null): string | null {
+  if (categoryId == null) return null
+
+  const categoryMap = new Map<number, { name: string; parent_id: number | null }>()
+  categories.value.forEach(category => {
+    categoryMap.set(category.id, {
+      name: category.name,
+      parent_id: category.parent_id ?? null,
+    })
+  })
+
+  const segments: string[] = []
+  const visited = new Set<number>()
+  let currentId: number | null = categoryId
+
+  while (currentId != null) {
+    if (visited.has(currentId)) break
+    visited.add(currentId)
+
+    const current = categoryMap.get(currentId)
+    if (!current) break
+
+    segments.unshift(current.name)
+    currentId = current.parent_id
+  }
+
+  return formatCategoryPath(segments)
+}
+
+async function ensureCategoryChain(segments: string[]): Promise<number | null> {
+  let parentId: number | null = null
+
+  for (const segment of segments) {
+    const name = segment.trim()
+    if (!name) continue
+
+    let category = findCategoryByNameAndParent(name, parentId)
+    if (!category) {
+      const createdId = await knowledgeStore.createCategory(name, '', parentId)
+      if (createdId == null) {
+        throw new Error(`无法创建分类: ${name}`)
+      }
+      category = categories.value.find(c => c.id === createdId) ?? findCategoryByNameAndParent(name, parentId)
+    }
+
+    if (!category) {
+      throw new Error(`无法解析分类: ${name}`)
+    }
+
+    parentId = category.id
+  }
+
+  return parentId
+}
+
+async function resolveImportedCategoryId(card: ImportCard): Promise<number | null> {
+  const segments = getImportedCategorySegments(card)
+  if (segments.length === 0) return null
+  return await ensureCategoryChain(segments)
+}
+
+async function hasRemoteDuplicate(title: string, categoryId: number | null): Promise<boolean> {
+  const endpoint = `/cards?limit=20&search=${encodeURIComponent(title)}`
+  const resp = await invoke<CardSearchResponse>('api_request', {
+    method: 'GET',
+    endpoint
+  })
+
+  const targetTitle = title.trim().toLowerCase()
+  return resp.data.some(card => {
+    const sameTitle = (card.title || '').trim().toLowerCase() === targetTitle
+    const sameCategory = (card.category_id ?? null) === (categoryId ?? null)
+    return sameTitle && sameCategory
+  })
 }
 
 const previewCards = ref<PreviewCard[]>([])
@@ -56,7 +183,7 @@ async function selectMarkdownFiles() {
 
     await processImportedCards(cards)
   } catch (e) {
-    knowledgeStore.addToast('文件选择失败: ' + String(e), 'error')
+    knowledgeStore.addToast('文件选择失败: ' + extractMsg(e), 'error')
   } finally {
     isLoadingFiles.value = false
   }
@@ -77,25 +204,29 @@ async function selectZipArchive() {
 
     await processImportedCards(cards)
   } catch (e) {
-    knowledgeStore.addToast('ZIP 解压失败: ' + String(e), 'error')
+    knowledgeStore.addToast('ZIP 解压失败: ' + extractMsg(e), 'error')
   } finally {
     isLoadingFiles.value = false
   }
 }
 
 async function processImportedCards(cards: ImportCard[]) {
-  const existingTitles = new Set<string>()
+  await knowledgeStore.loadCategories()
+
+  const existingKeys = new Set<string>()
 
   const allCards = [...knowledgeStore.orphanCards, ...knowledgeStore.recentCards]
   allCards.forEach(card => {
-    if (card.title) existingTitles.add(card.title.toLowerCase())
+    if (!card.title) return
+    existingKeys.add(makeDuplicateKey(card.title, resolveCategoryPathById(card.category_id ?? null)))
   })
 
   previewCards.value = cards.map((card, idx) => ({
     ...card,
     id: `import-${idx}`,
-    status: existingTitles.has(card.title.toLowerCase()) ? 'duplicate' : 'new',
-    skip: existingTitles.has(card.title.toLowerCase())
+    categoryPath: formatCategoryPath(getImportedCategorySegments(card)),
+    status: existingKeys.has(makeDuplicateKey(card.title, formatCategoryPath(getImportedCategorySegments(card)))) ? 'duplicate' : 'new',
+    skip: existingKeys.has(makeDuplicateKey(card.title, formatCategoryPath(getImportedCategorySegments(card))))
   }))
 }
 
@@ -125,6 +256,11 @@ async function importCards() {
 
     for (const card of cardsToImport.value) {
       try {
+        const resolvedCategoryId = await resolveImportedCategoryId(card)
+        if (await hasRemoteDuplicate(card.title, resolvedCategoryId)) {
+          continue
+        }
+
         const renderResult = await invoke<RenderResult>('process_markdown', { content: card.body_md })
 
         let tocData: TocNodeDto[] | null = null
@@ -145,6 +281,7 @@ async function importCards() {
             excerpt: renderResult.excerpt,
             ast_data: renderResult.ast_json,
             toc_data: tocData,
+            category_id: resolvedCategoryId,
             parent_id: null,
             relation_type: null
           }
@@ -169,7 +306,7 @@ async function importCards() {
       close()
     }
   } catch (e) {
-    knowledgeStore.addToast('导入失败: ' + String(e), 'error')
+    knowledgeStore.addToast('导入失败: ' + extractMsg(e), 'error')
   } finally {
     isImporting.value = false
   }
@@ -284,7 +421,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
                       {{ card.title || '—' }}
                     </td>
                     <td class="px-4 py-2 text-slate-400 truncate max-w-[150px]">
-                      {{ card.category || '—' }}
+                      {{ card.categoryPath || card.category || '—' }}
                     </td>
                     <td class="px-4 py-2 text-center">
                       <span

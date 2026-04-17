@@ -7,6 +7,7 @@ import MergeVictimsColumn from "./merge/MergeVictimsColumn.vue";
 import MergeSurvivorColumn from "./merge/MergeSurvivorColumn.vue";
 import MergeBlastRadius from "./merge/MergeBlastRadius.vue";
 import MergeActionBar from "./merge/MergeActionBar.vue";
+import ChamberHeader from "./ChamberHeader.vue";
 
 // Props & Emits
 interface CardData {
@@ -93,25 +94,13 @@ const availableVictimCards = computed(() => {
 
 <template>
   <div class="fixed inset-x-0 bottom-0 top-titlebar z-panel bg-ms-deep flex flex-col">
-    <!-- Header Bar -->
-    <div class="merge-panel__header">
-      <div class="flex items-center gap-3">
-        <span class="text-neon text-sm select-none">◆</span>
-        <span class="merge-panel__header-title">
-          MERGE STAGING AREA
-        </span>
-        <span class="merge-panel__header-subtitle">概念坍缩引擎</span>
-      </div>
-      <button
-        @click="handleClose"
-        class="merge-panel__close"
-        title="关闭 (ESC)"
-      >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
+    <!-- Header -->
+    <ChamberHeader
+      title="MERGE STAGING AREA"
+      subtitle="概念坍缩引擎"
+      accent="text-amber-400"
+      @close="handleClose"
+    />
 
     <!-- Three-Column Layout -->
     <div class="flex-1 flex min-h-0">
@@ -190,44 +179,4 @@ const availableVictimCards = computed(() => {
 </template>
 
 <style scoped>
-.merge-panel__header {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  border-bottom: 1px solid theme('colors.ms-border');
-  background: theme('colors.ms-carbon');
-  flex-shrink: 0;
-}
-
-.merge-panel__header-title {
-  font-weight: bold;
-  color: theme('colors.slate.300');
-  font-size: 12px;
-  font-family: ui-monospace, monospace;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.merge-panel__header-subtitle {
-  font-size: 10px;
-  color: theme('colors.slate.600');
-  font-family: ui-monospace, monospace;
-}
-
-.merge-panel__close {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: theme('colors.slate.500');
-  transition: color 150ms ease, background-color 150ms ease;
-}
-
-.merge-panel__close:hover {
-  color: theme('colors.slate.300');
-  background: theme('colors.ms-panel');
-}
 </style>

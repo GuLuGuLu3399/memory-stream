@@ -43,52 +43,54 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-    <Transition name="ms-scale">
-        <div v-if="dialogState.visible" ref="rootEl" role="dialog" aria-modal="true" aria-labelledby="dialog-title"
-            aria-describedby="dialog-message" class="fixed inset-x-0 bottom-0 top-titlebar z-modal flex items-center justify-center"
-            @keydown="onKeydown" tabindex="-1">
-            <!-- Backdrop -->
-            <div class="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/80 backdrop-blur-md"
-                aria-hidden="true" @click="handleCancel" />
+    <Teleport to="body">
+        <Transition name="ms-scale">
+            <div v-if="dialogState.visible" ref="rootEl" role="dialog" aria-modal="true" aria-labelledby="dialog-title"
+                aria-describedby="dialog-message" class="fixed inset-x-0 bottom-0 top-titlebar z-modal flex items-center justify-center"
+                @keydown="onKeydown" tabindex="-1">
+                <!-- Backdrop -->
+                <div class="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/80 backdrop-blur-md"
+                    aria-hidden="true" @click="handleCancel" />
 
-            <!-- Dialog Card -->
-            <div class="relative z-10 w-[360px] bg-ms-carbon border border-brass/40 rounded-sm dialog-card"
-                style="box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.04), 4px 4px 0 0 rgba(0,0,0,0.6);">
-                <!-- Brass Corner Accents -->
-                <span class="corner-accent corner-tl" />
-                <span class="corner-accent corner-tr" />
-                <span class="corner-accent corner-bl" />
-                <span class="corner-accent corner-br" />
+                <!-- Dialog Card -->
+                <div class="relative z-10 w-[360px] bg-ms-carbon border border-brass/40 rounded-sm dialog-card"
+                    style="box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.04), 4px 4px 0 0 rgba(0,0,0,0.6);">
+                    <!-- Brass Corner Accents -->
+                    <span class="corner-accent corner-tl" />
+                    <span class="corner-accent corner-tr" />
+                    <span class="corner-accent corner-bl" />
+                    <span class="corner-accent corner-br" />
 
-                <div class="p-6">
-                    <!-- Title -->
-                    <h3 id="dialog-title" class="text-sm font-mono text-neon uppercase tracking-wider mb-3">
-                        {{ dialogState.title }}
-                    </h3>
+                    <div class="p-6">
+                        <!-- Title -->
+                        <h3 id="dialog-title" class="text-sm font-mono text-neon uppercase tracking-wider mb-3">
+                            {{ dialogState.title }}
+                        </h3>
 
-                    <!-- Message -->
-                    <p id="dialog-message" class="text-slate-300 text-sm leading-relaxed mb-6">
-                        {{ dialogState.message }}
-                    </p>
+                        <!-- Message -->
+                        <p id="dialog-message" class="text-slate-300 text-sm leading-relaxed mb-6">
+                            {{ dialogState.message }}
+                        </p>
 
-                    <!-- Actions -->
-                    <div class="flex justify-end gap-2">
-                        <button @click="handleCancel"
-                            class="px-4 py-2 text-xs rounded-sm bg-ms-surface text-slate-500 hover:text-white hover:bg-ms-border transition-all border border-ms-border shadow-[1px_1px_0_0_rgba(0,0,0,0.4)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,0.4)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none">
-                            {{ dialogState.cancelText }}
-                        </button>
-                        <button data-action="confirm" @click="handleConfirm"
-                            class="px-4 py-2 text-xs rounded-sm font-medium transition-all border relative overflow-hidden shadow-[2px_2px_0_0_rgba(0,0,0,0.5)] hover:shadow-[3px_3px_0_0_rgba(0,0,0,0.5)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none" :class="dialogState.danger
-                                ? 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30 danger-pulse'
-                                : 'bg-neon/20 text-neon border-neon/30 hover:bg-neon/30'
-                                ">
-                            {{ dialogState.confirmText }}
-                        </button>
+                        <!-- Actions -->
+                        <div class="flex justify-end gap-2">
+                            <button @click="handleCancel"
+                                class="px-4 py-2 text-xs rounded-sm bg-ms-surface text-slate-500 hover:text-white hover:bg-ms-border transition-all border border-ms-border shadow-[1px_1px_0_0_rgba(0,0,0,0.4)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,0.4)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none">
+                                {{ dialogState.cancelText }}
+                            </button>
+                            <button data-action="confirm" @click="handleConfirm"
+                                class="px-4 py-2 text-xs rounded-sm font-medium transition-all border relative overflow-hidden shadow-[2px_2px_0_0_rgba(0,0,0,0.5)] hover:shadow-[3px_3px_0_0_rgba(0,0,0,0.5)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none" :class="dialogState.danger
+                                    ? 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30 danger-pulse'
+                                    : 'bg-neon/20 text-neon border-neon/30 hover:bg-neon/30'
+                                    ">
+                                {{ dialogState.confirmText }}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </Transition>
+        </Transition>
+    </Teleport>
 </template>
 
 <style scoped>

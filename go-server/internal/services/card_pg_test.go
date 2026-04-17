@@ -25,6 +25,7 @@ func TestPG_CreateCard_HappyPath(t *testing.T) {
 		"This is content.",
 		models.JSONB(`{"type":"doc"}`),
 		models.JSONB(`{"type":"toc"}`),
+		nil,
 	)
 	require.NoError(t, err)
 	assert.NotEmpty(t, card.ID)
@@ -42,6 +43,7 @@ func TestPG_CreateCard_EmptyContent(t *testing.T) {
 		"",
 		models.JSONB("{}"),
 		models.JSONB("{}"),
+		nil,
 	)
 	assert.Nil(t, card)
 	assert.EqualError(t, err, "card content cannot be empty")
@@ -62,6 +64,7 @@ func TestPG_CreateCard_GhostCardUpsert(t *testing.T) {
 		"Real content now",
 		models.JSONB(`{"type":"doc"}`),
 		models.JSONB(`{"type":"toc"}`),
+		nil,
 	)
 	require.NoError(t, err)
 	assert.Equal(t, ghostID, card.ID, "should reuse the ghost card ID")
@@ -82,6 +85,7 @@ func TestPG_CreateCard_GhostCardNotReusedIfTitleDiffers(t *testing.T) {
 		"Content B",
 		models.JSONB("{}"),
 		models.JSONB("{}"),
+		nil,
 	)
 	require.NoError(t, err)
 	assert.NotEmpty(t, card.ID)
@@ -90,6 +94,25 @@ func TestPG_CreateCard_GhostCardNotReusedIfTitleDiffers(t *testing.T) {
 	var count int64
 	tx.Model(&models.Card{}).Where("title LIKE ?", "%[test:"+t.Name()+"]%").Count(&count)
 	assert.Equal(t, int64(2), count)
+}
+
+func TestPG_CreateCard_WithCategory(t *testing.T) {
+	tx := testTx(t)
+	svc := &CardService{db: tx}
+
+	cat := seedCategory(t, tx, uniqueTitle(t, "CreateCardCategory"), nil)
+
+	card, err := svc.CreateCard(
+		uniqueTitle(t, "CreateCard With Category"),
+		"# Categorized\ncontent",
+		"content",
+		models.JSONB(`{"type":"doc"}`),
+		models.JSONB(`{"type":"toc"}`),
+		&cat.ID,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, card.CategoryID)
+	assert.Equal(t, cat.ID, *card.CategoryID)
 }
 
 // ============================================================================

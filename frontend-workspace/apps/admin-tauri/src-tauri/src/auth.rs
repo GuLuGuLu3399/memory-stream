@@ -13,7 +13,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use tauri::State;
+use tauri::{AppHandle, State};
+use tokio::sync::Notify;
 
 /// Access token 默认有效期：2 小时（与 Go 后端一致）
 const ACCESS_TOKEN_TTL: Duration = Duration::from_secs(2 * 60 * 60);
@@ -43,6 +44,8 @@ pub struct AuthState {
     expires_in: Duration,
     /// 刷新操作进行中的标记（防止 thundering herd）
     refreshing: AtomicBool,
+    /// 刷新完成通知（让并发请求等待“实际完成”而不是固定 sleep）
+    refresh_notify: Notify,
     /// 连续刷新失败计数
     consecutive_failures: AtomicU32,
     /// Token 持久化文件路径
@@ -59,6 +62,7 @@ impl AuthState {
             created_at: RwLock::new(None),
             expires_in: ACCESS_TOKEN_TTL,
             refreshing: AtomicBool::new(false),
+            refresh_notify: Notify::new(),
             consecutive_failures: AtomicU32::new(0),
             persist_path,
         };
@@ -165,6 +169,23 @@ impl AuthState {
     /// 释放刷新锁
     pub fn release_refresh_lock(&self) {
         self.refreshing.store(false, Ordering::Release);
+        self.refresh_notify.notify_waiters();
+    }
+
+    /// 等待当前刷新操作完成（若当前无刷新，立即返回）
+    pub async fn wait_for_refresh_completion(&self, timeout: Duration) -> bool {
+        if !self.refreshing.load(Ordering::Acquire) {
+            return true;
+        }
+
+        let notified = self.refresh_notify.notified();
+
+        // 处理在 subscribed 之后立刻完成刷新的竞态
+        if !self.refreshing.load(Ordering::Acquire) {
+            return true;
+        }
+
+        tokio::time::timeout(timeout, notified).await.is_ok()
     }
 
     /// 记录一次刷新失败
@@ -241,7 +262,7 @@ impl AuthState {
 ///
 /// 在 access token 过期前 REFRESH_MARGIN（5分钟）自动刷新。
 /// 使用 `tauri::async_runtime::spawn` 以兼容 Tauri 的 sync setup() 闭包。
-pub fn spawn_proactive_refresh(auth: Arc<AuthState>, http_client: reqwest::Client) {
+pub fn spawn_proactive_refresh(auth: Arc<AuthState>, http_client: reqwest::Client, app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
             // 计算下次刷新时间
@@ -262,7 +283,12 @@ pub fn spawn_proactive_refresh(auth: Arc<AuthState>, http_client: reqwest::Clien
                 continue;
             }
 
-            let success = do_refresh(&http_client, &auth).await;
+            let api_base_url = match crate::config::get_config(&app).await {
+                Ok(cfg) if !cfg.api_base_url.is_empty() => cfg.api_base_url,
+                _ => crate::api::API_BASE_URL.to_string(),
+            };
+
+            let success = do_refresh(&http_client, &auth, &api_base_url).await;
 
             auth.release_refresh_lock();
 
@@ -287,7 +313,7 @@ struct RefreshResponse {
 }
 
 /// 执行 token 刷新（调用方负责加锁）
-pub(crate) async fn do_refresh(client: &reqwest::Client, auth: &AuthState) -> bool {
+pub(crate) async fn do_refresh(client: &reqwest::Client, auth: &AuthState, api_base_url: &str) -> bool {
     let refresh_token = match auth.get_refresh_token() {
         Some(t) => t,
         None => {
@@ -296,7 +322,7 @@ pub(crate) async fn do_refresh(client: &reqwest::Client, auth: &AuthState) -> bo
         }
     };
 
-    let url = format!("{}/auth/refresh", crate::api::API_BASE_URL);
+    let url = format!("{}/auth/refresh", api_base_url.trim_end_matches('/'));
 
     let resp = match client
         .post(&url)
@@ -337,25 +363,17 @@ pub(crate) async fn do_refresh(client: &reqwest::Client, auth: &AuthState) -> bo
 pub async fn try_refresh_token(client: &reqwest::Client, auth: &Arc<AuthState>) -> bool {
     // 尝试获取刷新锁
     if !auth.try_acquire_refresh_lock() {
-        // 其他线程正在刷新 — 使用 timeout 等待，避免忙等
-        let wait_result = tokio::time::timeout(Duration::from_secs(5), async {
-            loop {
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                let refreshing = auth.refreshing.load(Ordering::Acquire);
-                if !refreshing {
-                    break;
-                }
-            }
-        })
-        .await;
-
-        if wait_result.is_err() {
+        // 其他线程正在刷新 — 等待刷新完成，避免轮询忙等
+        if !auth
+            .wait_for_refresh_completion(Duration::from_secs(5))
+            .await
+        {
             eprintln!("[Auth] timed out waiting for concurrent refresh");
         }
         return auth.get_access_token().is_some();
     }
 
-    let success = do_refresh(client, auth).await;
+    let success = do_refresh(client, auth, crate::api::API_BASE_URL).await;
 
     auth.release_refresh_lock();
 
@@ -402,10 +420,10 @@ pub async fn login(
     username: String,
     password: String,
 ) -> Result<LoginResult, String> {
-    let url = format!("{}/auth/login", crate::api::API_BASE_URL);
+    let url = format!("{}/auth/login", client.get_base_url().trim_end_matches('/'));
 
     let resp = client
-        .0
+        .client
         .post(&url)
         .json(&serde_json::json!({
             "username": username,
@@ -450,10 +468,10 @@ pub async fn genesis(
     username: String,
     password: String,
 ) -> Result<LoginResult, String> {
-    let url = format!("{}/auth/init", crate::api::API_BASE_URL);
+    let url = format!("{}/auth/init", client.get_base_url().trim_end_matches('/'));
 
     let resp = client
-        .0
+        .client
         .post(&url)
         .json(&serde_json::json!({
             "username": username,

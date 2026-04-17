@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"os"
 	"regexp"
 	"testing"
@@ -115,7 +116,7 @@ func TestRegister_Success(t *testing.T) {
 		WithArgs("testuser", sqlmock.AnyArg(), "guest", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("test-user-id"))
 
-	user, err := svc.Register("testuser", "password123")
+	user, err := svc.Register(context.Background(), "testuser", "password123")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, user)
@@ -147,7 +148,7 @@ func TestRegister_ValidationError(t *testing.T) {
 
 			svc := NewAuthService(db)
 
-			user, err := svc.Register(tt.username, tt.password)
+			user, err := svc.Register(context.Background(), tt.username, tt.password)
 
 			assert.Error(t, err)
 			assert.Equal(t, tt.errMsg, err.Error())
@@ -177,7 +178,7 @@ func TestRegister_DuplicateUsername(t *testing.T) {
 		WithArgs("existinguser", 1).
 		WillReturnRows(rows)
 
-	user, err := svc.Register("existinguser", "password123")
+	user, err := svc.Register(context.Background(), "existinguser", "password123")
 
 	assert.Error(t, err)
 	assert.Equal(t, "username already exists", err.Error())
@@ -204,7 +205,7 @@ func TestGenesisAdmin_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("test-admin-id"))
 	mock.ExpectCommit()
 
-	user, err := svc.GenesisAdmin("adminuser", "adminpass123")
+	user, err := svc.GenesisAdmin(context.Background(), "adminuser", "adminpass123")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, user)
@@ -228,7 +229,7 @@ func TestGenesisAdmin_Sealed(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	mock.ExpectRollback()
 
-	user, err := svc.GenesisAdmin("adminuser", "adminpass123")
+	user, err := svc.GenesisAdmin(context.Background(), "adminuser", "adminpass123")
 
 	assert.Error(t, err)
 	assert.Equal(t, ErrGenesisSealed, err)
@@ -263,7 +264,7 @@ func TestGenesisAdmin_ValidationError(t *testing.T) {
 				WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 			mock.ExpectRollback()
 
-			user, err := svc.GenesisAdmin(tt.username, tt.password)
+			user, err := svc.GenesisAdmin(context.Background(), tt.username, tt.password)
 
 			assert.Error(t, err)
 			assert.Nil(t, user)
@@ -296,7 +297,7 @@ func TestIsGenesisSealed(t *testing.T) {
 				WithArgs("admin").
 				WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(tt.adminCount))
 
-			result := svc.IsGenesisSealed()
+			result := svc.IsGenesisSealed(context.Background())
 
 			assert.Equal(t, tt.expected, result)
 			assert.NoError(t, mock.ExpectationsWereMet())
@@ -324,7 +325,7 @@ func TestLogin_Success(t *testing.T) {
 		WithArgs("testuser", 1).
 		WillReturnRows(rows)
 
-	accessToken, refreshToken, user, err := svc.Login("testuser", password)
+	accessToken, refreshToken, user, err := svc.Login(context.Background(), "testuser", password)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, user)
@@ -347,7 +348,7 @@ func TestLogin_InvalidUsername(t *testing.T) {
 		WithArgs("nonexistent", 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
-	accessToken, refreshToken, user, err := svc.Login("nonexistent", "password123")
+	accessToken, refreshToken, user, err := svc.Login(context.Background(), "nonexistent", "password123")
 
 	assert.Error(t, err)
 	assert.Equal(t, "invalid username or password", err.Error())
@@ -376,7 +377,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 		WithArgs("testuser", 1).
 		WillReturnRows(rows)
 
-	accessToken, refreshToken, user, err := svc.Login("testuser", "wrongpassword")
+	accessToken, refreshToken, user, err := svc.Login(context.Background(), "testuser", "wrongpassword")
 
 	assert.Error(t, err)
 	assert.Equal(t, "invalid username or password", err.Error())
@@ -406,7 +407,7 @@ func TestRefreshTokens_Success(t *testing.T) {
 		WithArgs(userID, 1).
 		WillReturnRows(rows)
 
-	newAccess, newRefresh, err := svc.RefreshTokens(refreshToken)
+	newAccess, newRefresh, err := svc.RefreshTokens(context.Background(), refreshToken)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, newAccess)
@@ -423,7 +424,7 @@ func TestRefreshTokens_InvalidToken(t *testing.T) {
 
 	svc := NewAuthService(db)
 
-	newAccess, newRefresh, err := svc.RefreshTokens("invalid-token")
+	newAccess, newRefresh, err := svc.RefreshTokens(context.Background(), "invalid-token")
 
 	assert.Error(t, err)
 	assert.Equal(t, "invalid refresh token", err.Error())
@@ -448,7 +449,7 @@ func TestRefreshTokens_UserNotFound(t *testing.T) {
 		WithArgs(userID, 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
-	newAccess, newRefresh, err := svc.RefreshTokens(refreshToken)
+	newAccess, newRefresh, err := svc.RefreshTokens(context.Background(), refreshToken)
 
 	assert.Error(t, err)
 	assert.Equal(t, "user not found", err.Error())

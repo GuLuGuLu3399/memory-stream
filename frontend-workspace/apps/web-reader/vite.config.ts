@@ -3,7 +3,7 @@ import vue from "@vitejs/plugin-vue";
 import viteCompression from "vite-plugin-compression";
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       // MarkdownEditor in ui-shared conditionally imports Tauri — provide an empty shim for web-reader
@@ -12,19 +12,18 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    // Gzip 压缩
-    viteCompression({
+    // Gzip / Brotli 压缩（Android 模式跳过，避免 Capacitor 资源冲突）
+    mode !== "android" && viteCompression({
       algorithm: "gzip",
       threshold: 1024,
       deleteOriginFile: false,
     }),
-    // Brotli 压缩
-    viteCompression({
+    mode !== "android" && viteCompression({
       algorithm: "brotliCompress",
       threshold: 1024,
       deleteOriginFile: false,
     }),
-  ],
+  ].filter(Boolean),
   build: {
     // 精确分包：核心框架 / 图谱引擎 / 虚拟滚动 分离
     rollupOptions: {
@@ -63,4 +62,4 @@ export default defineConfig({
     cssCodeSplit: true,
     target: "esnext",
   },
-});
+}));

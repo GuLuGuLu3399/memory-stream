@@ -16,7 +16,7 @@
  * - 内部通过辅助函数安全访问动态属性
  */
 
-import { ref, type Ref } from "vue";
+import { onUnmounted, ref, type Ref } from "vue";
 import { api, getAuthToken } from "../api";
 
 // ── 最小约束接口（泛型边界，避免导入 VueFlow 复杂泛型） ──
@@ -542,6 +542,10 @@ export function useGraphSync<N extends MinimalNode, E extends MinimalEdge>(
     latency.value = 0;
     wsLatency.value = 0;
   }
+
+  onUnmounted(() => {
+    disconnect();
+  });
 
   return {
     connected,

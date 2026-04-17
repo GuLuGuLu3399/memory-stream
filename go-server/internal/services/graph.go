@@ -65,13 +65,13 @@ func NewGraphService(db *gorm.DB) *GraphService {
 
 // resolveIdentifier 将虚拟标识符 "root" 解析为实际的根卡片 ID。
 // 根卡片定义为：没有入边（未被任何边指向）的最早创建的卡片。
-func (s *GraphService) resolveIdentifier(id string) (string, error) {
+func (s *GraphService) resolveIdentifier(ctx context.Context, id string) (string, error) {
 	if id != "root" {
 		return id, nil
 	}
 
 	var realID string
-	err := s.db.Raw(`
+	err := s.db.WithContext(ctx).Raw(`
 			SELECT c.id FROM cards c
 			LEFT JOIN card_edges e ON c.id = e.target_id
 			WHERE e.target_id IS NULL
@@ -79,7 +79,7 @@ func (s *GraphService) resolveIdentifier(id string) (string, error) {
 		`).Scan(&realID).Error
 
 	if err != nil || realID == "" {
-		s.db.Raw(`SELECT id FROM cards ORDER BY created_at LIMIT 1`).Scan(&realID)
+		s.db.WithContext(ctx).Raw(`SELECT id FROM cards ORDER BY created_at LIMIT 1`).Scan(&realID)
 	}
 
 	if realID == "" {
@@ -106,14 +106,14 @@ func (s *GraphService) GetGraph(ctx context.Context, cardID string, depth int) (
 		depth = maxDepth
 	}
 
-	realID, err := s.resolveIdentifier(cardID)
+	realID, err := s.resolveIdentifier(ctx, cardID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Step 1: Batch-fetch all relevant edges using recursive CTE (depth-limited).
 	var allEdges []models.CardEdge
-	err = s.db.Raw(`
+	err = s.db.WithContext(ctx).Raw(`
 		WITH RECURSIVE reachable AS (
 			SELECT ?::uuid AS id, 0 AS depth
 			UNION ALL
@@ -149,7 +149,7 @@ func (s *GraphService) GetGraph(ctx context.Context, cardID string, depth int) (
 		ID    string
 		Title string
 	}
-	s.db.Table("cards").Select("id, title").Where("id IN ?", nodeIDs).Scan(&cards)
+	s.db.WithContext(ctx).Table("cards").Select("id, title").Where("id IN ?", nodeIDs).Scan(&cards)
 
 	titleMap := make(map[string]string, len(cards))
 	for _, c := range cards {
@@ -190,18 +190,24 @@ func (s *GraphService) GetGraph(ctx context.Context, cardID string, depth int) (
 // 不使用递归 CTE，直接全表扫描 cards（轻量字段）和 card_edges。
 // 用于前端"上帝视角"星图展示，包含所有连通分量和孤岛节点。
 func (s *GraphService) GetAllGraph(ctx context.Context) (*GraphResult, error) {
+	const maxGraphNodes = 5000
+	const maxGraphEdges = 10000
+
 	// Step 1: 全量拉取节点（仅 id + title，排除 raw_md 等大文本）
 	var cards []struct {
 		ID    string
 		Title string
 	}
-	if err := s.db.Table("cards").Select("id, title").Find(&cards).Error; err != nil {
+	if err := s.db.WithContext(ctx).Table("cards").Select("id, title").Limit(maxGraphNodes).Find(&cards).Error; err != nil {
 		return nil, err
 	}
 
-	// Step 2: 全量拉取所有边
+	// Step 2: 全量拉取所有边（仅必要字段）
 	var allEdges []models.CardEdge
-	if err := s.db.Find(&allEdges).Error; err != nil {
+	if err := s.db.WithContext(ctx).
+		Select("source_id, target_id, relation_type").
+		Limit(maxGraphEdges).
+		Find(&allEdges).Error; err != nil {
 		return nil, err
 	}
 
@@ -244,7 +250,7 @@ func (s *GraphService) GetOutline(ctx context.Context, categoryID string) (*Outl
 
 	// Fetch categories.
 	var categories []models.Category
-	query := s.db.Model(&models.Category{})
+	query := s.db.WithContext(ctx).Model(&models.Category{})
 	if categoryID != "" {
 		query = query.Where("id = ?", categoryID)
 	}
@@ -258,7 +264,7 @@ func (s *GraphService) GetOutline(ctx context.Context, categoryID string) (*Outl
 		Count      int64
 	}
 	var counts []countResult
-	cardCountQuery := s.db.Model(&models.Card{}).
+	cardCountQuery := s.db.WithContext(ctx).Model(&models.Card{}).
 		Select("category_id, count(id) as count").
 		Group("category_id")
 	if categoryID != "" {
@@ -281,7 +287,7 @@ func (s *GraphService) GetOutline(ctx context.Context, categoryID string) (*Outl
 
 	// Fetch recent cards.
 	var cards []models.Card
-	cardQuery := s.db.Model(&models.Card{}).Select("id, title, category_id, created_at").
+	cardQuery := s.db.WithContext(ctx).Model(&models.Card{}).Select("id, title, category_id, created_at").
 		Order("created_at DESC").Limit(50)
 	if categoryID != "" {
 		cardQuery = cardQuery.Where("category_id = ?", categoryID)

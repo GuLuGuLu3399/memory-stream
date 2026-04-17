@@ -149,11 +149,15 @@ impl From<ast_core::error::MSError> for TempleError {
             ast_core::error::MSError::UnknownNodeType(ty) => {
                 TempleError::new(ErrorCode::UnknownNodeType, format!("未知的 AST 节点类型: {ty}"))
             }
+            ast_core::error::MSError::InvalidOperation(msg) => {
+                TempleError::new(ErrorCode::AstRenderFailed, msg)
+            }
         }
     }
 }
 
 // ── ms-storage: StorageError ──
+#[cfg(feature = "native")]
 impl From<ms_storage::StorageError> for TempleError {
     fn from(e: ms_storage::StorageError) -> Self {
         match e {
@@ -177,6 +181,7 @@ impl From<ms_storage::StorageError> for TempleError {
 }
 
 // ── ms-local-draft: DraftError ──
+#[cfg(feature = "native")]
 impl From<ms_local_draft::error::DraftError> for TempleError {
     fn from(e: ms_local_draft::error::DraftError) -> Self {
         match e {
@@ -186,14 +191,15 @@ impl From<ms_local_draft::error::DraftError> for TempleError {
             ms_local_draft::error::DraftError::SqlError(msg) => {
                 TempleError::new(ErrorCode::DraftSqlFailed, msg)
             }
-            ms_local_draft::error::DraftError::TaskPanic => {
-                TempleError::new(ErrorCode::TaskPanic, "线程执行崩溃")
+            ms_local_draft::error::DraftError::TaskPanic { reason } => {
+                TempleError::new(ErrorCode::TaskPanic, format!("线程执行崩溃: {reason}"))
             }
         }
     }
 }
 
 // ── image-compressor: CompressError ──
+#[cfg(feature = "native")]
 impl From<image_compressor::error::CompressError> for TempleError {
     fn from(e: image_compressor::error::CompressError) -> Self {
         match e {
@@ -206,14 +212,18 @@ impl From<image_compressor::error::CompressError> for TempleError {
             image_compressor::error::CompressError::ResizeError(msg) => {
                 TempleError::new(ErrorCode::ImageResizeFailed, msg)
             }
-            image_compressor::error::CompressError::TaskPanic => {
-                TempleError::new(ErrorCode::TaskPanic, "线程执行崩溃")
+            image_compressor::error::CompressError::TaskPanic { reason } => {
+                TempleError::new(ErrorCode::TaskPanic, format!("线程执行崩溃: {reason}"))
+            }
+            image_compressor::error::CompressError::PayloadTooLarge(msg) => {
+                TempleError::new(ErrorCode::ImageDecodeFailed, msg)
             }
         }
     }
 }
 
 // ── ms-kb-exporter: ExportError ──
+#[cfg(feature = "native")]
 impl From<ms_kb_exporter::error::ExportError> for TempleError {
     fn from(e: ms_kb_exporter::error::ExportError) -> Self {
         match e {
@@ -227,8 +237,8 @@ impl From<ms_kb_exporter::error::ExportError> for TempleError {
             ms_kb_exporter::error::ExportError::FetchError(msg) => {
                 TempleError::new(ErrorCode::ExportFetchFailed, msg)
             }
-            ms_kb_exporter::error::ExportError::TaskPanic => {
-                TempleError::new(ErrorCode::TaskPanic, "线程执行崩溃")
+            ms_kb_exporter::error::ExportError::TaskPanic { reason } => {
+                TempleError::new(ErrorCode::TaskPanic, format!("线程执行崩溃: {reason}"))
             }
         }
     }
@@ -243,29 +253,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_error_code_serde() {
+    fn test_error_code_serde() -> Result<(), Box<dyn std::error::Error>> {
         let code = ErrorCode::MarkdownParseFailed;
-        let json = serde_json::to_string(&code).unwrap();
+        let json = serde_json::to_string(&code)?;
         assert_eq!(json, "\"MARKDOWN_PARSE_FAILED\"");
-        let parsed: ErrorCode = serde_json::from_str(&json).unwrap();
+        let parsed: ErrorCode = serde_json::from_str(&json)?;
         assert_eq!(parsed, code);
+        Ok(())
     }
 
     #[test]
-    fn test_temple_error_serialize() {
+    fn test_temple_error_serialize() -> Result<(), Box<dyn std::error::Error>> {
         let err = TempleError::new(ErrorCode::FileNotFound, "test.md 不存在")
             .with_details("path: /vault/test.md");
-        let json = serde_json::to_string(&err).unwrap();
+        let json = serde_json::to_string(&err)?;
         assert!(json.contains("\"code\":\"FILE_NOT_FOUND\""));
         assert!(json.contains("\"message\":\"test.md 不存在\""));
         assert!(json.contains("\"details\":\"path: /vault/test.md\""));
+        Ok(())
     }
 
     #[test]
-    fn test_temple_error_skip_none_details() {
+    fn test_temple_error_skip_none_details() -> Result<(), Box<dyn std::error::Error>> {
         let err = TempleError::new(ErrorCode::CacheNotInitialized, "缓存未初始化");
-        let json = serde_json::to_string(&err).unwrap();
+        let json = serde_json::to_string(&err)?;
         assert!(!json.contains("details"));
+        Ok(())
     }
 
     #[test]
@@ -291,6 +304,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "native")]
     fn test_from_storage_error() {
         let s_err = ms_storage::StorageError::UploadError("timeout".into());
         let temple_err: TempleError = s_err.into();
@@ -298,6 +312,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "native")]
     fn test_from_draft_error() {
         let d_err = ms_local_draft::error::DraftError::SqlError("constraint".into());
         let temple_err: TempleError = d_err.into();
@@ -305,6 +320,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "native")]
     fn test_from_compress_error() {
         let c_err = image_compressor::error::CompressError::DecodeError("corrupt".into());
         let temple_err: TempleError = c_err.into();
@@ -312,6 +328,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "native")]
     fn test_from_export_error() {
         let e_err = ms_kb_exporter::error::ExportError::ZipError("crc mismatch".into());
         let temple_err: TempleError = e_err.into();

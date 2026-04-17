@@ -20,11 +20,6 @@
     ],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: https:; connect-src 'self' ws://localhost:* wss://* https://*; font-src 'self' data:"
-    },
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
-      "id": "main-tray"
     }
   },
   "bundle": {

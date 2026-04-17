@@ -108,23 +108,23 @@ const heatGlow = computed(() => {
 </template>
 
 <style scoped>
-/* ═══ Tokens ═══ */
+/* ═══ Tokens — industrial dark (synced with Admin) ═══ */
 .jade {
-    --bg: #1c1814;
-    --bg-warm: #2a2218;
-    --border: #3a3228;
-    --border-bright: #4a4238;
-    --bone: #e8dfd0;
-    --bone-dim: #c8bfa8;
-    --copper: #3a3228;
-    --copper-light: #4a4238;
-    --ash: #8a7e6e;
-    --smoke: #5a4f3e;
-    --xuepo: #a62626;
-    --xuepo-rgb: 166, 38, 38;
-    --gold: #c9a84c;
-    --gold-rgb: 201, 168, 76;
-    --heat: rgba(201, 168, 76, 0.2);
+    --bg: #1a1a1a;
+    --bg-warm: #2d2d2d;
+    --border: #2a2a2a;
+    --border-bright: #3a3a3a;
+    --bone: #e0e0e0;
+    --bone-dim: #cbd5e1;
+    --copper: #333;
+    --copper-light: #444;
+    --ash: #71717a;
+    --smoke: #555;
+    --neon: #00e5ff;
+    --neon-rgb: 0, 229, 255;
+    --gold: #00e5ff;
+    --gold-rgb: 0, 229, 255;
+    --heat: rgba(0, 229, 255, 0.2);
     --decay-opacity: 1;
 }
 
@@ -139,8 +139,8 @@ const heatGlow = computed(() => {
     opacity: var(--decay-opacity);
 
     background:
-        radial-gradient(ellipse at 25% 0%, rgba(var(--gold-rgb), 0.04) 0%, transparent 50%),
-        #12100c;
+        radial-gradient(ellipse at 25% 0%, rgba(var(--neon-rgb), 0.04) 0%, transparent 50%),
+        #1a1a1a;
 
     border: 1px solid var(--border);
 
@@ -165,7 +165,7 @@ const heatGlow = computed(() => {
     transform: translate(-1px, -1px);
 
     background:
-        radial-gradient(ellipse at 30% 0%, rgba(var(--gold-rgb), 0.09) 0%, transparent 50%),
+        radial-gradient(ellipse at 30% 0%, rgba(var(--neon-rgb), 0.09) 0%, transparent 50%),
         var(--bg-warm);
 
     box-shadow:
@@ -184,23 +184,23 @@ const heatGlow = computed(() => {
     transition: opacity 0.3s ease;
 }
 
-/* Sequence: blood-amber */
+/* Sequence: neon cyan */
 .jade-sequence .accent-line {
-    background: linear-gradient(90deg, transparent, var(--xuepo) 30%, var(--xuepo) 70%, transparent);
+    background: linear-gradient(90deg, transparent, var(--neon) 30%, var(--neon) 70%, transparent);
     opacity: 0.5;
 }
 
 .jade-sequence {
-    border-left: 2px solid rgba(var(--xuepo-rgb), 0.2);
+    border-left: 2px solid rgba(var(--neon-rgb), 0.2);
 }
 
 .jade-sequence:hover {
-    border-left-color: rgba(var(--xuepo-rgb), 0.4);
+    border-left-color: rgba(var(--neon-rgb), 0.4);
 }
 
-/* Reference: gold */
+/* Reference: cool gray accent */
 .jade-reference .accent-line {
-    background: linear-gradient(90deg, transparent, var(--gold) 30%, var(--gold) 70%, transparent);
+    background: linear-gradient(90deg, transparent, var(--border-bright) 30%, var(--border-bright) 70%, transparent);
     opacity: 0.35;
 }
 
@@ -240,7 +240,7 @@ const heatGlow = computed(() => {
     opacity: 1;
     transform: scale(0.85);
     border-color: var(--border);
-    background: rgba(28, 24, 20, 0.9);
+    background: rgba(26, 26, 26, 0.9);
     box-shadow:
         inset 0 1px 0 0 rgba(255, 255, 255, 0.03),
         2px 2px 0 0 rgba(0, 0, 0, 0.5);
@@ -251,14 +251,14 @@ const heatGlow = computed(() => {
     color: var(--ash);
 }
 
-/* ═══ Selected: blood-amber pulse — hard entity shadow ═══ */
+/* ═══ Selected: neon cyan pulse — hard entity shadow ═══ */
 .jade-selected {
-    border-color: var(--xuepo) !important;
+    border-color: var(--neon) !important;
     border-style: solid !important;
     border-left-width: 3px !important;
     box-shadow:
         inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
-        0 0 8px rgba(var(--xuepo-rgb), 0.15),
+        0 0 8px rgba(var(--neon-rgb), 0.2),
         2px 2px 0 0 rgba(0, 0, 0, 0.6) !important;
 }
 
@@ -268,19 +268,19 @@ const heatGlow = computed(() => {
     top: 18%;
     bottom: 18%;
     width: 3px;
-    background: var(--xuepo);
+    background: var(--neon);
     border-radius: 1px;
-    animation: bloodPulse 2s ease-in-out infinite;
+    animation: neonPulse 2s ease-in-out infinite;
 }
 
-@keyframes bloodPulse {
+@keyframes neonPulse {
     0%, 100% {
         opacity: 0.4;
-        box-shadow: 0 0 4px rgba(var(--xuepo-rgb), 0.15);
+        box-shadow: 0 0 4px rgba(var(--neon-rgb), 0.15);
     }
     50% {
         opacity: 1;
-        box-shadow: 0 0 10px rgba(var(--xuepo-rgb), 0.35);
+        box-shadow: 0 0 10px rgba(var(--neon-rgb), 0.35);
     }
 }
 
@@ -351,15 +351,15 @@ const heatGlow = computed(() => {
 }
 
 .copper-ring:hover {
-    background: var(--xuepo);
-    border-color: var(--xuepo);
-    box-shadow: 0 0 6px rgba(var(--xuepo-rgb), 0.3);
+    background: var(--neon);
+    border-color: var(--neon);
+    box-shadow: 0 0 6px rgba(var(--neon-rgb), 0.3);
 }
 
 .ring-lit {
-    background: var(--xuepo) !important;
-    border-color: var(--xuepo) !important;
-    box-shadow: 0 0 8px rgba(var(--xuepo-rgb), 0.4) !important;
+    background: var(--neon) !important;
+    border-color: var(--neon) !important;
+    box-shadow: 0 0 8px rgba(var(--neon-rgb), 0.4) !important;
     opacity: 1 !important;
 }
 

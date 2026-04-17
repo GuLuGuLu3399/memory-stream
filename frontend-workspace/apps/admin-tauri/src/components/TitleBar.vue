@@ -8,7 +8,7 @@ import { Settings, Plus, Merge, FolderCog, PanelLeftClose, PanelLeftOpen } from 
 const appWindow = getCurrentWindow();
 const layoutStore = useLayoutStore();
 const knowledgeStore = useKnowledgeStore();
-const { isLeftDrawerOpen, isCategoryPanelOpen, isMergeConsoleOpen } = storeToRefs(layoutStore);
+const { isLeftDrawerOpen, activeChamber } = storeToRefs(layoutStore);
 
 async function minimize() {
     await appWindow.minimize();
@@ -46,17 +46,18 @@ async function close() {
             </button>
             <button @click="layoutStore.openMergeConsole()" title="概念坍缩引擎"
                 class="w-7 h-7 flex items-center justify-center transition-all"
-                :class="isMergeConsoleOpen ? 'text-amber-400 shadow-[1px_1px_0_0_rgba(0,0,0,0.4)]' : 'text-slate-600 hover:text-amber-400'">
+                :class="activeChamber === 'merge' ? 'text-amber-400 shadow-[1px_1px_0_0_rgba(0,0,0,0.4)]' : 'text-slate-600 hover:text-amber-400'">
                 <Merge :size="14" />
             </button>
             <button @click="layoutStore.openCategoryPanel()" title="分类档案库"
                 class="w-7 h-7 flex items-center justify-center transition-all"
-                :class="isCategoryPanelOpen ? 'text-neon shadow-[1px_1px_0_0_rgba(0,0,0,0.4)]' : 'text-slate-600 hover:text-neon'">
+                :class="activeChamber === 'category' ? 'text-neon shadow-[1px_1px_0_0_rgba(0,0,0,0.4)]' : 'text-slate-600 hover:text-neon'">
                 <FolderCog :size="14" />
             </button>
             <div class="w-px h-4 bg-ms-border mx-1"></div>
             <button @click="layoutStore.openSettings()" title="系统配置"
-                class="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-neon transition-colors">
+                class="w-7 h-7 flex items-center justify-center transition-all"
+                :class="activeChamber === 'settings' ? 'text-neon shadow-[1px_1px_0_0_rgba(0,0,0,0.4)]' : 'text-slate-600 hover:text-neon'">
                 <Settings :size="14" />
             </button>
         </div>

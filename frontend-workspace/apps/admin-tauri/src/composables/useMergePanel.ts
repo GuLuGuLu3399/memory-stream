@@ -8,6 +8,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { MergePreview } from "@memory-stream/types/ipc";
+import { extractMsg } from "./useTempleError";
 
 export interface CardData {
   id: string;
@@ -97,7 +98,7 @@ export function useMergePanel(cards: CardData[]) {
     if (canShowBlastRadius.value && selectedSurvivor.value) {
       await fetchImpactPreview();
     }
-  }, { deep: true });
+  });
 
   // Handlers
   function handleSurvivorSelect(cardId: string) {
@@ -142,7 +143,7 @@ export function useMergePanel(cards: CardData[]) {
       });
       impactResult.value = result;
     } catch (e: unknown) {
-      impactError.value = e instanceof Error ? e.message : String(e);
+      impactError.value = extractMsg(e);
     } finally {
       isLoadingImpact.value = false;
     }
@@ -186,7 +187,7 @@ export function useMergePanel(cards: CardData[]) {
         victimIds: [...selectedVictims.value] as string[],
       };
     } catch (e: unknown) {
-      generalError.value = e instanceof Error ? e.message : String(e);
+      generalError.value = extractMsg(e);
       return { success: false };
     }
   }
@@ -201,7 +202,7 @@ export function useMergePanel(cards: CardData[]) {
         showSuccessToast.value = true;
       }
     } catch (e: unknown) {
-      const errorMsg = e instanceof Error ? e.message : String(e);
+      const errorMsg = extractMsg(e);
       const entry = fileWriteErrors.value.find((w) => w.file === file);
       if (entry) {
         entry.error = errorMsg;

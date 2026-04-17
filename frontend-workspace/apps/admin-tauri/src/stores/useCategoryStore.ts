@@ -10,6 +10,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "./useToast";
+import { extractMsg } from "../composables/useTempleError";
 import { CategoryListResponseSchema } from "../schemas/category";
 import { z } from "zod";
 import type { Category } from "@memory-stream/types";
@@ -41,7 +42,7 @@ export const useCategoryStore = defineStore("category", () => {
     } catch (e) {
       if (e instanceof z.ZodError) {
         // Validation failed – log and toast without blocking
-        console.error("[CategoryStore] Zod validation failed:", e.errors);
+        console.error("[CategoryStore] Zod validation failed:", e.issues);
         useToast().addToast("分类数据格式异常", "error");
       } else {
         console.error("[CategoryStore] loadCategories failed:", e);
@@ -50,18 +51,30 @@ export const useCategoryStore = defineStore("category", () => {
   }
 
   /** 创建新分类 */
-  async function createCategory(name: string, description: string = "") {
+  async function createCategory(
+    name: string,
+    description: string = "",
+    parentId: number | null = null,
+  ): Promise<number | null> {
     const toast = useToast();
     try {
-      await invoke("api_request", {
-        method: "POST",
-        endpoint: "/categories",
-        body: { name, description },
-      });
+      const response = await invoke<{ category?: { id?: number } }>(
+        "api_request",
+        {
+          method: "POST",
+          endpoint: "/categories",
+          body:
+            parentId == null
+              ? { name, description }
+              : { name, description, parent_id: parentId },
+        },
+      );
       toast.addToast("分类已创建 ✓", "success");
       await loadCategories();
+      return response?.category?.id ?? null;
     } catch (e) {
-      toast.addToast("创建分类失败: " + String(e), "error");
+      toast.addToast("创建分类失败: " + extractMsg(e), "error");
+      return null;
     }
   }
 
@@ -82,7 +95,7 @@ export const useCategoryStore = defineStore("category", () => {
       toast.addToast("分类已更新 ✓", "success");
       await loadCategories();
     } catch (e) {
-      toast.addToast("更新分类失败: " + String(e), "error");
+      toast.addToast("更新分类失败: " + extractMsg(e), "error");
     }
   }
 
@@ -97,7 +110,7 @@ export const useCategoryStore = defineStore("category", () => {
       toast.addToast("分类已删除 ✓", "success");
       await loadCategories();
     } catch (e) {
-      toast.addToast("删除分类失败: " + String(e), "error");
+      toast.addToast("删除分类失败: " + extractMsg(e), "error");
     }
   }
 

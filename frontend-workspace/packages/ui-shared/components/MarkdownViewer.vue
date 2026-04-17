@@ -10,10 +10,15 @@ import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
  * 3. Mermaid 流程图渲染 (动态按需加载, 暗色主题 + 可读字号)
  * 4. 图片缩放 (medium-zoom, 神殿黑背景)
  * 5. 锚点跳转拦截 (解决 overflow 容器内 #hash 跳转失效)
+ * 6. 🗡️ Wikilink 事件拦截 (事件委托)
  */
 
 const props = defineProps<{
     htmlContent: string;
+}>();
+
+const emit = defineEmits<{
+    (e: 'wikilink-click', targetId: string): void;
 }>();
 
 const viewerRef = ref<HTMLElement | null>(null);
@@ -32,8 +37,13 @@ let renderId = 0;
 
 async function getShikiHighlighter() {
     if (!highlighter) {
-        const { createHighlighter } = await import('shiki');
+        const [{ createHighlighter }, { createJavaScriptRegexEngine }] = await Promise.all([
+            import('shiki'),
+            import('shiki/engine/javascript')
+        ]);
         highlighter = await createHighlighter({
+            // Use JS regex engine to avoid wasm restrictions under strict production CSP.
+            engine: createJavaScriptRegexEngine(),
             themes: ['vitesse-dark', 'vitesse-light'],
             langs: [
                 // 核心语言
@@ -41,6 +51,8 @@ async function getShikiHighlighter() {
                 // 扩展语言
                 'python', 'java', 'c', 'cpp', 'sql', 'yaml', 'toml', 'shell', 'diff',
                 'dockerfile', 'protobuf', 'regex', 'xml', 'lua', 'nix', 'ini',
+                // 兜底语言（未知语种时不会抛错）
+                'plaintext',
             ]
         });
     }
@@ -119,7 +131,7 @@ async function applyRichTextRendering(container: HTMLElement) {
                 const codeEl = el as HTMLElement;
                 const match = codeEl.className.match(/language-([a-zA-Z0-9+]+)/);
                 const rawLang = match ? match[1] : '';
-                let lang = rawLang ? resolveLang(rawLang) : 'text';
+                let lang = rawLang ? resolveLang(rawLang) : 'plaintext';
 
                 if (rawLang.toLowerCase() === 'mermaid') return;
 
@@ -128,7 +140,7 @@ async function applyRichTextRendering(container: HTMLElement) {
                 const highlightLines = parseHighlightLines(meta);
 
                 if (!loadedLangs.includes(lang)) {
-                    lang = 'text';
+                    lang = 'plaintext';
                 }
 
                 const code = codeEl.textContent || '';
@@ -220,7 +232,7 @@ async function applyRichTextRendering(container: HTMLElement) {
     }
 }
 
-// ========== 锚点跳转拦截 & 复制按钮 ==========
+// ========== 锚点跳转拦截 & 复制按钮 & Wikilink 点击 ==========
 async function handleViewerClick(e: MouseEvent) {
     // 复制按钮处理
     const copyBtn = (e.target as HTMLElement).closest('.code-copy-btn');
@@ -239,6 +251,25 @@ async function handleViewerClick(e: MouseEvent) {
             setTimeout(() => { copyBtn.textContent = '复制'; }, 2000);
         }
         return;
+    }
+
+    // 🗡️ Wikilink 事件委托：检测是否点击了 .wikilink 元素
+    const wikilink = (e.target as HTMLElement).closest('a.wikilink');
+    if (wikilink) {
+        e.preventDefault();
+        
+        // 优先从 data-card-id 获取（Rust 渲染时提供的 UUID）
+        let targetId = (wikilink as HTMLElement).getAttribute('data-card-id');
+        
+        // 如果没有 UUID，则以 data-card-name 作为降级方案
+        if (!targetId) {
+            targetId = (wikilink as HTMLElement).getAttribute('data-card-name');
+        }
+        
+        if (targetId) {
+            emit('wikilink-click', targetId);
+            return;
+        }
     }
 
     // 锚点跳转处理
@@ -297,6 +328,7 @@ onUnmounted(() => {
 .markdown-body .katex-html {
     display: none !important;
 }
+
 /* 行内公式：MathML 必须保持 inline，否则会破坏文本流 */
 .markdown-body .katex-mathml {
     display: inline !important;
@@ -306,14 +338,17 @@ onUnmounted(() => {
     position: static !important;
     clip: auto !important;
 }
+
 /* 块级公式：独立居中显示 */
 .markdown-body .katex-display .katex-mathml {
     display: block !important;
     text-align: center !important;
 }
+
 .markdown-body .katex {
     font-size: 1.1em;
 }
+
 /* 确保行内公式不产生额外间距 */
 .markdown-body .math-inline .katex {
     display: inline;
@@ -576,5 +611,30 @@ onUnmounted(() => {
 
 .prose dd {
     @apply text-zinc-400 mt-1 ml-0;
+}
+
+/* ==================== 🗡️ Wikilink 样式 ==================== */
+/* 给 Wikilink 双向引用一点极客范儿的视觉暗示 */
+.markdown-body .wikilink,
+.prose a.wikilink {
+    @apply text-cyan-400 hover:text-cyan-300 no-underline transition-colors duration-200;
+    border-bottom: 1px dashed rgba(34, 211, 238, 0.5);
+    cursor: pointer;
+}
+
+.markdown-body .wikilink:hover,
+.prose a.wikilink:hover {
+    @apply border-b-cyan-400;
+    background-color: rgba(34, 211, 238, 0.08);
+    border-bottom-style: solid;
+    padding: 0 2px;
+    margin: 0 -2px;
+    border-radius: 2px;
+}
+
+/* 活跃状态：指示当前节点 */
+.markdown-body .wikilink.active,
+.prose a.wikilink.active {
+    @apply text-yellow-300 border-b-yellow-300 bg-yellow-400/20;
 }
 </style>

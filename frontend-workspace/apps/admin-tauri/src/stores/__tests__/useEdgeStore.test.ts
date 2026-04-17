@@ -74,7 +74,7 @@ describe('useEdgeStore', () => {
 
       await expect(store.createEdgeHttp('source-1', 'target-1')).rejects.toThrow()
 
-      expect(addToastSpy).toHaveBeenCalledWith('创建连线失败: Error: Network error', 'error')
+      expect(addToastSpy).toHaveBeenCalledWith('创建连线失败: Network error', 'error')
     })
   })
 
@@ -116,7 +116,7 @@ describe('useEdgeStore', () => {
 
       await expect(store.deleteEdgeHttp('source-1', 'target-1')).rejects.toThrow()
 
-      expect(addToastSpy).toHaveBeenCalledWith('删除连线失败: Error: Delete failed', 'error')
+      expect(addToastSpy).toHaveBeenCalledWith('删除连线失败: Delete failed', 'error')
     })
   })
 
@@ -159,7 +159,7 @@ describe('useEdgeStore', () => {
 
       await expect(store.updateEdgeType('source-1', 'target-1', 'sequence')).rejects.toThrow()
 
-      expect(addToastSpy).toHaveBeenCalledWith('更新连线失败: Error: Update failed', 'error')
+      expect(addToastSpy).toHaveBeenCalledWith('更新连线失败: Update failed', 'error')
     })
   })
 

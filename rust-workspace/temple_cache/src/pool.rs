@@ -1,77 +1,116 @@
-//! DashMap 热数据池 — 高并发内存文档存储
+//! Moka LRU 热数据池 — 带容量边界的并发文档存储
+//!
+//! 使用 moka 并发缓存替代无边界的 DashMap，实现：
+//! - **容量上限**：最多缓存 10,000 篇完整文档
+//! - **TTI 淘汰**：1 小时未访问的冷数据自动回收
+//! - **元数据常驻**：轻量 `DocumentMeta` 不受淘汰影响
 
 use dashmap::DashMap;
+use moka::sync::Cache;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::document::{Document, DocumentMeta};
 
-/// 高并发文档内存池
+/// 默认最大缓存文档数
+const DEFAULT_MAX_CAPACITY: usize = 10_000;
+/// 默认空闲淘汰时间（1 小时）
+const DEFAULT_TTI: Duration = Duration::from_secs(3600);
+
+/// 高并发文档内存池（带 LRU 淘汰）
 ///
-/// 使用 DashMap 实现无锁并发读写，所有文档常驻内存。
-/// Key = 文件绝对路径，Value = Arc<Document>（clone 仅复制指针）。
+/// 采用双层架构：
+/// - **热数据层**（`moka::sync::Cache`）：完整文档，有容量上限和 TTI 淘汰
+/// - **目录层**（`DashMap`）：轻量元数据，常驻内存，用于列表和搜索
+///
+/// 当缓存满时，moka 自动淘汰最近最少使用的文档。
+/// `list_metadata()` 和 `search_by_title()` 始终基于完整目录，
+/// 不受缓存淘汰影响。
 pub struct DocumentPool {
-    docs: Arc<DashMap<String, Arc<Document>>>,
+    /// 热文档缓存（LRU 淘汰，容量受限）
+    cache: Cache<String, Arc<Document>>,
+    /// 轻量元数据目录（常驻，不受淘汰）
+    meta: DashMap<String, DocumentMeta>,
 }
 
 impl DocumentPool {
-    /// 创建空的文档池
+    /// 创建带默认配置的文档池（最大 10,000 篇，1 小时 TTI）
     pub fn new() -> Self {
+        Self::with_capacity(DEFAULT_MAX_CAPACITY)
+    }
+
+    /// 创建指定容量上限的文档池
+    pub fn with_capacity(max_capacity: usize) -> Self {
+        let cache = Cache::builder()
+            .max_capacity(max_capacity as u64)
+            .time_to_idle(DEFAULT_TTI)
+            .build();
         Self {
-            docs: Arc::new(DashMap::new()),
+            cache,
+            meta: DashMap::new(),
         }
     }
 
-    /// 获取单篇文档（Arc clone，零堆分配）
+    /// 获取单篇文档（Arc clone）。如果文档已被 LRU 淘汰则返回 None。
     pub fn get(&self, path: &str) -> Option<Arc<Document>> {
-        self.docs.get(path).map(|r| r.value().clone())
+        self.cache.get(path)
     }
 
-    /// 插入或更新文档
+    /// 插入或更新文档（同时更新热缓存和元数据目录）
     pub fn upsert(&self, doc: Document) {
-        self.docs.insert(doc.path.clone(), Arc::new(doc));
+        let meta = DocumentMeta::from(&doc);
+        let path = doc.path.clone();
+        self.cache.insert(path.clone(), Arc::new(doc));
+        self.meta.insert(path, meta);
     }
 
-    /// 移除文档
+    /// 移除文档（同时从缓存和目录中删除）
     pub fn remove(&self, path: &str) -> Option<Arc<Document>> {
-        self.docs.remove(path).map(|(_, v)| v)
+        let old = self.cache.get(path);
+        self.cache.invalidate(path);
+        self.meta.remove(path);
+        old
     }
 
-    /// 获取所有文档的轻量元数据（列表页使用，零 Document clone）
+    /// 获取所有文档的轻量元数据（基于完整目录，不受缓存淘汰影响）
     pub fn list_metadata(&self) -> Vec<DocumentMeta> {
-        self.docs
-            .iter()
-            .map(|r| DocumentMeta::from(r.value().as_ref()))
-            .collect()
+        self.meta.iter().map(|r| r.value().clone()).collect()
     }
 
-    /// 获取池中文档数量
+    /// 获取已知文档数量（基于元数据目录）
     pub fn len(&self) -> usize {
-        self.docs.len()
+        self.meta.len()
     }
 
     /// 池是否为空
     pub fn is_empty(&self) -> bool {
-        self.docs.is_empty()
+        self.meta.is_empty()
     }
 
-    /// 清空文档池
+    /// 清空文档池（同时清空缓存和目录）
     pub fn clear(&self) {
-        self.docs.clear();
+        self.cache.invalidate_all();
+        self.meta.clear();
     }
 
-    /// 检查文档是否存在
+    /// 检查文档是否存在于目录中
     pub fn contains(&self, path: &str) -> bool {
-        self.docs.contains_key(path)
+        self.meta.contains_key(path)
     }
 
-    /// 按标题模糊搜索（简单的子串匹配，后续由 temple_search 替代）
+    /// 按标题模糊搜索（基于元数据目录，不受缓存淘汰影响）
     pub fn search_by_title(&self, query: &str) -> Vec<DocumentMeta> {
         let query_lower = query.to_lowercase();
-        self.docs
+        self.meta
             .iter()
             .filter(|r| r.value().title.to_lowercase().contains(&query_lower))
-            .map(|r| DocumentMeta::from(r.value().as_ref()))
+            .map(|r| r.value().clone())
             .collect()
+    }
+
+    /// 获取热缓存中的文档数（可能小于目录总数，因为部分已被淘汰）
+    pub fn cache_entry_count(&self) -> u64 {
+        self.cache.entry_count()
     }
 }
 
@@ -100,24 +139,28 @@ mod tests {
     }
 
     #[test]
-    fn test_upsert_and_get() {
+    fn test_upsert_and_get() -> Result<(), Box<dyn std::error::Error>> {
         let pool = DocumentPool::new();
         pool.upsert(test_doc("/vault/test.md", "Test Card"));
 
-        let got = pool.get("/vault/test.md").unwrap();
-        assert_eq!(got.title, "Test Card");
+        let got = pool.get("/vault/test.md");
+        assert!(got.is_some());
+        assert_eq!(got.ok_or("expected Some")?.title, "Test Card");
+        Ok(())
     }
 
     #[test]
-    fn test_remove() {
+    fn test_remove() -> Result<(), Box<dyn std::error::Error>> {
         let pool = DocumentPool::new();
         pool.upsert(test_doc("/vault/a.md", "A"));
         pool.upsert(test_doc("/vault/b.md", "B"));
 
-        let removed = pool.remove("/vault/a.md").unwrap();
-        assert_eq!(removed.title, "A");
+        let removed = pool.remove("/vault/a.md");
+        assert!(removed.is_some());
+        assert_eq!(removed.ok_or("expected Some")?.title, "A");
         assert!(pool.get("/vault/a.md").is_none());
         assert_eq!(pool.len(), 1);
+        Ok(())
     }
 
     #[test]
@@ -147,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn test_concurrent_access() {
+    fn test_concurrent_access() -> Result<(), Box<dyn std::error::Error>> {
         use std::sync::Arc;
         use std::thread;
 
@@ -162,9 +205,34 @@ mod tests {
         }
 
         for h in handles {
-            h.join().unwrap();
+            h.join().map_err(|e| format!("thread panicked: {:?}", e))?;
         }
 
         assert_eq!(pool.len(), 10);
+        Ok(())
+    }
+
+    #[test]
+    fn test_metadata_survives_cache_eviction() {
+        // 创建容量仅为 2 的池
+        let pool = DocumentPool::with_capacity(2);
+        pool.upsert(test_doc("/vault/a.md", "Card A"));
+        pool.upsert(test_doc("/vault/b.md", "Card B"));
+        pool.upsert(test_doc("/vault/c.md", "Card C"));
+
+        // 元数据目录应包含全部 3 篇
+        assert_eq!(pool.len(), 3);
+        let meta = pool.list_metadata();
+        assert_eq!(meta.len(), 3);
+    }
+
+    #[test]
+    fn test_contains_after_remove() {
+        let pool = DocumentPool::new();
+        pool.upsert(test_doc("/vault/a.md", "A"));
+        assert!(pool.contains("/vault/a.md"));
+
+        pool.remove("/vault/a.md");
+        assert!(!pool.contains("/vault/a.md"));
     }
 }

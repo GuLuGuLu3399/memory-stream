@@ -39,7 +39,7 @@ func TestResolveIdentifier_NonRoot(t *testing.T) {
 	svc := NewGraphService(db)
 
 	// Non-root IDs pass through without any SQL
-	id, err := svc.resolveIdentifier("some-card-id")
+	id, err := svc.resolveIdentifier(context.Background(), "some-card-id")
 	assert.NoError(t, err)
 	assert.Equal(t, "some-card-id", id)
 }
@@ -53,7 +53,7 @@ func TestResolveIdentifier_Root_HasOrphanCard(t *testing.T) {
 	mock.ExpectQuery(`SELECT c.id FROM cards c`).
 		WillReturnRows(rows)
 
-	id, err := svc.resolveIdentifier("root")
+	id, err := svc.resolveIdentifier(context.Background(), "root")
 	assert.NoError(t, err)
 	assert.Equal(t, "orphan-card-id", id)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -72,7 +72,7 @@ func TestResolveIdentifier_Root_NoOrphan_FallsBackToEarliest(t *testing.T) {
 	mock.ExpectQuery(`SELECT id FROM cards ORDER BY created_at LIMIT 1`).
 		WillReturnRows(rows)
 
-	id, err := svc.resolveIdentifier("root")
+	id, err := svc.resolveIdentifier(context.Background(), "root")
 	assert.NoError(t, err)
 	assert.Equal(t, "earliest-card-id", id)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -90,7 +90,7 @@ func TestResolveIdentifier_Root_EmptyDatabase(t *testing.T) {
 	mock.ExpectQuery(`SELECT id FROM cards ORDER BY created_at LIMIT 1`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
 
-	id, err := svc.resolveIdentifier("root")
+	id, err := svc.resolveIdentifier(context.Background(), "root")
 	assert.Error(t, err)
 	assert.Equal(t, "knowledge base is empty", err.Error())
 	assert.Empty(t, id)
@@ -112,7 +112,7 @@ func TestGetGraph_NonRoot_EmptyResult(t *testing.T) {
 		WithArgs("card-1").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "title"}).AddRow("card-1", "Test Card"))
 
-	result, err := svc.GetGraph(context.Background(),"card-1", 2)
+	result, err := svc.GetGraph(context.Background(), "card-1", 2)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result.Nodes, 1)
@@ -135,7 +135,7 @@ func TestGetGraph_DepthClamping(t *testing.T) {
 		WithArgs("card-1").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "title"}).AddRow("card-1", "Root"))
 
-	result, err := svc.GetGraph(context.Background(),"card-1", 10)
+	result, err := svc.GetGraph(context.Background(), "card-1", 10)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -164,7 +164,7 @@ func TestGetGraph_WithEdges(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(titleRows)
 
-	result, err := svc.GetGraph(context.Background(),"card-1", 2)
+	result, err := svc.GetGraph(context.Background(), "card-1", 2)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result.Nodes, 3)
@@ -180,7 +180,7 @@ func TestGetGraph_CTEError(t *testing.T) {
 		WithArgs("card-1", 2).
 		WillReturnError(gorm.ErrInvalidDB)
 
-	result, err := svc.GetGraph(context.Background(),"card-1", 2)
+	result, err := svc.GetGraph(context.Background(), "card-1", 2)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -203,7 +203,7 @@ func TestGetAllGraph_Success(t *testing.T) {
 	now := time.Now()
 	edgeRows := sqlmock.NewRows([]string{"source_id", "target_id", "relation_type", "created_at"}).
 		AddRow("card-1", "card-2", "reference", now)
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "card_edges"`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT source_id, target_id, relation_type FROM "card_edges"`)).
 		WillReturnRows(edgeRows)
 
 	result, err := svc.GetAllGraph(context.Background(),)
@@ -238,7 +238,7 @@ func TestGetAllGraph_EdgesDBError(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, title FROM "cards"`)).
 		WillReturnRows(cardRows)
 
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "card_edges"`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT source_id, target_id, relation_type FROM "card_edges"`)).
 		WillReturnError(gorm.ErrInvalidDB)
 
 	result, err := svc.GetAllGraph(context.Background(),)
@@ -254,7 +254,7 @@ func TestGetAllGraph_EmptyDatabase(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, title FROM "cards"`)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "title"}))
 
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "card_edges"`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT source_id, target_id, relation_type FROM "card_edges"`)).
 		WillReturnRows(sqlmock.NewRows([]string{"source_id", "target_id", "relation_type", "created_at"}))
 
 	result, err := svc.GetAllGraph(context.Background(),)

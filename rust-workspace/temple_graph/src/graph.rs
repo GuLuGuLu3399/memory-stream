@@ -10,6 +10,7 @@ use petgraph::visit::{Bfs, EdgeRef};
 
 use temple_core::error::{ErrorCode, TempleError, TempleResult};
 
+use crate::backend::GraphStore;
 use crate::types::{GraphEdge, GraphNode, SubgraphResult};
 
 /// 知识图谱引擎
@@ -182,6 +183,22 @@ impl Default for KnowledgeGraph {
     }
 }
 
+impl GraphStore for KnowledgeGraph {
+    fn add_node(&mut self, node: GraphNode) -> TempleResult<String> {
+        let id = node.id.clone();
+        self.add_node(node);
+        Ok(id)
+    }
+
+    fn add_edge(&mut self, source: &str, target: &str, edge: GraphEdge) -> TempleResult<()> {
+        self.add_edge(source, target, edge)
+    }
+
+    fn get_subgraph(&self, center_id: &str, depth: usize) -> TempleResult<SubgraphResult> {
+        self.subgraph(center_id, depth)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,33 +212,35 @@ mod tests {
     }
 
     #[test]
-    fn test_add_nodes_and_edges() {
+    fn test_add_nodes_and_edges() -> Result<(), Box<dyn std::error::Error>> {
         let mut g = KnowledgeGraph::new();
         g.add_node(make_node("a", "A"));
         g.add_node(make_node("b", "B"));
-        g.add_edge("a", "b", make_edge("a", "b")).unwrap();
+        g.add_edge("a", "b", make_edge("a", "b"))?;
         assert_eq!(g.node_count(), 2);
         assert_eq!(g.edge_count(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_subgraph_bfs() {
+    fn test_subgraph_bfs() -> Result<(), Box<dyn std::error::Error>> {
         let mut g = KnowledgeGraph::new();
         g.add_node(make_node("a", "A"));
         g.add_node(make_node("b", "B"));
         g.add_node(make_node("c", "C"));
         g.add_node(make_node("d", "D"));
-        g.add_edge("a", "b", make_edge("a", "b")).unwrap();
-        g.add_edge("b", "c", make_edge("b", "c")).unwrap();
-        g.add_edge("a", "d", make_edge("a", "d")).unwrap();
+        g.add_edge("a", "b", make_edge("a", "b"))?;
+        g.add_edge("b", "c", make_edge("b", "c"))?;
+        g.add_edge("a", "d", make_edge("a", "d"))?;
 
         // 1 度子图: a → b, d
-        let sg = g.subgraph("a", 1).unwrap();
+        let sg = g.subgraph("a", 1)?;
         assert!(sg.nodes.len() >= 2); // a + at least b or d
 
         // 2 度子图: a → b, d → c
-        let sg2 = g.subgraph("a", 2).unwrap();
+        let sg2 = g.subgraph("a", 2)?;
         assert!(sg2.nodes.len() >= 3);
+        Ok(())
     }
 
     #[test]
@@ -231,31 +250,33 @@ mod tests {
     }
 
     #[test]
-    fn test_topological_layers() {
+    fn test_topological_layers() -> Result<(), Box<dyn std::error::Error>> {
         let mut g = KnowledgeGraph::new();
         g.add_node(make_node("a", "A"));
         g.add_node(make_node("b", "B"));
         g.add_node(make_node("c", "C"));
-        g.add_edge("a", "b", make_edge("a", "b")).unwrap();
-        g.add_edge("b", "c", make_edge("b", "c")).unwrap();
+        g.add_edge("a", "b", make_edge("a", "b"))?;
+        g.add_edge("b", "c", make_edge("b", "c"))?;
 
-        let layers = g.topological_layers().unwrap();
+        let layers = g.topological_layers().ok_or("topological layers failed")?;
         assert_eq!(layers.len(), 3); // layer 0: a, layer 1: b, layer 2: c
         assert!(layers[0].contains(&"a".to_string()));
+        Ok(())
     }
 
     #[test]
-    fn test_degrees() {
+    fn test_degrees() -> Result<(), Box<dyn std::error::Error>> {
         let mut g = KnowledgeGraph::new();
         g.add_node(make_node("a", "A"));
         g.add_node(make_node("b", "B"));
         g.add_node(make_node("c", "C"));
-        g.add_edge("a", "b", make_edge("a", "b")).unwrap();
-        g.add_edge("c", "b", make_edge("c", "b")).unwrap();
+        g.add_edge("a", "b", make_edge("a", "b"))?;
+        g.add_edge("c", "b", make_edge("c", "b"))?;
 
         assert_eq!(g.out_degree("a"), Some(1));
         assert_eq!(g.in_degree("b"), Some(2));
         assert_eq!(g.out_degree("b"), Some(0));
+        Ok(())
     }
 
     #[test]

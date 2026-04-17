@@ -25,6 +25,7 @@ import EntranceAnimation from "./components/EntranceAnimation.vue";
 import { useGraphStore } from "./store/useGraphStore";
 import { useKeyboardNav } from "./composables/useKeyboardNav";
 import { useBreakpoints } from "./composables/useBreakpoints";
+import { silentGuestLogin } from "./api";
 
 const store = useGraphStore();
 const { viewMode, selectedId } = storeToRefs(store);
@@ -32,6 +33,10 @@ const router = useRouter();
 const route = useRoute();
 const { isMobile } = useBreakpoints();
 
+// ── 应用初始化：静默访客登录（无感认证） ──
+silentGuestLogin().catch((err) => {
+  console.error("[App] Guest login failed:", err);
+});
 // ── 全局键盘导航（含 Cmd+K） ──
 useKeyboardNav();
 

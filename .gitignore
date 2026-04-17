@@ -21,3 +21,4 @@ go-server/nul
 .sisyphus/
 .dev-pids
 dist/
+CLAUDE.md

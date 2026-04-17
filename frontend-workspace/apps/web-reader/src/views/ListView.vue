@@ -24,13 +24,45 @@ import DateColumn from './list/DateColumn.vue';
 import ListViewHeader from './list/ListViewHeader.vue';
 
 const store = useGraphStore();
-const { sortBy, selectedId } = storeToRefs(store);
+const { sortBy, selectedId, categoryFilter } = storeToRefs(store);
 const { cardIndex, loadIndex, loading } = useCards();
 const { isMobile } = useBreakpoints();
 
 const searchQuery = ref('');
 const focusedIndex = ref<number>(-1);
 const mobileGap = 20;
+const UNCATEGORIZED_FILTER = '__uncategorized__';
+
+const categoryOptions = computed(() => {
+  const groups = new Map<string, { id: string; name: string; count: number }>();
+
+  for (const card of cardIndex.value) {
+    if (card.category_id == null) {
+      const prev = groups.get(UNCATEGORIZED_FILTER);
+      groups.set(UNCATEGORIZED_FILTER, {
+        id: UNCATEGORIZED_FILTER,
+        name: '未分类',
+        count: (prev?.count ?? 0) + 1,
+      });
+      continue;
+    }
+
+    const id = String(card.category_id);
+    const prev = groups.get(id);
+    groups.set(id, {
+      id,
+      name: card.category_name || `分类 ${id}`,
+      count: (prev?.count ?? 0) + 1,
+    });
+  }
+
+  return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+});
+
+function onCategoryFilterChange(event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  store.setCategoryFilter(value === '' ? null : value);
+}
 
 interface CardRow {
   type: 'card';
@@ -48,6 +80,15 @@ interface CardRow {
 
 const filteredCards = computed(() => {
   let cards = cardIndex.value;
+
+  if (categoryFilter.value) {
+    if (categoryFilter.value === UNCATEGORIZED_FILTER) {
+      cards = cards.filter((card) => card.category_id == null);
+    } else {
+      cards = cards.filter((card) => String(card.category_id ?? '') === categoryFilter.value);
+    }
+  }
+
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
     cards = cards.filter(
@@ -131,7 +172,7 @@ function toggleSort() {
 function handleKeydown(event: KeyboardEvent) {
   // Ignore if typing in input
   if ((event.target as HTMLElement).tagName === 'INPUT' ||
-      (event.target as HTMLElement).tagName === 'TEXTAREA') {
+    (event.target as HTMLElement).tagName === 'TEXTAREA') {
     return;
   }
 
@@ -219,11 +260,9 @@ watchEffect(() => {
 </script>
 
 <template>
-  <div class="list-view bg-ms-xuan h-full flex flex-col pb-0"
-    :class="isMobile ? 'pt-4' : 'pt-8'">
+  <div class="list-view bg-ms-xuan h-full flex flex-col pb-0" :class="isMobile ? 'pt-4' : 'pt-8'">
     <!-- Loading state -->
-    <div v-if="loading" class="flex-1 py-4 space-y-3 max-w-3xl mx-auto w-full"
-      :class="isMobile ? 'px-4' : 'px-8'">
+    <div v-if="loading" class="flex-1 py-4 space-y-3 max-w-3xl mx-auto w-full" :class="isMobile ? 'px-4' : 'px-8'">
       <div v-for="i in 5" :key="i" class="flex items-center gap-4 p-6 rounded-altar border border-ms-copper-light">
         <SkeletonLine width="4px" height="60px" />
         <div class="flex-1 space-y-3">
@@ -244,52 +283,41 @@ watchEffect(() => {
       <!-- Header -->
       <div :class="isMobile ? 'px-4 pb-2 mb-0' : 'max-w-4xl mx-auto px-8'">
         <ListViewHeader />
+        <div class="list-filters" :class="isMobile ? 'mt-2' : 'mt-3'">
+          <label class="list-filters__label" for="category-filter">分类筛选</label>
+          <select id="category-filter" class="list-filters__select" :value="categoryFilter ?? ''"
+            @change="onCategoryFilterChange">
+            <option value="">全部分类</option>
+            <option v-for="item in categoryOptions" :key="item.id" :value="item.id">
+              {{ item.name }} ({{ item.count }})
+            </option>
+          </select>
+        </div>
       </div>
 
       <div :class="isMobile ? 'px-3' : 'max-w-4xl mx-auto'">
         <div :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
-          <div
-            v-for="row in virtualizer.getVirtualItems()"
-            :key="row.index"
-            :style="{
-              position: 'absolute',
-              top: 0,
-              transform: `translateY(${row.start}px)`,
-              width: '100%',
-            }"
-            class="items-start group cursor-pointer w-full transition-all duration-300 ease-out"
-            :class="[
+          <div v-for="row in virtualizer.getVirtualItems()" :key="row.index" :style="{
+            position: 'absolute',
+            top: 0,
+            transform: `translateY(${row.start}px)`,
+            width: '100%',
+          }" class="items-start group cursor-pointer w-full transition-all duration-300 ease-out" :class="[
               isMobile ? 'grid grid-cols-spine-mobile' : 'grid grid-cols-spine hover:-translate-y-0.5',
-            ]"
-            role="button"
-            tabindex="0"
-            @click="handleCardClick(row.index, $event)"
-            @keyup.enter="handleCardClick(row.index, $event)"
-          >
+            ]" role="button" tabindex="0" @click="handleCardClick(row.index, $event)"
+            @keyup.enter="handleCardClick(row.index, $event)">
             <!-- Column 1: DateColumn (desktop only) -->
-            <DateColumn
-              v-if="!isMobile"
-              :date-label="getRow(row.index)?.dateLabel || ''"
-              :is-active="getRow(row.index)?.isFirstInDay || false"
-            />
+            <DateColumn v-if="!isMobile" :date-label="getRow(row.index)?.dateLabel || ''"
+              :is-active="getRow(row.index)?.isFirstInDay || false" />
 
             <!-- Column 2: SpineNode (desktop only) -->
-            <SpineNode
-              v-if="!isMobile"
-              :is-genesis="getRow(row.index)?.isFirstInDay || false"
-              :date="getRow(row.index)?.data?.updated_at"
-              :is-selected="selectedId === getRow(row.index)?.data?.id"
-            />
+            <SpineNode v-if="!isMobile" :is-genesis="getRow(row.index)?.isFirstInDay || false"
+              :date="getRow(row.index)?.data?.updated_at" :is-selected="selectedId === getRow(row.index)?.data?.id" />
 
             <!-- Column 3: ListCardRow -->
-            <ListCardRow
-              v-if="getRow(row.index)?.data"
-              :card="getRow(row.index)!.data"
-              :is-selected="selectedId === getRow(row.index)!.data.id"
-              :is-active="focusedIndex === row.index"
-              :is-mobile="isMobile"
-              @select="selectCard(getRow(row.index)!.data.id)"
-            />
+            <ListCardRow v-if="getRow(row.index)?.data" :card="getRow(row.index)!.data"
+              :is-selected="selectedId === getRow(row.index)!.data.id" :is-active="focusedIndex === row.index"
+              :is-mobile="isMobile" @select="selectCard(getRow(row.index)!.data.id)" />
           </div>
         </div>
       </div>
@@ -297,38 +325,60 @@ watchEffect(() => {
 
     <!-- Empty state -->
     <div v-else class="flex-1 flex items-center justify-center">
-      <EmptyState
-        :title="searchQuery ? '没有找到匹配的卡片' : '记忆流是空的'"
-        :description="!searchQuery ? '快去桌面端写几张卡片吧。创建卡片后图谱会自动生成。' : undefined"
-      />
+      <EmptyState :title="searchQuery ? '没有找到匹配的卡片' : '记忆流是空的'"
+        :description="!searchQuery ? '快去桌面端写几张卡片吧。创建卡片后图谱会自动生成。' : undefined" />
     </div>
 
     <!-- 灵签长条 -->
-    <StatsWidget
-      v-if="filteredCards.length > 0"
-      :total-nodes="filteredCards.length"
-      :today-count="todayCount"
-      :avg-hot="avgHot"
-      :sort-label="sortLabel"
-      :sparkline-data="filteredCards.slice(0, 20).map(c => c.hot_score || 0)"
-      @toggle-sort="toggleSort"
-    />
+    <StatsWidget v-if="filteredCards.length > 0" :total-nodes="filteredCards.length" :today-count="todayCount"
+      :avg-hot="avgHot" :sort-label="sortLabel" :sparkline-data="filteredCards.slice(0, 20).map(c => c.hot_score || 0)"
+      @toggle-sort="toggleSort" />
   </div>
 </template>
 
 <style scoped>
+.list-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.list-filters__label {
+  font-size: 12px;
+  color: #a1a1aa;
+  letter-spacing: 0.04em;
+}
+
+.list-filters__select {
+  appearance: none;
+  min-width: 180px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(201, 168, 76, 0.28);
+  border-radius: 6px;
+  background: #141416;
+  color: #e4e4e7;
+  font-size: 12px;
+}
+
+.list-filters__select:focus {
+  outline: none;
+  border-color: rgba(201, 168, 76, 0.6);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.15);
+}
+
 /* ── Spine beam — 血珀香柱光柱 ── */
 .spine-beam {
-    background:
-        radial-gradient(ellipse 30% 100% at 50% 50%,
-            rgba(166, 38, 38, 0.04) 0%,
-            rgba(166, 38, 38, 0.08) 50%,
-            transparent 100%),
-        linear-gradient(180deg,
-            transparent 0%,
-            rgba(166, 38, 38, 0.03) 10%,
-            rgba(166, 38, 38, 0.05) 50%,
-            rgba(166, 38, 38, 0.03) 90%,
-            transparent 100%);
+  background:
+    radial-gradient(ellipse 30% 100% at 50% 50%,
+      rgba(166, 38, 38, 0.04) 0%,
+      rgba(166, 38, 38, 0.08) 50%,
+      transparent 100%),
+    linear-gradient(180deg,
+      transparent 0%,
+      rgba(166, 38, 38, 0.03) 10%,
+      rgba(166, 38, 38, 0.05) 50%,
+      rgba(166, 38, 38, 0.03) 90%,
+      transparent 100%);
 }
 </style>

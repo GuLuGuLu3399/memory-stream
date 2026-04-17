@@ -1,3 +1,5 @@
+#![cfg(feature = "native")]
+
 mod error;
 
 pub use error::{StorageError, StorageResult};
@@ -136,8 +138,8 @@ mod tests {
     }
 
     #[test]
-    fn test_config_deserialize_full() {
-        let config: StorageConfig = serde_json::from_str(sample_config_json()).unwrap();
+    fn test_config_deserialize_full() -> Result<(), Box<dyn std::error::Error>> {
+        let config: StorageConfig = serde_json::from_str(sample_config_json())?;
         assert_eq!(config.endpoint, "https://s3.example.com");
         assert_eq!(config.region, "us-east-1");
         assert_eq!(config.bucket, "test-bucket");
@@ -145,10 +147,11 @@ mod tests {
         assert_eq!(config.secret_key, "secret123");
         assert_eq!(config.public_url_base, Some("https://cdn.example.com".to_string()));
         assert!(config.use_path_style);
+        Ok(())
     }
 
     #[test]
-    fn test_config_deserialize_minimal() {
+    fn test_config_deserialize_minimal() -> Result<(), Box<dyn std::error::Error>> {
         // use_path_style defaults to false, public_url_base is None
         let json = r#"{
             "endpoint": "http://localhost:9000",
@@ -157,10 +160,11 @@ mod tests {
             "access_key": "minioadmin",
             "secret_key": "minioadmin"
         }"#;
-        let config: StorageConfig = serde_json::from_str(json).unwrap();
+        let config: StorageConfig = serde_json::from_str(json)?;
         assert_eq!(config.endpoint, "http://localhost:9000");
         assert!(config.public_url_base.is_none());
         assert!(!config.use_path_style);
+        Ok(())
     }
 
     #[test]
@@ -174,11 +178,11 @@ mod tests {
     }
 
     #[test]
-    fn test_config_round_trip() {
+    fn test_config_round_trip() -> Result<(), Box<dyn std::error::Error>> {
         // StorageConfig only has Deserialize, so we round-trip by re-deserializing
         // the same JSON and comparing all fields.
-        let a: StorageConfig = serde_json::from_str(sample_config_json()).unwrap();
-        let b: StorageConfig = serde_json::from_str(sample_config_json()).unwrap();
+        let a: StorageConfig = serde_json::from_str(sample_config_json())?;
+        let b: StorageConfig = serde_json::from_str(sample_config_json())?;
 
         assert_eq!(a.endpoint, b.endpoint);
         assert_eq!(a.region, b.region);
@@ -187,11 +191,12 @@ mod tests {
         assert_eq!(a.secret_key, b.secret_key);
         assert_eq!(a.public_url_base, b.public_url_base);
         assert_eq!(a.use_path_style, b.use_path_style);
+        Ok(())
     }
 
     #[test]
-    fn test_config_clone_equals() {
-        let config: StorageConfig = serde_json::from_str(sample_config_json()).unwrap();
+    fn test_config_clone_equals() -> Result<(), Box<dyn std::error::Error>> {
+        let config: StorageConfig = serde_json::from_str(sample_config_json())?;
         let cloned = config.clone();
         assert_eq!(cloned.endpoint, config.endpoint);
         assert_eq!(cloned.region, config.region);
@@ -200,16 +205,18 @@ mod tests {
         assert_eq!(cloned.secret_key, config.secret_key);
         assert_eq!(cloned.public_url_base, config.public_url_base);
         assert_eq!(cloned.use_path_style, config.use_path_style);
+        Ok(())
     }
 
     #[test]
-    fn test_config_debug_format() {
-        let config: StorageConfig = serde_json::from_str(sample_config_json()).unwrap();
+    fn test_config_debug_format() -> Result<(), Box<dyn std::error::Error>> {
+        let config: StorageConfig = serde_json::from_str(sample_config_json())?;
         let debug_str = format!("{config:?}");
         // Debug output should contain field names
         assert!(debug_str.contains("endpoint"));
         assert!(debug_str.contains("region"));
         assert!(debug_str.contains("bucket"));
+        Ok(())
     }
 
     // ---------------------------------------------------------------------------
@@ -406,7 +413,7 @@ mod tests {
     impl StorageProvider for MockStorage {
         async fn upload(&self, key: &str, data: &[u8], _content_type: &str) -> StorageResult<String> {
             {
-                let mut store = self.store.lock().unwrap();
+                let mut store = self.store.lock().expect("mock lock poisoned");
                 store.insert(key.to_string(), data.to_vec());
             }
             Ok(self.get_url(key).await)
@@ -414,7 +421,7 @@ mod tests {
 
         async fn delete(&self, key: &str) -> StorageResult<()> {
             {
-                let mut store = self.store.lock().unwrap();
+                let mut store = self.store.lock().expect("mock lock poisoned");
                 store.remove(key);
             }
             Ok(())
@@ -425,46 +432,49 @@ mod tests {
         }
 
         async fn exists(&self, key: &str) -> StorageResult<bool> {
-            let store = self.store.lock().unwrap();
+            let store = self.store.lock().expect("mock lock poisoned");
             Ok(store.contains_key(key))
         }
     }
 
     #[tokio::test]
-    async fn test_mock_upload_returns_url() {
+    async fn test_mock_upload_returns_url() -> Result<(), Box<dyn std::error::Error>> {
         let mock = MockStorage::new("https://cdn.example.com");
         let url = mock.upload("images/photo.png", b"png-data", "image/png")
-            .await
-            .unwrap();
+            .await?;
         assert_eq!(url, "https://cdn.example.com/images/photo.png");
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_mock_upload_stores_data() {
+    async fn test_mock_upload_stores_data() -> Result<(), Box<dyn std::error::Error>> {
         let mock = MockStorage::new("https://cdn.example.com");
-        mock.upload("file.txt", b"hello world", "text/plain").await.unwrap();
+        mock.upload("file.txt", b"hello world", "text/plain").await?;
 
-        let store = mock.store.lock().unwrap();
+        let store = mock.store.lock().expect("mock lock poisoned");
         assert_eq!(store.get("file.txt"), Some(&b"hello world".to_vec()));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_mock_exists_after_upload() {
+    async fn test_mock_exists_after_upload() -> Result<(), Box<dyn std::error::Error>> {
         let mock = MockStorage::new("https://cdn.example.com");
-        assert!(!mock.exists("key").await.unwrap());
+        assert!(!mock.exists("key").await?);
 
-        mock.upload("key", b"data", "application/octet-stream").await.unwrap();
-        assert!(mock.exists("key").await.unwrap());
+        mock.upload("key", b"data", "application/octet-stream").await?;
+        assert!(mock.exists("key").await?);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_mock_not_exists_after_delete() {
+    async fn test_mock_not_exists_after_delete() -> Result<(), Box<dyn std::error::Error>> {
         let mock = MockStorage::new("https://cdn.example.com");
-        mock.upload("key", b"data", "text/plain").await.unwrap();
-        assert!(mock.exists("key").await.unwrap());
+        mock.upload("key", b"data", "text/plain").await?;
+        assert!(mock.exists("key").await?);
 
-        mock.delete("key").await.unwrap();
-        assert!(!mock.exists("key").await.unwrap());
+        mock.delete("key").await?;
+        assert!(!mock.exists("key").await?);
+        Ok(())
     }
 
     #[tokio::test]
@@ -483,30 +493,31 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_mock_upload_empty_data() {
+    async fn test_mock_upload_empty_data() -> Result<(), Box<dyn std::error::Error>> {
         let mock = MockStorage::new("https://cdn.example.com");
         let url = mock.upload("empty.dat", b"", "application/octet-stream")
-            .await
-            .unwrap();
+            .await?;
         assert_eq!(url, "https://cdn.example.com/empty.dat");
-        assert!(mock.exists("empty.dat").await.unwrap());
+        assert!(mock.exists("empty.dat").await?);
 
-        let store = mock.store.lock().unwrap();
+        let store = mock.store.lock().expect("mock lock poisoned");
         assert_eq!(store.get("empty.dat"), Some(&Vec::<u8>::new()));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_mock_upload_overwrites() {
+    async fn test_mock_upload_overwrites() -> Result<(), Box<dyn std::error::Error>> {
         let mock = MockStorage::new("https://cdn.example.com");
-        mock.upload("key", b"v1", "text/plain").await.unwrap();
-        mock.upload("key", b"v2", "text/plain").await.unwrap();
+        mock.upload("key", b"v1", "text/plain").await?;
+        mock.upload("key", b"v2", "text/plain").await?;
 
-        let store = mock.store.lock().unwrap();
+        let store = mock.store.lock().expect("mock lock poisoned");
         assert_eq!(store.get("key"), Some(&b"v2".to_vec()));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_mock_multiple_keys() {
+    async fn test_mock_multiple_keys() -> Result<(), Box<dyn std::error::Error>> {
         let mock = MockStorage::new("https://cdn.example.com");
         for i in 0..10 {
             mock.upload(
@@ -514,25 +525,26 @@ mod tests {
                 format!("data-{i}").as_bytes(),
                 "text/plain",
             )
-            .await
-            .unwrap();
+            .await?;
         }
 
         for i in 0..10 {
-            assert!(mock.exists(&format!("key-{i}")).await.unwrap());
+            assert!(mock.exists(&format!("key-{i}")).await?);
         }
-        assert!(!mock.exists("key-10").await.unwrap());
+        assert!(!mock.exists("key-10").await?);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_mock_special_characters_in_key() {
+    async fn test_mock_special_characters_in_key() -> Result<(), Box<dyn std::error::Error>> {
         let mock = MockStorage::new("https://cdn.example.com");
         let key = "path/to/file with spaces/日本語.md";
-        mock.upload(key, b"special", "text/plain").await.unwrap();
-        assert!(mock.exists(key).await.unwrap());
+        mock.upload(key, b"special", "text/plain").await?;
+        assert!(mock.exists(key).await?);
 
         let url = mock.get_url(key).await;
         assert!(url.contains(key));
+        Ok(())
     }
 
     // ---------------------------------------------------------------------------
@@ -560,18 +572,20 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[tokio::test]
-    async fn test_trait_object_upload_and_exists() {
+    async fn test_trait_object_upload_and_exists() -> Result<(), Box<dyn std::error::Error>> {
         let mock: Box<dyn StorageProvider> = Box::new(MockStorage::new("https://cdn.example.com"));
-        let url = mock.upload("test", b"data", "text/plain").await.unwrap();
+        let url = mock.upload("test", b"data", "text/plain").await?;
         assert_eq!(url, "https://cdn.example.com/test");
-        assert!(mock.exists("test").await.unwrap());
+        assert!(mock.exists("test").await?);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_trait_object_delete() {
+    async fn test_trait_object_delete() -> Result<(), Box<dyn std::error::Error>> {
         let mock: Box<dyn StorageProvider> = Box::new(MockStorage::new("https://cdn.example.com"));
-        mock.upload("test", b"data", "text/plain").await.unwrap();
-        mock.delete("test").await.unwrap();
-        assert!(!mock.exists("test").await.unwrap());
+        mock.upload("test", b"data", "text/plain").await?;
+        mock.delete("test").await?;
+        assert!(!mock.exists("test").await?);
+        Ok(())
     }
 }

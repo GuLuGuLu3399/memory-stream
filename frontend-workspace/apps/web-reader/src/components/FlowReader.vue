@@ -9,10 +9,11 @@
  */
 
 import { ref, watch, computed, nextTick } from "vue";
-import { ChevronLeft, ChevronRight, BookOpen } from "lucide-vue-next";
+import { ChevronLeft, ChevronRight, BookOpen, X } from "lucide-vue-next";
 import MarkdownViewer from "@memory-stream/ui-shared/components/MarkdownViewer.vue";
 import SkeletonBlock from "@memory-stream/ui-shared/components/SkeletonBlock.vue";
 import { useCards } from "../composables/useCards";
+import { resolveWikilinkTarget } from "../composables/useWikilinkNavigation";
 import type { CardDetail } from "../composables/useCards";
 
 const props = defineProps<{
@@ -32,6 +33,8 @@ const cards = ref<Map<string, CardDetail>>(new Map());
 const loading = ref(false);
 const currentIndex = ref(0);
 const scrollContainer = ref<HTMLElement | null>(null);
+const touchStartX = ref(0);
+const touchDeltaX = ref(0);
 
 const currentNode = computed(() => {
     const id = props.chainIds[currentIndex.value];
@@ -110,16 +113,57 @@ function handleKeydown(e: KeyboardEvent) {
     if (e.key === "ArrowLeft") goPrev();
     if (e.key === "ArrowRight") goNext();
 }
+
+function onTouchStart(e: TouchEvent) {
+    touchStartX.value = e.changedTouches[0]?.clientX ?? 0;
+    touchDeltaX.value = 0;
+}
+
+function onTouchMove(e: TouchEvent) {
+    const currentX = e.changedTouches[0]?.clientX ?? touchStartX.value;
+    touchDeltaX.value = currentX - touchStartX.value;
+}
+
+function onTouchEnd() {
+    if (touchDeltaX.value <= -50) {
+        goNext();
+    } else if (touchDeltaX.value >= 50) {
+        goPrev();
+    }
+    touchDeltaX.value = 0;
+}
+
+// 🗡️ Wikilink 点击：导航到目标卡片
+async function onWikilinkClick(targetId: string) {
+    const resolvedId = await resolveWikilinkTarget(targetId);
+    if (!resolvedId) return;
+
+    const idx = props.chainIds.indexOf(resolvedId);
+    if (idx >= 0) {
+        goTo(idx);
+    } else {
+        // 如果不在当前 chain 中，也可以直接导航（由父组件决定）
+        emit('navigate', resolvedId);
+    }
+}
 </script>
 
 <template>
     <Transition name="flow-slide">
-        <div
-            v-if="open"
-            class="flow-reader"
-            tabindex="0"
-            @keydown="handleKeydown"
-        >
+        <div v-if="open" class="flow-reader z-fullscreen" tabindex="0" @keydown="handleKeydown"
+            @touchstart.passive="onTouchStart" @touchmove.passive="onTouchMove" @touchend.passive="onTouchEnd">
+            <!-- 禅系金缮顶线 -->
+            <div class="flow-zen-topline">
+                <svg class="flow-brush-svg" viewBox="0 0 1200 2" preserveAspectRatio="none">
+                    <path class="flow-brush-path" d="M 0 1 Q 300 1, 600 1 T 1200 1" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" />
+                </svg>
+            </div>
+
+            <!-- 禅系边缘导线 -->
+            <div class="flow-guideline-left"></div>
+            <div class="flow-guideline-right"></div>
+
             <!-- 顶栏 -->
             <div class="flow-header">
                 <div class="flow-header__left">
@@ -130,19 +174,14 @@ function handleKeydown(e: KeyboardEvent) {
                     </span>
                 </div>
                 <div class="flow-header__right">
-                    <button
-                        class="flow-nav-btn"
-                        :disabled="!hasPrev"
-                        @click="goPrev"
-                    >
+                    <button class="flow-nav-btn" :disabled="!hasPrev" @click="goPrev">
                         <ChevronLeft :size="16" />
                     </button>
-                    <button
-                        class="flow-nav-btn"
-                        :disabled="!hasNext"
-                        @click="goNext"
-                    >
+                    <button class="flow-nav-btn" :disabled="!hasNext" @click="goNext">
                         <ChevronRight :size="16" />
+                    </button>
+                    <button class="flow-close-btn" @click="close">
+                        <X :size="16" />
                     </button>
                 </div>
             </div>
@@ -167,17 +206,12 @@ function handleKeydown(e: KeyboardEvent) {
 
                     <!-- 卡片序号指示 -->
                     <div v-if="totalCount > 1" class="flow-chain-dots">
-                        <button
-                            v-for="(_, idx) in chainIds"
-                            :key="idx"
-                            class="flow-chain-dot"
-                            :class="{ 'flow-chain-dot--active': idx === currentIndex }"
-                            @click="goTo(idx)"
-                        />
+                        <button v-for="(id, idx) in chainIds" :key="id" class="flow-chain-dot"
+                            :class="{ 'flow-chain-dot--active': idx === currentIndex }" @click="goTo(idx)" />
                     </div>
 
                     <!-- Markdown 渲染 -->
-                    <MarkdownViewer :html-content="currentNode.html" />
+                    <MarkdownViewer :html-content="currentNode.html" @wikilink-click="onWikilinkClick" />
                 </div>
 
                 <!-- 空态 -->
@@ -188,11 +222,9 @@ function handleKeydown(e: KeyboardEvent) {
 
             <!-- 底栏：进度条 -->
             <div v-if="totalCount > 1" class="flow-progress">
-                <div
-                    class="flow-progress__bar"
-                    :style="{ width: `${((currentIndex + 1) / totalCount) * 100}%` }"
-                />
+                <div class="flow-progress__fill" :style="{ width: `${((currentIndex + 1) / totalCount) * 100}%` }" />
             </div>
+
         </div>
     </Transition>
 </template>
@@ -202,11 +234,22 @@ function handleKeydown(e: KeyboardEvent) {
 .flow-reader {
     position: fixed;
     inset: 0;
-    z-index: 50;
     display: flex;
     flex-direction: column;
     background: theme("colors.ms-xuan");
     outline: none;
+    height: 100dvh;
+    isolation: isolate;
+}
+
+/* ── 禅系暗场 ── */
+.flow-reader::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 50%, rgba(10, 8, 6, 0.38) 100%);
 }
 
 /* ═══ 顶栏 ═══ */
@@ -215,9 +258,11 @@ function handleKeydown(e: KeyboardEvent) {
     align-items: center;
     justify-content: space-between;
     padding: 12px 20px;
-    background: theme("colors.ms-mo");
-    border-bottom: 1px solid theme("colors.ms-copper");
+    background: rgba(22, 20, 17, 0.88);
+    border-bottom: 1px solid rgba(201, 168, 76, 0.16);
     flex-shrink: 0;
+    position: relative;
+    z-index: 2;
 }
 
 .flow-header__left {
@@ -276,25 +321,89 @@ function handleKeydown(e: KeyboardEvent) {
     cursor: not-allowed;
 }
 
+.flow-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    color: theme("colors.ms-bone");
+    background: rgba(166, 38, 38, 0.18);
+    border: 1px solid rgba(166, 38, 38, 0.45);
+    border-radius: 2px;
+}
+
 /* ═══ 金缮分割线 ═══ */
 .flow-gold-rule {
     height: 1px;
     flex-shrink: 0;
-    background: linear-gradient(
-        90deg,
-        transparent 0%,
-        theme("colors.ms-gold") 20%,
-        theme("colors.ms-gold-dim") 50%,
-        theme("colors.ms-gold") 80%,
-        transparent 100%
-    );
+    position: relative;
+    z-index: 2;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            theme("colors.ms-gold") 20%,
+            theme("colors.ms-gold-dim") 50%,
+            theme("colors.ms-gold") 80%,
+            transparent 100%);
 }
+
+/* ── 禅系笔触顶线 ── */
+.flow-zen-topline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 3;
+    overflow: hidden;
+}
+
+.flow-brush-svg {
+    width: 100%;
+    height: 100%;
+    color: theme("colors.ms-gold");
+}
+
+.flow-brush-path {
+    stroke-dasharray: 1200;
+    stroke-dashoffset: 1200;
+    animation: flow-brush-draw 2.2s cubic-bezier(0.37, 0, 0.63, 1) forwards;
+}
+
+/* ── 禅系边缘导线 ── */
+.flow-guideline-left,
+.flow-guideline-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    z-index: 1;
+    background: linear-gradient(180deg,
+            transparent 0%,
+            rgba(166, 38, 38, 0.1) 8%,
+            rgba(166, 38, 38, 0.16) 35%,
+            rgba(166, 38, 38, 0.1) 72%,
+            transparent 100%);
+}
+
+.flow-guideline-left {
+    left: 14px;
+}
+
+.flow-guideline-right {
+    right: 14px;
+}
+
 
 /* ═══ 内容区 ═══ */
 .flow-body {
     flex: 1;
     overflow-y: auto;
     padding: 32px 40px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    position: relative;
+    z-index: 2;
 }
 
 .flow-loading {
@@ -363,12 +472,54 @@ function handleKeydown(e: KeyboardEvent) {
     height: 2px;
     background: theme("colors.ms-mo");
     flex-shrink: 0;
+    position: relative;
+    z-index: 2;
 }
 
-.flow-progress__bar {
+.flow-progress__fill {
     height: 100%;
-    background: linear-gradient(90deg, theme("colors.xuepo.DEFAULT"), theme("colors.ms-gold"));
+    background: linear-gradient(90deg, rgba(166, 38, 38, 0.9), rgba(201, 168, 76, 0.95));
     transition: width 0.3s ease;
+}
+
+@media (max-width: 900px) {
+    .flow-header {
+        padding: 10px 12px;
+    }
+
+    .flow-header__label,
+    .flow-header__counter {
+        font-size: 11px;
+    }
+
+    .flow-body {
+        padding: 18px 14px calc(18px + env(safe-area-inset-bottom));
+    }
+
+    .flow-card-title {
+        font-size: 18px;
+        margin-bottom: 16px;
+    }
+
+    .flow-chain-dots {
+        gap: 8px;
+        margin-bottom: 20px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+
+    .flow-chain-dot {
+        min-width: 8px;
+        width: 8px;
+        height: 8px;
+    }
+
+}
+
+@keyframes flow-brush-draw {
+    to {
+        stroke-dashoffset: 0;
+    }
 }
 
 /* ═══ Transition ═══ */

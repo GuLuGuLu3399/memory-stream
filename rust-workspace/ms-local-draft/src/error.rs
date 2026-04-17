@@ -8,8 +8,8 @@ pub enum DraftError {
     #[error("SQL 执行失败: {0}")]
     SqlError(String),
 
-    #[error("线程执行崩溃")]
-    TaskPanic,
+    #[error("Blocking task panicked: {reason}")]
+    TaskPanic { reason: String },
 }
 
 pub type DraftResult<T> = Result<T, DraftError>;

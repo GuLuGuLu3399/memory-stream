@@ -52,6 +52,14 @@ export function parseTempleError(e: unknown): TempleError {
     return e as TempleError
   }
 
+  // Error 实例或其他带 message 的对象
+  if (e instanceof Error) {
+    return { code: 'UNKNOWN', message: e.message }
+  }
+  if (e && typeof e === 'object' && 'message' in e) {
+    return { code: 'UNKNOWN', message: String((e as { message: unknown }).message) }
+  }
+
   return { code: 'UNKNOWN', message: String(e) }
 }
 
@@ -65,4 +73,9 @@ export function formatErrorMessage(e: unknown): string {
   const err = parseTempleError(e)
   const display = getErrorDisplay(err)
   return `${display.title}: ${err.message}`
+}
+
+/** 从任意错误中提取纯消息文本（不加前缀，用于已有前缀的 toast） */
+export function extractMsg(e: unknown): string {
+  return parseTempleError(e).message
 }

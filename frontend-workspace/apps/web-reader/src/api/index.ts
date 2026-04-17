@@ -370,9 +370,42 @@ export interface CardMetrics {
 }
 
 /** 包含关联数据的卡片详情（后端返回的完整结构） */
+/** AST 节点类型（与 Rust ast-core 对齐，包含 Wikilink） */
+export type AstNodeType =
+  | "Root"
+  | "Heading"
+  | "Paragraph"
+  | "Text"
+  | "InlineCode"
+  | "CodeBlock"
+  | "Link"
+  | "Image"
+  | "Math"
+  | "Blockquote"
+  | "List"
+  | "ListItem"
+  | "ThematicBreak"
+  | "Strong"
+  | "Emphasis"
+  | "Table"
+  | "TableHead"
+  | "TableRow"
+  | "TableCell"
+  | "Strikethrough"
+  | "TaskListMarker"
+  | "FootnoteDefinition"
+  | "FootnoteReference"
+  | "DefinitionList"
+  | "DefinitionListTitle"
+  | "DefinitionListDefinition"
+  | "Wikilink";
+
 /** AST 数据结构 — 解析后的 JSON 对象 */
 export interface AstData {
+  type?: AstNodeType;
   children?: AstData[];
+  target?: string;
+  alias?: string | null;
   [key: string]: unknown;
 }
 
@@ -382,6 +415,7 @@ export interface CardWithRelations {
   raw_md: string;
   excerpt: string;
   ast_data: AstData | null;
+  toc_data?: unknown[] | null;
   category_id?: number | null;
   created_at: string;
   updated_at: string;

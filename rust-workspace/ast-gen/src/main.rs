@@ -4,6 +4,11 @@
 //! 默认写入 ../../go-server/migration/sql/009_seed_ast_data.sql
 
 use std::fmt::Write;
+use std::io;
+
+fn io_action_err(action: &str, err: impl std::fmt::Display) -> io::Error {
+    io::Error::other(format!("ast-gen::{action} 失败: {err}"))
+}
 
 struct SeedCard {
     id: &'static str,
@@ -12,7 +17,7 @@ struct SeedCard {
 
 // CC-理由: 主函数包含多个种子卡片定义，拆分会降低可读性
 #[allow(clippy::too_many_lines)]
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_path = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "../../go-server/migration/sql/009_seed_ast_data.sql".to_string());
@@ -133,13 +138,15 @@ CREATE INDEX idx_cards_id ON cards(id);
     for card in &cards {
         match md_parser::parse_markdown(card.raw_md) {
             Ok(ast) => {
-                let ast_json = serde_json::to_string(&ast).unwrap();
+                let ast_json = serde_json::to_string(&ast)
+                    .map_err(|e| io_action_err(&format!("serialize_ast[{}]", card.id), e))?;
                 let escaped = ast_json.replace('\'', "''");
                 writeln!(
                     sql,
                     "UPDATE cards SET ast_data = '{}'::JSONB WHERE id = '{}'::UUID;",
                     escaped, card.id
-                ).unwrap();
+                )
+                .map_err(|e| io_action_err(&format!("build_sql[{}]", card.id), e))?;
             }
             Err(e) => {
                 eprintln!("-- ❌ 解析失败 [{}]: {}", card.id, e);
@@ -149,6 +156,9 @@ CREATE INDEX idx_cards_id ON cards(id);
 
     sql.push_str("\nCOMMIT;\n");
 
-    std::fs::write(&out_path, &sql).expect("写入文件失败");
+    std::fs::write(&out_path, &sql)
+        .map_err(|e| io_action_err(&format!("write_output[{out_path}]"), e))?;
     eprintln!("✅ 已写入: {out_path}");
+
+    Ok(())
 }

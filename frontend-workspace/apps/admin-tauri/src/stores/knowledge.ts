@@ -22,9 +22,14 @@
 import { defineStore, storeToRefs } from "pinia";
 import { ref, shallowRef } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import type { RenderResult, TocNodeDto, DraftDto } from "@memory-stream/types/ipc";
+import type {
+  RenderResult,
+  TocNodeDto,
+  DraftDto,
+} from "@memory-stream/types/ipc";
 import type { CardListItem } from "@memory-stream/types";
 import { useConfirmDialog } from "../composables/useConfirmDialog";
+import { extractMsg } from "../composables/useTempleError";
 
 // Sub-stores
 import { useToast } from "./useToast";
@@ -54,8 +59,14 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
   // ---- 从子 Store 解构响应式引用 ----
   const { toasts } = storeToRefs(toastStore);
   const { categories } = storeToRefs(categoryStore);
-  const { orphanCards, recentCards, searchQuery, filteredOrphans, filteredRecent, selectedCategoryId } =
-    storeToRefs(cardListStore);
+  const {
+    orphanCards,
+    recentCards,
+    searchQuery,
+    filteredOrphans,
+    filteredRecent,
+    selectedCategoryId,
+  } = storeToRefs(cardListStore);
   const { localNodes, localEdges } = storeToRefs(localGraphStore);
 
   // ---- 核心状态（保留在主 Store） ----
@@ -96,28 +107,30 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
 
   // ---- 脏状态追踪 ----
 
-  let savedSnapshot = "";
+  let savedSnapshot: {
+    title: string;
+    content: string;
+    category_id: number | null | undefined;
+  } | null = null;
 
   /** 保存当前卡片快照，用于脏检测基线 */
   function captureSnapshot() {
     if (!activeCard.value) return;
-    savedSnapshot = JSON.stringify({
+    savedSnapshot = {
       title: activeCard.value.title,
       content: activeCard.value.content,
       category_id: activeCard.value.category_id,
-    });
+    };
     isDirty.value = false;
   }
 
-  /** 检查当前卡片是否被修改 */
+  /** 检查当前卡片是否被修改（字段级比较，O(1) 替代 JSON.stringify） */
   function checkDirty() {
-    if (!activeCard.value) return;
-    const current = JSON.stringify({
-      title: activeCard.value.title,
-      content: activeCard.value.content,
-      category_id: activeCard.value.category_id,
-    });
-    isDirty.value = current !== savedSnapshot;
+    if (!activeCard.value || !savedSnapshot) return;
+    isDirty.value =
+      activeCard.value.title !== savedSnapshot.title ||
+      activeCard.value.content !== savedSnapshot.content ||
+      activeCard.value.category_id !== savedSnapshot.category_id;
   }
 
   /** 导航拦截：如果有未保存的修改，弹窗确认（异步版） */
@@ -173,7 +186,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
       fetchBacklinks(cardId);
     } catch (e) {
       console.error("[Store] loadAndActivateCard failed:", e);
-      toastStore.addToast("加载卡片失败: " + String(e), "error");
+      toastStore.addToast("加载卡片失败: " + extractMsg(e), "error");
     } finally {
       isLoading.value = false;
     }
@@ -189,7 +202,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
       localNodes.value = [];
       localEdges.value = [];
       isDirty.value = false;
-      savedSnapshot = "";
+      savedSnapshot = null;
     }
   }
 
@@ -199,7 +212,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
     localNodes.value = [];
     localEdges.value = [];
     isDirty.value = false;
-    savedSnapshot = "";
+    savedSnapshot = null;
   }
 
   // ============================================================================
@@ -221,7 +234,9 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
     try {
       const card = activeCard.value;
 
-      const renderResult = await invoke<RenderResult>("process_markdown", { content: card.content });
+      const renderResult = await invoke<RenderResult>("process_markdown", {
+        content: card.content,
+      });
 
       // Step 2: 从 AST 提取 TOC 目录树
       let tocData: unknown = null;
@@ -260,13 +275,19 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
           astData: renderResult.ast_json,
           excerpt: renderResult.excerpt,
           tocData: tocData ? JSON.stringify(tocData) : null,
+          categoryId: card.category_id ?? null,
           parentId: null,
           relation: "sequence",
+          extractedLinks: renderResult.extracted_links,
         });
         if (cardId) activeCard.value.id = cardId;
       }
 
       captureSnapshot();
+      // 手动保存成功后，清理本地草稿（避免后台 Worker 重复推送）
+      if (card.id) {
+        deleteDraft(card.id);
+      }
       toastStore.addToast("卡片已保存 ✓", "success");
       justSaved.value = true;
       setTimeout(() => {
@@ -275,7 +296,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
       await refreshWorkspace();
     } catch (e) {
       console.error("[Store] saveCard failed:", e);
-      toastStore.addToast("保存失败: " + String(e), "error");
+      toastStore.addToast("保存失败: " + extractMsg(e), "error");
     } finally {
       isSaving.value = false;
       isLoading.value = false;
@@ -298,12 +319,12 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
         localNodes.value = [];
         localEdges.value = [];
         isDirty.value = false;
-        savedSnapshot = "";
+        savedSnapshot = null;
       }
       await refreshWorkspace();
     } catch (e) {
       console.error("[Store] deleteCard failed:", e);
-      toastStore.addToast("删除失败: " + String(e), "error");
+      toastStore.addToast("删除失败: " + extractMsg(e), "error");
     } finally {
       isLoading.value = false;
     }
@@ -313,14 +334,15 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
   // 本地草稿（ms-local-draft）— 离线自动保存
   // ============================================================================
 
-  /** 保存当前卡片到本地 SQLite 草稿库 */
+  /** 保存当前卡片到本地 SQLite 草稿库（Parse on Write） */
   async function saveDraft() {
     if (!activeCard.value?.id) return;
     try {
-      await invoke("save_draft", {
+      await invoke("auto_save_draft", {
         cardId: activeCard.value.id,
+        title: activeCard.value.title || "",
         rawMd: activeCard.value.content,
-        astData: null as string | null,
+        categoryId: activeCard.value.category_id ?? null,
       });
     } catch (e) {
       console.error("[Store] saveDraft failed:", e);
@@ -401,7 +423,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
       );
       return true;
     } catch (e) {
-      toastStore.addToast("导出失败: " + String(e), "error");
+      toastStore.addToast("导出失败: " + extractMsg(e), "error");
       return false;
     }
   }
@@ -411,9 +433,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
   // ============================================================================
 
   /** 从 AST JSON 提取层级目录树 */
-  async function extractToc(
-    astJson: string,
-  ): Promise<TocNodeDto[]> {
+  async function extractToc(astJson: string): Promise<TocNodeDto[]> {
     try {
       return await invoke("extract_toc", { astJson });
     } catch (e) {
@@ -437,8 +457,8 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
    * 注意：保留 /cards/discover 接口，因为后端游标分页下
    * 本地无法从部分列表准确计算全局 orphans。
    */
-   async function refreshWorkspace() {
-     const promises: Promise<void>[] = [
+  async function refreshWorkspace() {
+    const promises: Promise<void>[] = [
       cardListStore.loadRecent(),
       categoryStore.loadCategories(),
     ];
@@ -473,6 +493,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
 
   /** 批量更新节点布局坐标 */
   function updateLayouts(layouts: { id: string; x: number; y: number }[]) {
+    if (layouts.length === 0) return;
     const map = new Map(layouts.map((l) => [l.id, l]));
     localNodes.value = localNodes.value.map((n) => {
       const p = map.get(n.id);
@@ -542,7 +563,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
       await refreshWorkspace();
     } catch (e) {
       console.error("[Store] unlinkCardFromCategory failed:", e);
-      toastStore.addToast("移除失败: " + String(e), "error");
+      toastStore.addToast("移除失败: " + extractMsg(e), "error");
     }
   }
 
@@ -557,7 +578,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
       await refreshWorkspace();
     } catch (e) {
       console.error("[Store] updateCardCategory failed:", e);
-      toastStore.addToast("迁移失败: " + String(e), "error");
+      toastStore.addToast("迁移失败: " + extractMsg(e), "error");
     }
   }
 

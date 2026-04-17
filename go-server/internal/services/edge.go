@@ -55,7 +55,7 @@ func (s *EdgeService) CreateEdge(ctx context.Context, sourceID, targetID, relati
 		CreatedAt:    time.Now(),
 	}
 
-	if err := s.db.Create(&edge).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(&edge).Error; err != nil {
 		return fmt.Errorf("failed to create edge %s->%s: %w", sourceID, targetID, err)
 	}
 
@@ -66,7 +66,7 @@ func (s *EdgeService) CreateEdge(ctx context.Context, sourceID, targetID, relati
 
 // DeleteEdge 删除指定源→目标的有向边。
 func (s *EdgeService) DeleteEdge(ctx context.Context, sourceID, targetID string) error {
-	if err := s.db.Where("source_id = ? AND target_id = ?", sourceID, targetID).
+	if err := s.db.WithContext(ctx).Where("source_id = ? AND target_id = ?", sourceID, targetID).
 		Delete(&models.CardEdge{}).Error; err != nil {
 		return fmt.Errorf("failed to delete edge %s->%s: %w", sourceID, targetID, err)
 	}
@@ -81,7 +81,7 @@ func (s *EdgeService) UpdateEdgeType(ctx context.Context, sourceID, targetID, ne
 	if newRelation != "sequence" && newRelation != "reference" {
 		return errors.New("relation_type must be 'sequence' or 'reference'")
 	}
-	result := s.db.Model(&models.CardEdge{}).
+	result := s.db.WithContext(ctx).Model(&models.CardEdge{}).
 		Where("source_id = ? AND target_id = ?", sourceID, targetID).
 		Update("relation_type", newRelation)
 	if result.Error != nil {
@@ -97,7 +97,7 @@ func (s *EdgeService) UpdateEdgeType(ctx context.Context, sourceID, targetID, ne
 
 // FindRoot 沿 sequence 边反向遍历，找到卡片的根节点（知识流起点）。
 // 使用递归 CTE 替代逐行查询，避免 N+1 问题。
-func (s *EdgeService) FindRoot(cardID string) string {
+func (s *EdgeService) FindRoot(ctx context.Context, cardID string) string {
 	var rootID string
 	cte := `
 WITH RECURSIVE chain AS (
@@ -109,7 +109,7 @@ WITH RECURSIVE chain AS (
     WHERE c.depth < 100
 )
 SELECT id::text FROM chain ORDER BY depth DESC LIMIT 1`
-	if err := s.db.Raw(cte, cardID).Scan(&rootID).Error; err != nil {
+	if err := s.db.WithContext(ctx).Raw(cte, cardID).Scan(&rootID).Error; err != nil {
 		logger.Log.Warnf("[EdgeService] FindRoot CTE failed for %s: %v, fallback to self", cardID, err)
 		return cardID
 	}
@@ -121,9 +121,9 @@ SELECT id::text FROM chain ORDER BY depth DESC LIMIT 1`
 
 // GetAllEdges 获取数据库中的全部边记录。
 // 用于图谱全量渲染和同步缓存。
-func (s *EdgeService) GetAllEdges() ([]models.CardEdge, error) {
+func (s *EdgeService) GetAllEdges(ctx context.Context) ([]models.CardEdge, error) {
 	var edges []models.CardEdge
-	if err := s.db.Find(&edges).Error; err != nil {
+	if err := s.db.WithContext(ctx).Find(&edges).Error; err != nil {
 		return nil, err
 	}
 	return edges, nil
@@ -142,11 +142,11 @@ func (s *EdgeService) SyncReferenceEdges(ctx context.Context, sourceCardID strin
 	var affectedTargetIDs []string
 	var addCount, removeCount int
 
-	err := s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var currentEdges []models.CardEdge
 		if err := tx.Where("source_id = ? AND relation_type = ?", sourceCardID, "reference").
 			Find(&currentEdges).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to query current reference edges: %w", err)
 		}
 
 		currentIDs := make([]string, len(currentEdges))
@@ -157,7 +157,7 @@ func (s *EdgeService) SyncReferenceEdges(ctx context.Context, sourceCardID strin
 		var sequenceEdges []models.CardEdge
 		if err := tx.Where("source_id = ? AND relation_type = ?", sourceCardID, "sequence").
 			Find(&sequenceEdges).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to query sequence edges: %w", err)
 		}
 
 		sequenceSet := make(map[string]bool, len(sequenceEdges))
@@ -192,7 +192,7 @@ func (s *EdgeService) SyncReferenceEdges(ctx context.Context, sourceCardID strin
 				}
 			}
 			if err := tx.Create(&newEdges).Error; err != nil {
-				return err
+				return fmt.Errorf("failed to create reference edges: %w", err)
 			}
 		}
 
@@ -200,7 +200,7 @@ func (s *EdgeService) SyncReferenceEdges(ctx context.Context, sourceCardID strin
 			if err := tx.Where("source_id = ? AND target_id IN ? AND relation_type = ?",
 				sourceCardID, toRemove, "reference").
 				Delete(&models.CardEdge{}).Error; err != nil {
-				return err
+				return fmt.Errorf("failed to delete stale reference edges: %w", err)
 			}
 		}
 

@@ -17,16 +17,38 @@ pub const API_BASE_URL: &str = match option_env!("API_BASE_URL") {
 };
 
 /// 全局 HTTP 客户端包装器
-pub struct AppHttpClient(pub Client);
+///
+/// `base_url` 使用 `RwLock` 保护，支持运行时通过 Settings 热更新，
+/// 无需重启应用即可切换后端地址。
+pub struct AppHttpClient {
+    pub client: Client,
+    base_url: std::sync::RwLock<String>,
+}
 
 impl AppHttpClient {
     pub fn new() -> Self {
-        Self(
-            Client::builder()
+        Self {
+            client: Client::builder()
                 .timeout(std::time::Duration::from_secs(15))
                 .build()
                 .expect("failed to build HTTP client"),
-        )
+            base_url: std::sync::RwLock::new(API_BASE_URL.to_string()),
+        }
+    }
+
+    /// 获取当前 API 基础 URL
+    pub fn get_base_url(&self) -> String {
+        match self.base_url.read() {
+            Ok(guard) => guard.clone(),
+            Err(_) => API_BASE_URL.to_string(),
+        }
+    }
+
+    /// 更新 API 基础 URL（由 reload_sys_config 调用）
+    pub fn set_base_url(&self, url: String) {
+        if let Ok(mut guard) = self.base_url.write() {
+            *guard = url;
+        }
     }
 }
 
@@ -38,14 +60,14 @@ pub async fn api_request(
     endpoint: String,
     body: Option<Value>,
 ) -> Result<Value, String> {
-    let url = format!("{}{}", API_BASE_URL, endpoint);
+    let url = format!("{}{}", client.get_base_url(), endpoint);
 
     let request_builder = match method.to_uppercase().as_str() {
-        "GET" => client.0.get(&url),
-        "POST" => client.0.post(&url),
-        "PUT" => client.0.put(&url),
-        "PATCH" => client.0.patch(&url),
-        "DELETE" => client.0.delete(&url),
+        "GET" => client.client.get(&url),
+        "POST" => client.client.post(&url),
+        "PUT" => client.client.put(&url),
+        "PATCH" => client.client.patch(&url),
+        "DELETE" => client.client.delete(&url),
         _ => return Err(format!("unsupported HTTP method: {}", method)),
     };
 
@@ -75,16 +97,18 @@ pub async fn api_request(
         let should_refresh = auth.try_acquire_refresh_lock();
 
         if !should_refresh {
-            // 其他线程正在刷新，等待后用新 token 直接重试
-            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-            return send_request(&client.0, &auth, &method, &url, body_clone).await;
+            // 其他线程正在刷新，等待其完成后再重试
+            let _ = auth
+                .wait_for_refresh_completion(std::time::Duration::from_secs(5))
+                .await;
+            return send_request(&client.client, &auth, &method, &url, body_clone).await;
         }
 
-        let refreshed = crate::auth::do_refresh(&client.0, &auth).await;
+        let refreshed = crate::auth::do_refresh(&client.client, &auth, &client.get_base_url()).await;
         auth.release_refresh_lock();
 
         if refreshed {
-            return send_request(&client.0, &auth, &method, &url, body_clone).await;
+            return send_request(&client.client, &auth, &method, &url, body_clone).await;
         } else {
             return Err("认证已过期，请重新登录".to_string());
         }

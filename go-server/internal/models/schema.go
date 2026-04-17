@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -20,12 +21,22 @@ func (j *JSONB) Scan(value interface{}) error {
 		*j = nil
 		return nil
 	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return json.Unmarshal(value.([]uint8), j)
+
+	switch v := value.(type) {
+	case []byte:
+		*j = append((*j)[0:0], v...)
+		return nil
+	case string:
+		*j = append((*j)[0:0], []byte(v)...)
+		return nil
+	default:
+		bytes, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Errorf("failed to scan JSONB: unsupported type %T", value)
+		}
+		*j = append((*j)[0:0], bytes...)
+		return nil
 	}
-	*j = append((*j)[0:0], bytes...)
-	return nil
 }
 
 func (j *JSONB) MarshalJSON() ([]byte, error) {

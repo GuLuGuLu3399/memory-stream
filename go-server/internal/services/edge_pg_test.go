@@ -178,7 +178,7 @@ func TestPG_FindRoot_IsolatedCard_ReturnsSelf(t *testing.T) {
 
 	a := seedCard(t, tx, uniqueTitle(t, "A"), "# A")
 
-	root := svc.FindRoot(a.ID)
+	root := svc.FindRoot(context.Background(), a.ID)
 	assert.Equal(t, a.ID, root)
 }
 
@@ -193,9 +193,9 @@ func TestPG_FindRoot_SingleChain(t *testing.T) {
 	seedEdge(t, tx, a.ID, b.ID, "sequence")
 	seedEdge(t, tx, b.ID, c.ID, "sequence")
 
-	assert.Equal(t, a.ID, svc.FindRoot(c.ID))
-	assert.Equal(t, a.ID, svc.FindRoot(b.ID))
-	assert.Equal(t, a.ID, svc.FindRoot(a.ID))
+	assert.Equal(t, a.ID, svc.FindRoot(context.Background(), c.ID))
+	assert.Equal(t, a.ID, svc.FindRoot(context.Background(), b.ID))
+	assert.Equal(t, a.ID, svc.FindRoot(context.Background(), a.ID))
 }
 
 func TestPG_FindRoot_ReferenceEdgesIgnored(t *testing.T) {
@@ -207,7 +207,7 @@ func TestPG_FindRoot_ReferenceEdgesIgnored(t *testing.T) {
 	seedEdge(t, tx, a.ID, b.ID, "reference")
 
 	// reference edges should NOT be traversed — b should return itself
-	assert.Equal(t, b.ID, svc.FindRoot(b.ID))
+	assert.Equal(t, b.ID, svc.FindRoot(context.Background(), b.ID))
 }
 
 func TestPG_FindRoot_NonExistentCard_ReturnsSelf(t *testing.T) {
@@ -215,7 +215,7 @@ func TestPG_FindRoot_NonExistentCard_ReturnsSelf(t *testing.T) {
 	svc := NewEdgeService(tx, nil)
 
 	nonExistent := "00000000-0000-0000-0000-000000009999"
-	root := svc.FindRoot(nonExistent)
+	root := svc.FindRoot(context.Background(), nonExistent)
 	assert.Equal(t, nonExistent, root)
 }
 
@@ -235,7 +235,7 @@ func TestPG_GetAllEdges_HappyPath(t *testing.T) {
 
 	// GetAllEdges queries the full table, so we check relative count.
 	before := countEdges(t, tx, "1=1")
-	edges, err := svc.GetAllEdges()
+	edges, err := svc.GetAllEdges(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, before, int64(len(edges)))
 }
@@ -245,7 +245,7 @@ func TestPG_GetAllEdges_EmptyResult(t *testing.T) {
 	svc := NewEdgeService(tx, nil)
 
 	// Count before seeding — verifies GetAllEdges returns without error.
-	edges, err := svc.GetAllEdges()
+	edges, err := svc.GetAllEdges(context.Background())
 	require.NoError(t, err)
 	// Not asserting length == 0 because dev DB may have existing data.
 	_ = edges

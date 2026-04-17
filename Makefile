@@ -15,12 +15,13 @@
 # ============================================================================
 
 .DEFAULT_GOAL := help
+SHELL := bash
 DEV_PID_FILE := .dev-pids
 
 .PHONY: help \
         dev stop \
         build build-rust build-frontend build-go build-wasm build-tauri \
-        dist dist-linux dist-web \
+        dist dist-linux dist-web dist-apk \
         lint lint-rust lint-go lint-frontend \
         test test-rust test-go test-frontend \
         fmt fmt-rust fmt-go \
@@ -118,25 +119,25 @@ build-tauri: ## Build Tauri desktop app
 	cd frontend-workspace/apps/admin-tauri && pnpm tauri build
 
 # ============================================================================
-# Distribution (Linux server + Web SPA)
+# Distribution (Linux server + Web SPA + Tauri desktop)
 # ============================================================================
 
-dist: dist-linux dist-web ## Build distributable Linux server + Web SPA (production config)
+dist: test ## Build distributable Linux server + Web SPA + Tauri desktop (production config)
+	@powershell -ExecutionPolicy Bypass -File scripts\dist.ps1
 
-dist-linux: ## Cross-compile Go server for Linux amd64
-	@mkdir -p $(DIST_DIR)
-	cd go-server && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
-		-ldflags="-s -w" -o ../$(DIST_DIR)/server ./cmd/api
-	@cp go-server/.env.production $(DIST_DIR)/.env.example
-	@echo "[+] Linux binary -> $(DIST_DIR)/server"
-	@echo "[+] Config template -> $(DIST_DIR)/.env.example"
+dist-linux: ## Cross-compile Go server for Linux amd64 into dist/go (via PowerShell)
+	@powershell -ExecutionPolicy Bypass -Command "if(!(Test-Path dist/go)){New-Item -ItemType Directory -Path dist/go|Out-Null}; $$env:GOOS='linux'; $$env:GOARCH='amd64'; $$env:CGO_ENABLED='0'; cd go-server; go build -ldflags='-s -w' -o ../dist/go/server ./cmd/api; Write-Host '[+] Linux binary -> dist/go/server'"
 
-dist-web: ## Build web-reader SPA with .env.production
-	cd frontend-workspace/apps/web-reader && npx vite build --mode production
-	@mkdir -p $(DIST_DIR)/web
-	@rm -rf $(DIST_DIR)/web/*
-	@cp -r frontend-workspace/apps/web-reader/dist/. $(DIST_DIR)/web/
-	@echo "[+] Web SPA -> $(DIST_DIR)/web/"
+dist-web: ## Build web-reader SPA with .env.production (via PowerShell)
+	@powershell -ExecutionPolicy Bypass -Command "cd frontend-workspace/apps/web-reader; npx vite build --mode production; cd ../../../; if(!(Test-Path dist/web)){New-Item -ItemType Directory -Path dist/web|Out-Null}; Copy-Item frontend-workspace/apps/web-reader/dist/* dist/web/ -Recurse -Force; Write-Host '[+] Web SPA -> dist/web/'"
+
+dist-apk: ## Build Android APK via Capacitor (web-reader -> dist/apk/)
+	cd frontend-workspace/apps/web-reader && npx vite build --mode android && npx cap sync android
+	@echo "[+] Android assets synced. Open with: npx cap open android"
+	@echo "    Or build APK directly:"
+	@echo "    cd frontend-workspace/apps/web-reader/android && ./gradlew assembleDebug"
+	@mkdir -p dist/apk
+	@echo "[+] APK output -> frontend-workspace/apps/web-reader/android/app/build/outputs/apk/"
 
 # ============================================================================
 # CI (full pipeline: lint → test → build)

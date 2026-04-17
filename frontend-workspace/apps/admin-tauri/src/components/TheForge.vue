@@ -41,7 +41,7 @@ const {
   localNodes,
   localEdges,
 } = storeToRefs(store)
-const { isRightPanelOpen, isMergeConsoleOpen } = storeToRefs(layoutStore)
+const { isRightPanelOpen } = storeToRefs(layoutStore)
 
 // Editor ref for image paste handling
 const codemirrorRef = ref<{ editorView: EditorView | null; format: () => Promise<boolean> } | null>(null)
@@ -52,6 +52,9 @@ const viewMode = ref<ViewMode>('split')
 // Split ratio for split view (50% default)
 const splitRatio = ref(50)
 const isDragging = ref(false)
+
+// Auto-save timer (1s debounce)
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 
 // Render preview using composable
 const { html, isRendering, triggerRender } = useForgeRender(
@@ -326,6 +329,13 @@ watch(
     if (validationError.value && activeCard.value?.content?.trim()) {
       validationError.value = ''
     }
+    // Auto-save: 1 秒防抖，仅已有 ID 的卡片触发
+    if (activeCard.value?.id) {
+      if (autoSaveTimer) clearTimeout(autoSaveTimer)
+      autoSaveTimer = setTimeout(() => {
+        store.saveDraft()
+      }, 1000)
+    }
   }
 )
 
@@ -354,6 +364,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
 })
 
 // ============================================================================
@@ -373,14 +384,11 @@ const previewStyle = computed(() => {
 })
 
 const showResizer = computed(() => viewMode.value === 'split')
-
-const shouldDimForMerge = computed(() => isMergeConsoleOpen.value)
 </script>
 
 <template>
   <main
     class="the-forge"
-    :class="{ 'the-forge--dim': shouldDimForMerge }"
     @keydown="handleKeydown"
   >
     <!-- Header -->
@@ -483,11 +491,6 @@ const shouldDimForMerge = computed(() => isMergeConsoleOpen.value)
   flex-direction: column;
   position: relative;
   min-width: 0;
-}
-
-.the-forge--dim {
-  filter: brightness(0.4);
-  pointer-events: none;
 }
 
 /* Main content area */

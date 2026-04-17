@@ -16,7 +16,7 @@ const shouldShow = computed(() => !props.isMobile);
 <template>
   <button
     v-if="shouldShow"
-    class="zen-edge-handle"
+    class="zen-edge-handle z-chrome"
     :class="{ 'zen-edge-handle--active': isActive }"
     :title="isActive ? '退出禅模式' : '进入禅模式'"
     @click.stop="emit('click')"
@@ -30,7 +30,6 @@ const shouldShow = computed(() => !props.isMobile);
   right: 45%;
   top: 50%;
   transform: translateY(-50%) translateX(-50%);
-  z-index: 52;
   width: 10px;
   height: 96px;
   border-radius: 5px;

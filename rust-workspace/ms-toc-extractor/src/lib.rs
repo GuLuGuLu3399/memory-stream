@@ -1,4 +1,4 @@
-use ast_core::AstNode;
+use ast_core::{AstNode, visitor::{collect_plain_text, generate_slug}};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -16,7 +16,7 @@ pub struct TocFlatItem {
     pub slug: String,
 }
 
-#[must_use] 
+#[must_use]
 pub fn extract_toc(node: &AstNode) -> Vec<TocNode> {
     let headings = collect_headings(node);
     build_tree(&headings)
@@ -27,13 +27,12 @@ pub fn extract_toc(node: &AstNode) -> Vec<TocNode> {
 /// # Errors
 /// 返回错误如果 JSON 解析失败或 TOC 提取失败。
 pub fn extract_toc_from_json(json: &str) -> Result<Vec<TocNode>, ast_core::error::MSError> {
-    let node: ast_core::AstNodeOwned = serde_json::from_str(json).map_err(|e| {
-        ast_core::error::MSError::ParseError(format!("AST JSON 反序列化失败: {e}"))
-    })?;
+    let node: ast_core::AstNodeOwned = serde_json::from_str(json)
+        .map_err(|e| ast_core::error::MSError::ParseError(format!("AST JSON 反序列化失败: {e}")))?;
     Ok(extract_toc(&node))
 }
 
-#[must_use] 
+#[must_use]
 pub fn extract_toc_flat(node: &AstNode) -> Vec<TocFlatItem> {
     collect_headings(node)
         .into_iter()
@@ -59,66 +58,11 @@ fn walk_for_headings(node: &AstNode, out: &mut Vec<(u8, String)>) {
             }
         }
         AstNode::Heading { level, children } => {
-            let text = collect_text(children);
+            let text = collect_plain_text(children);
             out.push((*level, text));
         }
         _ => {}
     }
-}
-
-fn collect_text(children: &[AstNode]) -> String {
-    let mut s = String::new();
-    for child in children {
-        append_text(child, &mut s);
-    }
-    s
-}
-
-fn append_text(node: &AstNode, out: &mut String) {
-    match node {
-        AstNode::Text { value } | AstNode::CodeBlock { value, .. } => out.push_str(value),
-        AstNode::Strong { children }
-        | AstNode::Emphasis { children }
-        | AstNode::Link { children, .. }
-        | AstNode::Paragraph { children } => {
-            for child in children {
-                append_text(child, out);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn generate_slug(text: &str) -> String {
-    let lower = text.to_lowercase();
-    let mut slug = String::with_capacity(lower.len());
-    for ch in lower.chars() {
-        match ch {
-            'a'..='z' | '0'..='9' => slug.push(ch),
-            _ if is_cjk(ch) => slug.push(ch),
-            ' ' | '-' | '_' => {
-                if !slug.ends_with('-') && !slug.is_empty() {
-                    slug.push('-');
-                }
-            }
-            _ => {}
-        }
-    }
-    let trimmed = slug.trim_end_matches('-');
-    if trimmed.is_empty() {
-        "heading".to_string()
-    } else {
-        trimmed.to_string()
-    }
-}
-
-fn is_cjk(ch: char) -> bool {
-    matches!(ch,
-        '\u{4E00}'..='\u{9FFF}'
-        | '\u{3400}'..='\u{4DBF}'
-        | '\u{3000}'..='\u{303F}'
-        | '\u{F900}'..='\u{FAFF}'
-    )
 }
 
 fn build_tree(headings: &[(u8, String)]) -> Vec<TocNode> {
@@ -137,7 +81,9 @@ fn build_tree(headings: &[(u8, String)]) -> Vec<TocNode> {
             if parent.level < *level {
                 break;
             }
-            let popped = stack.pop().unwrap();
+            let Some(popped) = stack.pop() else {
+                break;
+            };
             if let Some(grandparent) = stack.last_mut() {
                 grandparent.children.push(popped);
             } else {
@@ -265,14 +211,15 @@ mod tests {
     }
 
     #[test]
-    fn test_json_roundtrip() {
+    fn test_json_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let ast = root(vec![heading(1, "Title"), heading(2, "Sub")]);
-        let json = serde_json::to_string(&ast).unwrap();
-        let toc = extract_toc_from_json(&json).unwrap();
+        let json = serde_json::to_string(&ast)?;
+        let toc = extract_toc_from_json(&json)?;
         assert_eq!(toc.len(), 1);
         assert_eq!(toc[0].text, "Title");
         assert_eq!(toc[0].children.len(), 1);
         assert_eq!(toc[0].children[0].text, "Sub");
+        Ok(())
     }
 
     #[test]
@@ -314,7 +261,7 @@ mod tests {
     }
 
     #[test]
-    fn test_with_real_parser() {
+    fn test_with_real_parser() -> Result<(), Box<dyn std::error::Error>> {
         let md = r"# Main
 
 ## Section A
@@ -323,7 +270,7 @@ mod tests {
 
 ## Section B
 ";
-        let ast = md_parser::parse_markdown(md).unwrap();
+        let ast = md_parser::parse_markdown(md)?;
         let toc = extract_toc(&ast);
         assert_eq!(toc.len(), 1);
         assert_eq!(toc[0].text, "Main");
@@ -332,10 +279,11 @@ mod tests {
         assert_eq!(toc[0].children[0].children.len(), 1);
         assert_eq!(toc[0].children[0].children[0].text, "Sub A1");
         assert_eq!(toc[0].children[1].text, "Section B");
+        Ok(())
     }
 
     #[test]
-    fn test_tree_serialization() {
+    fn test_tree_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let toc = vec![TocNode {
             level: 1,
             text: "A".into(),
@@ -347,10 +295,11 @@ mod tests {
                 children: vec![],
             }],
         }];
-        let json = serde_json::to_string(&toc).unwrap();
+        let json = serde_json::to_string(&toc)?;
         assert!(json.contains("\"level\":1"));
         assert!(json.contains("\"children\":[{"));
-        let back: Vec<TocNode> = serde_json::from_str(&json).unwrap();
+        let back: Vec<TocNode> = serde_json::from_str(&json)?;
         assert_eq!(toc, back);
+        Ok(())
     }
 }

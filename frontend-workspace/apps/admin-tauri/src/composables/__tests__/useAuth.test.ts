@@ -86,7 +86,7 @@ describe('useAuth', () => {
       const { silentLogin, authError, isReady } = useAuth()
       await silentLogin()
 
-      expect(authError.value).toBe('Error: Login failed')
+      expect(authError.value).toBe('Login failed')
       expect(isReady.value).toBe(true)
     })
 
@@ -158,7 +158,7 @@ describe('useAuth', () => {
       const { login, authError } = useAuth()
       await login('user', 'wrong')
 
-      expect(authError.value).toBe('Error: Invalid credentials')
+      expect(authError.value).toBe('Invalid credentials')
     })
 
     it('should clear authError on success', async () => {
@@ -204,7 +204,7 @@ describe('useAuth', () => {
 
       await auth1.silentLogin()
 
-      expect(auth2.authError.value).toBe('Error: Failed')
+      expect(auth2.authError.value).toBe('Failed')
     })
   })
 })

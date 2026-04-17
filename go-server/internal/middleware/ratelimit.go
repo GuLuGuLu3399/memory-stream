@@ -7,10 +7,11 @@ import (
 )
 
 type ViewRateLimiter struct {
-	mu     sync.RWMutex
-	store  map[string]time.Time
-	ttl    time.Duration
-	stopCh chan struct{}
+	mu       sync.RWMutex
+	store    map[string]time.Time
+	ttl      time.Duration
+	stopCh   chan struct{}
+	stopOnce sync.Once
 }
 
 func NewViewRateLimiter() *ViewRateLimiter {
@@ -41,7 +42,7 @@ func (vl *ViewRateLimiter) Allow(ip, cardID string) bool {
 }
 
 func (vl *ViewRateLimiter) Stop() {
-	close(vl.stopCh)
+	vl.stopOnce.Do(func() { close(vl.stopCh) })
 }
 
 func (vl *ViewRateLimiter) cleanup() {

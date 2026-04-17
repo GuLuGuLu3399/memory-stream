@@ -27,6 +27,7 @@ import ZenEdgeHandle from "./detail/ZenEdgeHandle.vue";
 import DetailDrawerContent from "./detail/DetailDrawerContent.vue";
 import DetailDrawerFooter from "./detail/DetailDrawerFooter.vue";
 import ZenSealButton from "./detail/ZenSealButton.vue";
+import { resolveWikilinkTarget } from "../composables/useWikilinkNavigation";
 
 const store = useGraphStore();
 const { selectedId, zenMode } = storeToRefs(store);
@@ -59,6 +60,16 @@ function onProseMouseOut(e: MouseEvent) {
   drawer.onProseMouseOut(e, () => store.highlightNode(null));
 }
 
+function onProseClick(e: MouseEvent) {
+  void drawer.onProseClick(e, (cardId) => store.selectNode(cardId));
+}
+
+async function onWikilinkClick(targetId: string) {
+  const resolvedId = await resolveWikilinkTarget(targetId);
+  if (!resolvedId) return;
+  store.selectNode(resolvedId);
+}
+
 function toggleBacklinks() {
   drawer.backlinksOpen.value = !drawer.backlinksOpen.value;
 }
@@ -73,17 +84,12 @@ function toggleZenMode() {
 </script>
 
 <template>
-  <FloatingPanel
-    position="right"
-    :open="!!selectedId"
-    :width="panelWidth"
-    @close="onBackdropClick">
+  <FloatingPanel position="right" :open="!!selectedId" :width="panelWidth" @close="onBackdropClick">
 
     <!-- Header — 标题 + 禅模式入口 -->
     <template #header>
       <div class="flex items-center gap-2 w-full min-w-0">
-        <h2 class="detail-drawer__title"
-          @dblclick="!isMobile && toggleZenMode()">
+        <h2 class="detail-drawer__title" @dblclick="!isMobile && toggleZenMode()">
           {{ drawer.detail.value?.title || "加载中..." }}
         </h2>
         <!-- 桌面端：双击标题提示 -->
@@ -91,41 +97,23 @@ function toggleZenMode() {
           双击进入禅
         </span>
         <!-- 移动端：朱印禅章 -->
-        <ZenSealButton
-          v-if="isMobile && drawer.detail.value"
-          :is-active="zenMode"
-          @click="toggleZenMode"
-        />
+        <ZenSealButton v-if="isMobile && drawer.detail.value" :is-active="zenMode" @click="toggleZenMode" />
       </div>
     </template>
 
     <!-- 左侧隐形机械把手 — 禅模式触发 (fixed, 不随内容滚动) -->
-    <ZenEdgeHandle
-      v-if="drawer.detail.value"
-      :is-active="zenMode"
-      :is-mobile="isMobile"
-      @click="toggleZenMode"
-    />
+    <ZenEdgeHandle v-if="drawer.detail.value" :is-active="zenMode" :is-mobile="isMobile" @click="toggleZenMode" />
 
     <!-- Content Area -->
-    <DetailDrawerContent
-      :detail="drawer.detail.value"
-      :loading="drawer.loading.value"
-      :backlinks="drawer.backlinks.value"
-      :backlinks-loading="drawer.backlinksLoading.value"
-      :backlinks-open="drawer.backlinksOpen.value"
-      @toggle-backlinks="toggleBacklinks"
-      @navigate-to-backlink="navigateToBacklink"
-      @prose-mouse-over="onProseMouseOver"
-      @prose-mouse-out="onProseMouseOut"
-    />
+    <DetailDrawerContent :detail="drawer.detail.value" :loading="drawer.loading.value"
+      :backlinks="drawer.backlinks.value" :backlinks-loading="drawer.backlinksLoading.value"
+      :backlinks-open="drawer.backlinksOpen.value" @toggle-backlinks="toggleBacklinks"
+      @navigate-to-backlink="navigateToBacklink" @prose-mouse-over="onProseMouseOver" @prose-mouse-out="onProseMouseOut"
+      @prose-click="onProseClick" @wikilink-click="onWikilinkClick" />
 
     <!-- Footer — minimal seal -->
     <template #footer>
-      <DetailDrawerFooter
-        :detail="drawer.detail.value"
-        :created-at="drawer.createdAt.value"
-      />
+      <DetailDrawerFooter :detail="drawer.detail.value" :created-at="drawer.createdAt.value" />
     </template>
   </FloatingPanel>
 </template>

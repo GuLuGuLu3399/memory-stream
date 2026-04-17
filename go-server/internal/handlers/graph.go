@@ -50,7 +50,11 @@ func (h *GraphHandler) All(c *gin.Context) {
 // GET /graph/:id
 func (h *GraphHandler) Detail(c *gin.Context) {
 	cardID := c.Param("id")
-	depth, _ := strconv.Atoi(c.DefaultQuery("depth", "2"))
+	depth, err := strconv.Atoi(c.DefaultQuery("depth", "2"))
+	if err != nil {
+		appErr.Respond(c, appErr.NewBadRequest("depth 必须是整数"))
+		return
+	}
 
 	if depth < 1 || depth > 5 {
 		depth = 2

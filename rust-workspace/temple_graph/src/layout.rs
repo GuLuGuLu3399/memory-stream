@@ -94,33 +94,35 @@ mod tests {
     }
 
     #[test]
-    fn test_hierarchical_layout() {
+    fn test_hierarchical_layout() -> Result<(), Box<dyn std::error::Error>> {
         let mut g = KnowledgeGraph::new();
         g.add_node(make_node("a"));
         g.add_node(make_node("b"));
         g.add_node(make_node("c"));
-        g.add_edge("a", "b", make_edge("a", "b")).unwrap();
-        g.add_edge("b", "c", make_edge("b", "c")).unwrap();
+        g.add_edge("a", "b", make_edge("a", "b"))?;
+        g.add_edge("b", "c", make_edge("b", "c"))?;
 
         let result = compute_hierarchical_layout(&g, &[]);
         assert_eq!(result.positions.len(), 3);
 
         // a should be at y=0 (layer 0), b at y=200 (layer 1), c at y=400 (layer 2)
-        let a = result.positions.iter().find(|p| p.id == "a").unwrap();
-        let c = result.positions.iter().find(|p| p.id == "c").unwrap();
+        let a = result.positions.iter().find(|p| p.id == "a").ok_or("node a not found")?;
+        let c = result.positions.iter().find(|p| p.id == "c").ok_or("node c not found")?;
         assert!(a.y < c.y);
+        Ok(())
     }
 
     #[test]
-    fn test_circular_fallback() {
+    fn test_circular_fallback() -> Result<(), Box<dyn std::error::Error>> {
         let mut g = KnowledgeGraph::new();
         g.add_node(make_node("a"));
         g.add_node(make_node("b"));
-        g.add_edge("a", "b", make_edge("a", "b")).unwrap();
-        g.add_edge("b", "a", make_edge("b", "a")).unwrap(); // cycle!
+        g.add_edge("a", "b", make_edge("a", "b"))?;
+        g.add_edge("b", "a", make_edge("b", "a"))?; // cycle!
 
         // toposort fails → circular fallback
         let result = compute_hierarchical_layout(&g, &["a".to_string(), "b".to_string()]);
         assert_eq!(result.positions.len(), 2);
+        Ok(())
     }
 }

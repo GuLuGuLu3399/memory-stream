@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -45,7 +46,7 @@ type RefreshTokenClaims struct {
 	JTI    string `json:"jti"`
 }
 
-func (s *AuthService) Register(username, password string) (*models.User, error) {
+func (s *AuthService) Register(ctx context.Context, username, password string) (*models.User, error) {
 	if username == "" || password == "" {
 		return nil, errors.New("username and password are required")
 	}
@@ -54,7 +55,7 @@ func (s *AuthService) Register(username, password string) (*models.User, error) 
 	}
 
 	var existing models.User
-	if err := s.db.Where("username = ?", username).First(&existing).Error; err == nil {
+	if err := s.db.WithContext(ctx).Where("username = ?", username).First(&existing).Error; err == nil {
 		return nil, errors.New("username already exists")
 	}
 
@@ -68,7 +69,7 @@ func (s *AuthService) Register(username, password string) (*models.User, error) 
 		PasswordHash: string(hash),
 		Role:         "guest",
 	}
-	if err := s.db.Create(user).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(user).Error; err != nil {
 		return nil, err
 	}
 	return user, nil
@@ -77,13 +78,13 @@ func (s *AuthService) Register(username, password string) (*models.User, error) 
 // GenesisAdmin 创世接口：一次性创建 admin + guest 账号。
 // 如果数据库中已存在 admin 用户，返回 ErrGenesisSealed。
 // 使用可序列化事务防止多实例并发创建多个 admin。
-func (s *AuthService) GenesisAdmin(username, password string) (*models.User, error) {
+func (s *AuthService) GenesisAdmin(ctx context.Context, username, password string) (*models.User, error) {
 	var admin *models.User
-	err := s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 在事务内加锁检查是否已有 admin，防止并发竞态
 		var adminCount int64
 		if err := tx.Model(&models.User{}).Where("role = ?", "admin").Count(&adminCount).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to count admin users: %w", err)
 		}
 		if adminCount > 0 {
 			return ErrGenesisSealed
@@ -99,7 +100,7 @@ func (s *AuthService) GenesisAdmin(username, password string) (*models.User, err
 		// 创建 admin 账号
 		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to hash password: %w", err)
 		}
 
 		admin = &models.User{
@@ -108,32 +109,44 @@ func (s *AuthService) GenesisAdmin(username, password string) (*models.User, err
 			Role:         "admin",
 		}
 		if err := tx.Create(admin).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create admin user: %w", err)
 		}
+		// 自动创建默认 guest 账号（用于前端无感登录）
+		guestHash, err := bcrypt.GenerateFromPassword([]byte("guest123"), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash guest password: %w", err)
+		}
+		
+		guest := &models.User{
+			Username:     "guest",
+			PasswordHash: string(guestHash),
+			Role:         "guest",
+		}
+		if err := tx.Create(guest).Error; err != nil {
+			return fmt.Errorf("failed to create guest user: %w", err)
+		}
+		
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// 不再自动创建 guest 账号。
-	// 管理员应通过 Register 接口按需创建用户，避免硬编码默认密码的安全风险。
-
 	return admin, nil
 }
 
 // IsGenesisSealed 检查创世大门是否已关闭（是否已有 admin）
-func (s *AuthService) IsGenesisSealed() bool {
+func (s *AuthService) IsGenesisSealed(ctx context.Context) bool {
 	var adminCount int64
-	s.db.Model(&models.User{}).Where("role = ?", "admin").Count(&adminCount)
+	s.db.WithContext(ctx).Model(&models.User{}).Where("role = ?", "admin").Count(&adminCount)
 	return adminCount > 0
 }
 
 var ErrGenesisSealed = errors.New("genesis already completed: admin account exists")
 
-func (s *AuthService) Login(username, password string) (string, string, *models.User, error) {
+func (s *AuthService) Login(ctx context.Context, username, password string) (string, string, *models.User, error) {
 	var user models.User
-	if err := s.db.Where("username = ?", username).First(&user).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("username = ?", username).First(&user).Error; err != nil {
 		return "", "", nil, errors.New("invalid username or password")
 	}
 
@@ -154,14 +167,14 @@ func (s *AuthService) Login(username, password string) (string, string, *models.
 	return accessToken, refreshToken, &user, nil
 }
 
-func (s *AuthService) RefreshTokens(refreshTokenStr string) (string, string, error) {
+func (s *AuthService) RefreshTokens(ctx context.Context, refreshTokenStr string) (string, string, error) {
 	claims, err := s.parseRefreshToken(refreshTokenStr)
 	if err != nil {
 		return "", "", errors.New("invalid refresh token")
 	}
 
 	var user models.User
-	if err := s.db.Where("id = ?", claims.UserID).First(&user).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("id = ?", claims.UserID).First(&user).Error; err != nil {
 		return "", "", errors.New("user not found")
 	}
 

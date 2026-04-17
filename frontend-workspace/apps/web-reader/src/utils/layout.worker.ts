@@ -9,10 +9,12 @@
 
 import { computePositions } from "./graphLayout";
 
-self.onmessage = (e: MessageEvent<{
-  nodes: Array<{ id: string; width: number; height: number }>;
-  edges: Array<{ source: string; target: string }>;
-}>) => {
+self.onmessage = (
+  e: MessageEvent<{
+    nodes: Array<{ id: string; width: number; height: number }>;
+    edges: Array<{ source: string; target: string; type?: string }>;
+  }>,
+) => {
   const { nodes, edges } = e.data;
   const positions = computePositions(nodes, edges);
   self.postMessage(positions);

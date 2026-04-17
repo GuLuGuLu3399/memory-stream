@@ -4,14 +4,19 @@ version = "0.1.0"
 edition = "2021"
 description = "Memory Stream — 零 I/O 内存热数据池"
 
+[features]
+default = ["native"]
+native = ["temple-core/native", "dep:notify", "dep:rayon"]
+
 [dependencies]
-temple-core = { path = "../temple_core" }
+temple-core = { path = "../temple_core", default-features = false }
 ast-core = { path = "../ast-core" }
 md-parser = { path = "../md-parser" }
 ast-renderer = { path = "../ast-renderer" }
 
 dashmap = "6"
-rayon = "1.10"
-notify = { version = "7", features = ["macos_kqueue"] }
+moka = { version = "0.12", features = ["sync"] }
+rayon = { version = "1.10", optional = true }
+notify = { version = "7", features = ["macos_kqueue"], optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

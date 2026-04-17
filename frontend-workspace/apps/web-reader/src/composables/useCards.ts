@@ -43,6 +43,8 @@ export interface CardIndex {
   excerpt: string;
   hot_score: number;
   updated_at: string;
+  category_id: number | null;
+  category_name: string | null;
   relation: "sequence" | "reference";
 }
 
@@ -159,6 +161,8 @@ export function useCards() {
           excerpt: card.excerpt || extractExcerpt(card.raw_md),
           hot_score: card.metrics?.hot_score ?? 0,
           updated_at: card.updated_at,
+          category_id: card.category_id ?? null,
+          category_name: card.category?.name ?? null,
           relation: (edgeMap.get(card.id) || "reference") as
             | "sequence"
             | "reference",
@@ -205,7 +209,13 @@ export function useCards() {
         Array.isArray(astData.children) &&
         astData.children.length > 0
       ) {
-        html = renderFromAst(JSON.stringify(astData));
+        try {
+          html = renderFromAst(JSON.stringify(astData));
+        } catch (renderErr) {
+          // 兼容旧版 WASM：若 AST 出现新节点（如 Wikilink）无法反序列化，自动回退完整管线。
+          if (!processMarkdown) throw renderErr;
+          html = processMarkdown(decodedMd).html;
+        }
       }
       // 降级路径：RawMd → process_markdown（完整管线）
       else if (processMarkdown) {

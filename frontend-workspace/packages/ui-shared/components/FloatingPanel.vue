@@ -14,17 +14,18 @@
  */
 
 import { computed, onMounted, onUnmounted } from 'vue'
+import { LAYER_Z_INDEX } from '../styles/layers'
 
 const props = withDefaults(defineProps<{
   open: boolean
   position?: 'center' | 'right' | 'bottom' | 'left'
   backdrop?: boolean
-  zIndex?: string
+  zIndex?: number | string
   width?: string
 }>(), {
   position: 'center',
   backdrop: true,
-  zIndex: '50',
+  zIndex: LAYER_Z_INDEX.modal,
   width: '',
 })
 
@@ -40,6 +41,8 @@ const transitionName = computed(() => {
     default: return 'ms-scale'
   }
 })
+
+const baseZIndex = computed(() => Number(props.zIndex))
 
 function close() {
   emit('close')
@@ -69,24 +72,14 @@ onUnmounted(() => {
   <Teleport to="body">
     <!-- Backdrop -->
     <Transition name="ms-fade">
-      <div
-        v-if="open && backdrop"
-        class="floating-panel__backdrop"
-        :style="{ zIndex }"
-        @click="onBackdropClick"
-      />
+      <div v-if="open && backdrop" class="floating-panel__backdrop" :style="{ zIndex: String(baseZIndex) }"
+        @click="onBackdropClick" />
     </Transition>
 
     <!-- Panel -->
     <Transition :name="transitionName" appear>
-      <div
-        v-if="open"
-        class="floating-panel"
-        :class="[`floating-panel--${position}`]"
-        :style="{ zIndex: `${Number(zIndex) + 1}`, maxWidth: width || undefined }"
-        role="dialog"
-        aria-modal="true"
-      >
+      <div v-if="open" class="floating-panel" :class="[`floating-panel--${position}`]"
+        :style="{ zIndex: String(baseZIndex + 1), maxWidth: width || undefined }" role="dialog" aria-modal="true">
         <header v-if="$slots.header" class="floating-panel__header">
           <slot name="header" />
         </header>
@@ -181,9 +174,11 @@ onUnmounted(() => {
 .ms-slide-left-enter-active {
   transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .ms-slide-left-leave-active {
   transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .ms-slide-left-enter-from,
 .ms-slide-left-leave-to {
   transform: translateX(-100%);

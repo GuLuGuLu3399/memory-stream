@@ -7,6 +7,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { ref } from "vue";
 import type { LoginResult } from "@memory-stream/types/ipc";
+import { extractMsg } from "./useTempleError";
 
 /** 登录完成后设为 true，控制子组件渲染时机 */
 const isReady = ref(false);
@@ -38,7 +39,7 @@ export function useAuth() {
       console.log("[Auth] ✅ logged in successfully");
     } catch (e) {
       console.warn("[Auth] login failed:", e);
-      authError.value = String(e);
+      authError.value = extractMsg(e);
     } finally {
       isLoading.value = false;
       isReady.value = true;
@@ -55,7 +56,7 @@ export function useAuth() {
       isReady.value = true;
       return true;
     } catch (e) {
-      authError.value = String(e);
+      authError.value = extractMsg(e);
       return false;
     }
   }

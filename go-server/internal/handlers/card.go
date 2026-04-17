@@ -33,8 +33,10 @@ type CreateCardReq struct {
 	Excerpt      string       `json:"excerpt"`
 	AstData      models.JSONB `json:"ast_data"`
 	TocData      models.JSONB `json:"toc_data"`
+	CategoryID   *uint        `json:"category_id,omitempty"`
 	ParentID     *string      `json:"parent_id,omitempty"`
 	RelationType string       `json:"relation_type,omitempty"`
+	ExtractedLinks []string   `json:"extracted_links"`
 }
 
 // Create creates a new card and optionally links it to a parent via an edge.
@@ -52,7 +54,7 @@ func (h *CardHandler) Create(c *gin.Context) {
 	}
 
 	tocData := req.TocData
-	card, err := h.cardSvc.CreateCard(c.Request.Context(), req.Title, req.RawMd, req.Excerpt, astData, tocData)
+	card, err := h.cardSvc.CreateCard(c.Request.Context(), req.Title, req.RawMd, req.Excerpt, astData, tocData, req.CategoryID)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
@@ -66,6 +68,27 @@ func (h *CardHandler) Create(c *gin.Context) {
 		if err := h.edgeSvc.CreateEdge(c.Request.Context(), *req.ParentID, card.ID, relationType); err != nil {
 			appErr.Respond(c, appErr.NewInternal(err))
 			return
+		}
+	}
+
+	// 首次创建即同步 wikilink reference 边，避免“新卡片初始无连接”
+	if len(req.ExtractedLinks) > 0 {
+		var resolvedIDs []string
+		for _, title := range req.ExtractedLinks {
+			if title == "" {
+				continue
+			}
+			resolvedCard, err := h.cardSvc.FindOrCreateByTitle(c.Request.Context(), title)
+			if err != nil {
+				logger.Log.Warnf("Failed to resolve title '%s' to card ID: %v", title, err)
+				continue
+			}
+			resolvedIDs = append(resolvedIDs, resolvedCard.ID)
+		}
+		if len(resolvedIDs) > 0 {
+			if err := h.edgeSvc.SyncReferenceEdges(c.Request.Context(), card.ID, resolvedIDs); err != nil {
+				logger.Log.Warnf("Failed to sync reference edges for card %s: %v", card.ID, err)
+			}
 		}
 	}
 
@@ -91,7 +114,11 @@ func (h *CardHandler) Create(c *gin.Context) {
 // GET /cards
 func (h *CardHandler) List(c *gin.Context) {
 	cursor := c.Query("cursor")
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if err != nil {
+		appErr.Respond(c, appErr.NewBadRequest("limit 必须是整数"))
+		return
+	}
 
 	result, err := h.cardSvc.ListCards(c.Request.Context(), services.CursorPage{Cursor: cursor, Limit: limit})
 	if err != nil {
@@ -105,8 +132,16 @@ func (h *CardHandler) List(c *gin.Context) {
 // GET /cards/discover
 func (h *CardHandler) Discover(c *gin.Context) {
 	sort := c.DefaultQuery("sort", "latest")
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil {
+		appErr.Respond(c, appErr.NewBadRequest("page 必须是整数"))
+		return
+	}
+	pageSize, err := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if err != nil {
+		appErr.Respond(c, appErr.NewBadRequest("page_size 必须是整数"))
+		return
+	}
 
 	result, err := h.cardSvc.GetDiscover(c.Request.Context(), sort, services.OffsetPage{Page: page, PageSize: pageSize})
 	if err != nil {
@@ -117,11 +152,20 @@ func (h *CardHandler) Discover(c *gin.Context) {
 }
 
 // GetByID returns a single card by its ID.
-// GET /cards/:id
+// GET /cards/:id?view=compact — excludes raw_md, ast_data, toc_data for sidebar/preview.
+// GET /cards/:id — returns full card (default).
 func (h *CardHandler) GetByID(c *gin.Context) {
 	cardID := c.Param("id")
+	compact := c.Query("view") == "compact"
 
-	card, err := h.cardSvc.GetCardByID(c.Request.Context(), cardID)
+	var card interface{}
+	var err error
+	if compact {
+		card, err = h.cardSvc.GetCardCompact(c.Request.Context(), cardID)
+	} else {
+		card, err = h.cardSvc.GetCardByID(c.Request.Context(), cardID)
+	}
+
 	if err != nil {
 		appErr.Respond(c, appErr.NewNotFound("卡片未找到"))
 		return
@@ -134,7 +178,11 @@ func (h *CardHandler) GetByID(c *gin.Context) {
 // GET /cards/:id/graph
 func (h *CardHandler) Graph(c *gin.Context) {
 	cardID := c.Param("id")
-	depth, _ := strconv.Atoi(c.DefaultQuery("depth", "2"))
+	depth, err := strconv.Atoi(c.DefaultQuery("depth", "2"))
+	if err != nil {
+		appErr.Respond(c, appErr.NewBadRequest("depth 必须是整数"))
+		return
+	}
 
 	if depth < 1 || depth > 5 {
 		depth = 2

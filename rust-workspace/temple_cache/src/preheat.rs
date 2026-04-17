@@ -90,7 +90,8 @@ pub(crate) fn parse_single_file(path: &Path) -> Result<Document, String> {
     let filename = extract_filename(path);
     let title = extract_title(&content, &filename);
     let excerpt = extract_excerpt(&content, 150);
-    let extracted_links = extract_wikilinks(&content);
+    let extracted_links = extract_wikilinks(&content)
+        .map_err(|e| format!("extract links failed: {e}"))?;
 
     // 先完成所有借用操作（AST borrow content），再移动 content
     let ast = parse_markdown(&content)
@@ -218,38 +219,40 @@ mod tests {
     }
 
     #[test]
-    fn test_preheat_empty_dir() {
+    fn test_preheat_empty_dir() -> Result<(), Box<dyn std::error::Error>> {
         let tmp = std::env::temp_dir().join("temple_cache_test_empty");
         let _ = fs::create_dir_all(&tmp);
 
         let pool = DocumentPool::new();
-        let stats = preheat_vault(&pool, tmp.to_str().unwrap()).unwrap();
+        let stats = preheat_vault(&pool, tmp.to_str().ok_or("invalid temp path")?)?;
         assert_eq!(stats.total_files, 0);
         assert_eq!(stats.parsed_ok, 0);
 
         let _ = fs::remove_dir_all(&tmp);
+        Ok(())
     }
 
     #[test]
-    fn test_preheat_with_files() {
+    fn test_preheat_with_files() -> Result<(), Box<dyn std::error::Error>> {
         let tmp = std::env::temp_dir().join("temple_cache_test_files");
         let _ = fs::create_dir_all(&tmp);
 
-        fs::write(tmp.join("card1.md"), "# Card One\nContent of card 1.").unwrap();
-        fs::write(tmp.join("card2.md"), "# Card Two\nContent of card 2.").unwrap();
-        fs::write(tmp.join("readme.txt"), "Not a markdown file").unwrap();
+        fs::write(tmp.join("card1.md"), "# Card One\nContent of card 1.")?;
+        fs::write(tmp.join("card2.md"), "# Card Two\nContent of card 2.")?;
+        fs::write(tmp.join("readme.txt"), "Not a markdown file")?;
 
         let pool = DocumentPool::new();
-        let stats = preheat_vault(&pool, tmp.to_str().unwrap()).unwrap();
+        let stats = preheat_vault(&pool, tmp.to_str().ok_or("invalid temp path")?)?;
 
         assert_eq!(stats.total_files, 2);
         assert_eq!(stats.parsed_ok, 2);
         assert_eq!(pool.len(), 2);
 
-        let doc = pool.get(tmp.join("card1.md").to_str().unwrap()).unwrap();
+        let doc = pool.get(tmp.join("card1.md").to_str().ok_or("invalid card path")?).ok_or("card1 not in cache")?;
         assert_eq!(doc.title, "Card One");
         assert!(doc.html.contains("Card One"));
 
         let _ = fs::remove_dir_all(&tmp);
+        Ok(())
     }
 }

@@ -1,3 +1,5 @@
+#![cfg(feature = "native")]
+
 pub mod error;
 
 use error::{CompressError, CompressResult};
@@ -9,6 +11,8 @@ pub struct CompressOptions {
     pub quality: f32,
     pub max_width: Option<u32>,
     pub max_height: Option<u32>,
+    /// 输入数据的最大允许字节数，超过此限制将直接拒绝处理。
+    pub max_input_bytes: usize,
 }
 
 impl Default for CompressOptions {
@@ -17,6 +21,7 @@ impl Default for CompressOptions {
             quality: 75.0,
             max_width: None,
             max_height: None,
+            max_input_bytes: 20 * 1024 * 1024, // 20 MB
         }
     }
 }
@@ -46,9 +51,33 @@ pub async fn compress_to_webp(
     raw_data: Vec<u8>,
     options: CompressOptions,
 ) -> CompressResult<Vec<u8>> {
+    if raw_data.len() > options.max_input_bytes {
+        return Err(CompressError::PayloadTooLarge(format!(
+            "Image size {} bytes exceeds the maximum allowed {} bytes",
+            raw_data.len(),
+            options.max_input_bytes
+        )));
+    }
+
     task::spawn_blocking(move || compress_sync(&raw_data, &options))
         .await
-        .unwrap_or(Err(CompressError::TaskPanic))
+        .map_err(extract_panic_source)?
+}
+
+fn extract_panic_source(join_err: tokio::task::JoinError) -> CompressError {
+    let reason = if join_err.is_panic() {
+        let panic_err = join_err.into_panic();
+        if let Some(s) = panic_err.downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = panic_err.downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Unknown panic payload".to_string()
+        }
+    } else {
+        "Task cancelled".to_string()
+    };
+    CompressError::TaskPanic { reason }
 }
 
 fn compress_sync(raw_data: &[u8], options: &CompressOptions) -> CompressResult<Vec<u8>> {
@@ -85,57 +114,61 @@ fn compress_sync(raw_data: &[u8], options: &CompressOptions) -> CompressResult<V
 mod tests {
     use super::*;
 
-    fn create_test_png(width: u32, height: u32) -> Vec<u8> {
+    fn create_test_png(width: u32, height: u32) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let img = image::RgbaImage::from_pixel(width, height, image::Rgba([255, 0, 0, 255]));
         let mut buf = std::io::Cursor::new(Vec::new());
-        img.write_to(&mut buf, image::ImageFormat::Png).unwrap();
-        buf.into_inner()
+        img.write_to(&mut buf, image::ImageFormat::Png)?;
+        Ok(buf.into_inner())
     }
 
     #[tokio::test]
-    async fn test_compress_png_to_webp() {
-        let png_data = create_test_png(100, 100);
-        let result = compress_to_webp(png_data, CompressOptions::default()).await;
-        assert!(result.is_ok());
-        let webp_data = result.unwrap();
-        assert!(!webp_data.is_empty());
+    async fn test_compress_png_to_webp() -> Result<(), Box<dyn std::error::Error>> {
+        let png_data = create_test_png(100, 100)?;
+        let result = compress_to_webp(png_data, CompressOptions::default()).await?;
+        assert!(!result.is_empty());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_compress_with_resize() {
-        let png_data = create_test_png(2000, 2000);
+    async fn test_compress_with_resize() -> Result<(), Box<dyn std::error::Error>> {
+        let png_data = create_test_png(2000, 2000)?;
         let options = CompressOptions::new(75.0).with_max_size(800, 800);
-        let result = compress_to_webp(png_data, options).await;
-        assert!(result.is_ok());
+        let result = compress_to_webp(png_data, options).await?;
+        assert!(!result.is_empty());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_compress_no_resize_when_small() {
-        let png_data = create_test_png(50, 50);
+    async fn test_compress_no_resize_when_small() -> Result<(), Box<dyn std::error::Error>> {
+        let png_data = create_test_png(50, 50)?;
         let options = CompressOptions::new(75.0).with_max_size(800, 800);
-        let result = compress_to_webp(png_data, options).await;
-        assert!(result.is_ok());
+        let result = compress_to_webp(png_data, options).await?;
+        assert!(!result.is_empty());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_compress_invalid_data() {
+    async fn test_compress_invalid_data() -> Result<(), Box<dyn std::error::Error>> {
         let bad_data = vec![0u8; 16];
         let result = compress_to_webp(bad_data, CompressOptions::default()).await;
         assert!(result.is_err());
-        match result.unwrap_err() {
-            CompressError::DecodeError(_) => {}
-            other => panic!("Expected DecodeError, got: {other}"),
+        match result {
+            Err(CompressError::DecodeError(_)) => {}
+            Err(other) => panic!("Expected DecodeError, got: {other}"),
+            Ok(_) => panic!("Expected error but got success"),
         }
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_compress_empty_data() {
+    async fn test_compress_empty_data() -> Result<(), Box<dyn std::error::Error>> {
         let result = compress_to_webp(vec![], CompressOptions::default()).await;
         assert!(result.is_err());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_quality_affects_size() {
+    async fn test_quality_affects_size() -> Result<(), Box<dyn std::error::Error>> {
         let mut img = image::RgbaImage::new(500, 500);
         for y in 0..500 {
             for x in 0..500 {
@@ -150,15 +183,14 @@ mod tests {
             }
         }
         let mut buf = std::io::Cursor::new(Vec::new());
-        img.write_to(&mut buf, image::ImageFormat::Png).unwrap();
+        img.write_to(&mut buf, image::ImageFormat::Png)?;
         let png_data = buf.into_inner();
 
         let low = compress_to_webp(png_data.clone(), CompressOptions::new(5.0))
-            .await
-            .unwrap();
+            .await?;
         let high = compress_to_webp(png_data, CompressOptions::new(95.0))
-            .await
-            .unwrap();
+            .await?;
         assert!(low.len() < high.len(), "low={} high={}", low.len(), high.len());
+        Ok(())
     }
 }

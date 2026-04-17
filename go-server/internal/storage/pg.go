@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -9,25 +10,27 @@ import (
 	"gorm.io/gorm"
 )
 
-func InitDB() *gorm.DB {
+func InitDB() (*gorm.DB, error) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		logger.Log.Fatal("DATABASE_URL is not set in environment")
+		return nil, fmt.Errorf("DATABASE_URL is not set in environment")
 	}
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		SkipDefaultTransaction: true,
+	})
 	if err != nil {
-		logger.Log.Fatalf("unable to connect database: %v", err)
+		return nil, fmt.Errorf("unable to connect database: %w", err)
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		logger.Log.Fatalf("unable to get database instance: %v", err)
+		return nil, fmt.Errorf("unable to get database instance: %w", err)
 	}
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxIdleConns(20)
+	sqlDB.SetMaxOpenConns(50)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
 	logger.Log.Info("database connected")
-	return db
+	return db, nil
 }

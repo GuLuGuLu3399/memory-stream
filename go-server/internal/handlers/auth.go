@@ -34,7 +34,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	accessToken, refreshToken, user, err := h.authSvc.Login(req.Username, req.Password)
+	accessToken, refreshToken, user, err := h.authSvc.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		appErr.Respond(c, appErr.NewUnauthorized(err.Error()))
 		return
@@ -64,7 +64,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	accessToken, refreshToken, err := h.authSvc.RefreshTokens(req.RefreshToken)
+	accessToken, refreshToken, err := h.authSvc.RefreshTokens(c.Request.Context(), req.RefreshToken)
 	if err != nil {
 		appErr.Respond(c, appErr.NewUnauthorized(err.Error()))
 		return
@@ -90,7 +90,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authSvc.Register(req.Username, req.Password)
+	user, err := h.authSvc.Register(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		appErr.Respond(c, appErr.NewBadRequest(err.Error()))
 		return
@@ -121,7 +121,7 @@ func (h *AuthHandler) Genesis(c *gin.Context) {
 		return
 	}
 
-	admin, err := h.authSvc.GenesisAdmin(req.Username, req.Password)
+	admin, err := h.authSvc.GenesisAdmin(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		if errors.Is(err, services.ErrGenesisSealed) {
 			appErr.Respond(c, appErr.NewForbidden("创世接口已关闭：admin 账号已存在"))
@@ -132,7 +132,7 @@ func (h *AuthHandler) Genesis(c *gin.Context) {
 	}
 
 	// 创世成功后自动签发 admin 的 Token（免得还要再登录一次）
-	accessToken, refreshToken, _, loginErr := h.authSvc.Login(req.Username, req.Password)
+	accessToken, refreshToken, _, loginErr := h.authSvc.Login(c.Request.Context(), req.Username, req.Password)
 	if loginErr != nil {
 		appErr.Respond(c, appErr.NewInternal(fmt.Errorf("genesis auto-login failed: %w", loginErr)))
 		return

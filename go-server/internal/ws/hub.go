@@ -2,6 +2,7 @@ package ws
 
 import (
 	"encoding/json"
+	"strings"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -25,6 +26,8 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 	onAction   func(client *Client, action Action)
+	stopCh     chan struct{}
+	wg         sync.WaitGroup
 }
 
 func NewHub() *Hub {
@@ -33,6 +36,7 @@ func NewHub() *Hub {
 		broadcast:  make(chan []byte, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		stopCh:     make(chan struct{}),
 	}
 }
 
@@ -41,6 +45,8 @@ func (h *Hub) SetActionHandler(fn func(client *Client, action Action)) {
 }
 
 func (h *Hub) Run() {
+	h.wg.Add(1)
+	defer h.wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Log.Errorf("[WS Hub] Run panic recovered: %v\n%s", r, debug.Stack())
@@ -50,6 +56,15 @@ func (h *Hub) Run() {
 	}()
 	for {
 		select {
+		case <-h.stopCh:
+			h.mu.Lock()
+			for client := range h.clients {
+				close(client.send)
+				delete(h.clients, client)
+			}
+			h.mu.Unlock()
+			logger.Log.Info("[WS Hub] gracefully stopped, all clients disconnected")
+			return
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
@@ -86,6 +101,11 @@ func (h *Hub) Run() {
 			}
 		}
 	}
+}
+
+func (h *Hub) Stop() {
+	close(h.stopCh)
+	h.wg.Wait()
 }
 
 func (h *Hub) Register(client *Client)   { h.register <- client }
@@ -174,7 +194,11 @@ func (c *Client) SendError(action, msg string) {
 func (c *Client) Close() {
 	err := c.conn.Close()
 	if err != nil {
-		logger.Log.Errorf("[WS Hub] close conn error: %v", err)
+		if strings.Contains(err.Error(), "closed network connection") {
+			logger.Log.Debugf("[WS Hub] close conn ignored: %v", err)
+		} else {
+			logger.Log.Errorf("[WS Hub] close conn error: %v", err)
+		}
 		return
 	}
 }
@@ -203,7 +227,11 @@ func (c *Client) ReadPump() {
 		c.hub.Unregister(c)
 		err := c.conn.Close()
 		if err != nil {
-			logger.Log.Errorf("[WS Hub] close conn error: %v", err)
+			if strings.Contains(err.Error(), "closed network connection") {
+				logger.Log.Debugf("[WS Hub] close conn ignored: %v", err)
+			} else {
+				logger.Log.Errorf("[WS Hub] close conn error: %v", err)
+			}
 			return
 		}
 	}()
@@ -241,7 +269,11 @@ func (c *Client) WritePump() {
 		ticker.Stop()
 		err := c.conn.Close()
 		if err != nil {
-			logger.Log.Errorf("[WS Hub] close conn error: %v", err)
+			if strings.Contains(err.Error(), "closed network connection") {
+				logger.Log.Debugf("[WS Hub] close conn ignored: %v", err)
+			} else {
+				logger.Log.Errorf("[WS Hub] close conn error: %v", err)
+			}
 			return
 		}
 	}()
@@ -257,7 +289,11 @@ func (c *Client) WritePump() {
 			if !ok {
 				err := c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				if err != nil {
-					logger.Log.Errorf("[WS Hub] close write error: %v", err)
+					if strings.Contains(err.Error(), "closed network connection") {
+						logger.Log.Debugf("[WS Hub] close write ignored: %v", err)
+					} else {
+						logger.Log.Errorf("[WS Hub] close write error: %v", err)
+					}
 					return
 				}
 				return

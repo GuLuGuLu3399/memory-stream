@@ -4,6 +4,7 @@
 //! 和 JSON 序列化/反序列化（`serde` tag = "type" 判别式）。
 
 pub mod error;
+pub mod visitor;
 
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -41,6 +42,11 @@ pub enum AstNode<'a> {
     Paragraph { children: Vec<AstNode<'a>> },
     /// 纯文本叶子节点
     Text { value: Cow<'a, str> },
+    /// Wikilink 节点（`[[target]]` 或 `[[target|alias]]`）
+    Wikilink {
+        target: Cow<'a, str>,
+        alias: Option<Cow<'a, str>>,
+    },
     /// 行内代码（`code`）
     InlineCode { value: Cow<'a, str> },
     /// 代码块（支持语言标注）
@@ -111,8 +117,11 @@ impl<'a> AstNode<'a> {
     /// 向当前节点追加子节点。
     ///
     /// 仅对容器类型节点有效（Root、Heading、Paragraph 等），
-    /// 对叶子节点（Text、ThematicBreak、Image）静默忽略。
-    pub fn push_child(&mut self, child: AstNode<'a>) {
+    /// 对叶子节点（Text、ThematicBreak、Image）返回 `InvalidOperation` 错误。
+    ///
+    /// # Errors
+    /// 当当前节点是叶子节点时返回 `MSError::InvalidOperation`。
+    pub fn push_child(&mut self, child: AstNode<'a>) -> Result<(), error::MSError> {
         match self {
             AstNode::Root { children }
             | AstNode::Heading { children, .. }
@@ -131,8 +140,47 @@ impl<'a> AstNode<'a> {
             | AstNode::FootnoteDefinition { children, .. }
             | AstNode::DefinitionList { children }
             | AstNode::DefinitionListTitle { children }
-            | AstNode::DefinitionListDefinition { children } => children.push(child),
-            _ => {}
+            | AstNode::DefinitionListDefinition { children } => {
+                children.push(child);
+                Ok(())
+            }
+            _ => Err(error::MSError::InvalidOperation(format!(
+                "Cannot push child to leaf node {:?}",
+                self.variant_name()
+            ))),
+        }
+    }
+
+    /// 返回节点变体名称（用于错误信息）。
+    fn variant_name(&self) -> &'static str {
+        match self {
+            AstNode::Root { .. } => "Root",
+            AstNode::Heading { .. } => "Heading",
+            AstNode::Paragraph { .. } => "Paragraph",
+            AstNode::Text { .. } => "Text",
+            AstNode::Wikilink { .. } => "Wikilink",
+            AstNode::InlineCode { .. } => "InlineCode",
+            AstNode::CodeBlock { .. } => "CodeBlock",
+            AstNode::Link { .. } => "Link",
+            AstNode::Image { .. } => "Image",
+            AstNode::Math { .. } => "Math",
+            AstNode::Blockquote { .. } => "Blockquote",
+            AstNode::List { .. } => "List",
+            AstNode::ListItem { .. } => "ListItem",
+            AstNode::ThematicBreak => "ThematicBreak",
+            AstNode::Strong { .. } => "Strong",
+            AstNode::Emphasis { .. } => "Emphasis",
+            AstNode::Table { .. } => "Table",
+            AstNode::TableHead { .. } => "TableHead",
+            AstNode::TableRow { .. } => "TableRow",
+            AstNode::TableCell { .. } => "TableCell",
+            AstNode::Strikethrough { .. } => "Strikethrough",
+            AstNode::TaskListMarker { .. } => "TaskListMarker",
+            AstNode::FootnoteDefinition { .. } => "FootnoteDefinition",
+            AstNode::FootnoteReference { .. } => "FootnoteReference",
+            AstNode::DefinitionList { .. } => "DefinitionList",
+            AstNode::DefinitionListTitle { .. } => "DefinitionListTitle",
+            AstNode::DefinitionListDefinition { .. } => "DefinitionListDefinition",
         }
     }
 }
@@ -155,17 +203,18 @@ mod tests {
     }
 
     #[test]
-    fn test_align_type_serde_roundtrip() {
+    fn test_align_type_serde_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         for variant in [
             AlignType::Left,
             AlignType::Center,
             AlignType::Right,
             AlignType::None,
         ] {
-            let json = serde_json::to_string(&variant).unwrap();
-            let back: AlignType = serde_json::from_str(&json).unwrap();
+            let json = serde_json::to_string(&variant)?;
+            let back: AlignType = serde_json::from_str(&json)?;
             assert_eq!(variant, back);
         }
+        Ok(())
     }
 
     #[test]
@@ -288,11 +337,18 @@ mod tests {
             value: Cow::Borrowed("\\int_0^1"),
             inline: false,
         };
-        if let AstNode::Math { value, inline: is_inline } = &inline {
+        if let AstNode::Math {
+            value,
+            inline: is_inline,
+        } = &inline
+        {
             assert_eq!(value.as_ref(), "E=mc^2");
             assert!(is_inline);
         }
-        if let AstNode::Math { inline: is_inline, .. } = &block {
+        if let AstNode::Math {
+            inline: is_inline, ..
+        } = &block
+        {
             assert!(!is_inline);
         }
     }
@@ -368,7 +424,9 @@ mod tests {
             children: vec![AstNode::TableHead { children: vec![] }],
         };
         if let AstNode::Table {
-            alignments, children, ..
+            alignments,
+            children,
+            ..
         } = &node
         {
             assert_eq!(alignments.len(), 3);
@@ -432,127 +490,136 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn test_push_child_root() {
+    fn test_push_child_root() -> Result<(), Box<dyn std::error::Error>> {
         let mut root = AstNode::Root { children: vec![] };
-        root.push_child(AstNode::ThematicBreak);
+        root.push_child(AstNode::ThematicBreak)?;
         if let AstNode::Root { children } = &root {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_heading() {
+    fn test_push_child_heading() -> Result<(), Box<dyn std::error::Error>> {
         let mut h = AstNode::Heading {
             level: 1,
             children: vec![],
         };
         h.push_child(AstNode::Text {
             value: Cow::Borrowed("hi"),
-        });
+        })?;
         if let AstNode::Heading { children, .. } = &h {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_paragraph() {
+    fn test_push_child_paragraph() -> Result<(), Box<dyn std::error::Error>> {
         let mut p = AstNode::Paragraph { children: vec![] };
         p.push_child(AstNode::Text {
             value: Cow::Borrowed("text"),
-        });
+        })?;
         if let AstNode::Paragraph { children } = &p {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_blockquote() {
+    fn test_push_child_blockquote() -> Result<(), Box<dyn std::error::Error>> {
         let mut bq = AstNode::Blockquote { children: vec![] };
-        bq.push_child(AstNode::Paragraph { children: vec![] });
+        bq.push_child(AstNode::Paragraph { children: vec![] })?;
         if let AstNode::Blockquote { children } = &bq {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_list() {
+    fn test_push_child_list() -> Result<(), Box<dyn std::error::Error>> {
         let mut list = AstNode::List {
             ordered: false,
             start: None,
             children: vec![],
         };
-        list.push_child(AstNode::ListItem { children: vec![] });
+        list.push_child(AstNode::ListItem { children: vec![] })?;
         if let AstNode::List { children, .. } = &list {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_list_item() {
+    fn test_push_child_list_item() -> Result<(), Box<dyn std::error::Error>> {
         let mut li = AstNode::ListItem { children: vec![] };
         li.push_child(AstNode::Text {
             value: Cow::Borrowed("x"),
-        });
+        })?;
         if let AstNode::ListItem { children } = &li {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_strong() {
+    fn test_push_child_strong() -> Result<(), Box<dyn std::error::Error>> {
         let mut s = AstNode::Strong { children: vec![] };
         s.push_child(AstNode::Text {
             value: Cow::Borrowed("bold"),
-        });
+        })?;
         if let AstNode::Strong { children } = &s {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_emphasis() {
+    fn test_push_child_emphasis() -> Result<(), Box<dyn std::error::Error>> {
         let mut e = AstNode::Emphasis { children: vec![] };
         e.push_child(AstNode::Text {
             value: Cow::Borrowed("em"),
-        });
+        })?;
         if let AstNode::Emphasis { children } = &e {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_link() {
+    fn test_push_child_link() -> Result<(), Box<dyn std::error::Error>> {
         let mut link = AstNode::Link {
             url: Cow::Borrowed("https://example.com"),
             children: vec![],
         };
         link.push_child(AstNode::Text {
             value: Cow::Borrowed("label"),
-        });
+        })?;
         if let AstNode::Link { children, .. } = &link {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_table_variants() {
+    fn test_push_child_table_variants() -> Result<(), Box<dyn std::error::Error>> {
         let mut table = AstNode::Table {
             alignments: vec![],
             children: vec![],
         };
-        table.push_child(AstNode::TableHead { children: vec![] });
+        table.push_child(AstNode::TableHead { children: vec![] })?;
         if let AstNode::Table { children, .. } = &table {
             assert_eq!(children.len(), 1);
         }
 
         let mut head = AstNode::TableHead { children: vec![] };
-        head.push_child(AstNode::TableCell { children: vec![] });
+        head.push_child(AstNode::TableCell { children: vec![] })?;
         if let AstNode::TableHead { children } = &head {
             assert_eq!(children.len(), 1);
         }
 
         let mut row = AstNode::TableRow { children: vec![] };
-        row.push_child(AstNode::TableCell { children: vec![] });
+        row.push_child(AstNode::TableCell { children: vec![] })?;
         if let AstNode::TableRow { children } = &row {
             assert_eq!(children.len(), 1);
         }
@@ -560,80 +627,73 @@ mod tests {
         let mut cell = AstNode::TableCell { children: vec![] };
         cell.push_child(AstNode::Text {
             value: Cow::Borrowed("data"),
-        });
+        })?;
         if let AstNode::TableCell { children } = &cell {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_strikethrough() {
+    fn test_push_child_strikethrough() -> Result<(), Box<dyn std::error::Error>> {
         let mut s = AstNode::Strikethrough { children: vec![] };
         s.push_child(AstNode::Text {
             value: Cow::Borrowed("struck"),
-        });
+        })?;
         if let AstNode::Strikethrough { children } = &s {
             assert_eq!(children.len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_push_child_ignored_on_leaf_nodes() {
-        // Text is a leaf — push_child should silently do nothing.
+    fn test_push_child_rejected_on_leaf_nodes() {
+        // Text is a leaf — push_child should return an error.
         let mut text = AstNode::Text {
             value: Cow::Borrowed("leaf"),
         };
-        text.push_child(AstNode::ThematicBreak);
-        assert!(matches!(text, AstNode::Text { .. }));
+        let result = text.push_child(AstNode::ThematicBreak);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            error::MSError::InvalidOperation(_)
+        ));
 
         // ThematicBreak is a leaf.
         let mut tb = AstNode::ThematicBreak;
-        tb.push_child(AstNode::Text {
+        let result = tb.push_child(AstNode::Text {
             value: Cow::Borrowed("x"),
         });
-        assert!(matches!(tb, AstNode::ThematicBreak));
+        assert!(result.is_err());
 
         // Image is a leaf.
         let mut img = AstNode::Image {
             url: Cow::Borrowed("a.png"),
             alt: Cow::Borrowed("a"),
         };
-        img.push_child(AstNode::Text {
-            value: Cow::Borrowed("x"),
-        });
-        if let AstNode::Image { url, alt } = &img {
-            assert_eq!(url.as_ref(), "a.png");
-            assert_eq!(alt.as_ref(), "a");
-        }
+        assert!(img
+            .push_child(AstNode::Text {
+                value: Cow::Borrowed("x"),
+            })
+            .is_err());
 
         // Math is a leaf.
         let mut math = AstNode::Math {
             value: Cow::Borrowed("x"),
             inline: true,
         };
-        math.push_child(AstNode::ThematicBreak);
-        if let AstNode::Math { value, inline } = &math {
-            assert_eq!(value.as_ref(), "x");
-            assert!(inline);
-        }
+        assert!(math.push_child(AstNode::ThematicBreak).is_err());
 
         // TaskListMarker is a leaf.
         let mut tlm = AstNode::TaskListMarker { checked: false };
-        tlm.push_child(AstNode::ThematicBreak);
-        if let AstNode::TaskListMarker { checked } = &tlm {
-            assert!(!checked);
-        }
+        assert!(tlm.push_child(AstNode::ThematicBreak).is_err());
 
         // CodeBlock is a leaf.
         let mut cb = AstNode::CodeBlock {
             language: None,
             value: Cow::Borrowed("code"),
         };
-        cb.push_child(AstNode::ThematicBreak);
-        if let AstNode::CodeBlock { language, value } = &cb {
-            assert!(language.is_none());
-            assert_eq!(value.as_ref(), "code");
-        }
+        assert!(cb.push_child(AstNode::ThematicBreak).is_err());
     }
 
     // ---------------------------------------------------------------------------
@@ -641,134 +701,144 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn test_serde_root() {
+    fn test_serde_root() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Root { children: vec![] };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Root""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_heading() {
+    fn test_serde_heading() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Heading {
             level: 2,
             children: vec![AstNode::Text {
                 value: Cow::Borrowed("Hello"),
             }],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Heading""#));
         assert!(json.contains(r#""level":2"#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_paragraph_with_text() {
+    fn test_serde_paragraph_with_text() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Paragraph {
             children: vec![AstNode::Text {
                 value: Cow::Borrowed("world"),
             }],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Paragraph""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_text() {
+    fn test_serde_text() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Text {
             value: Cow::Borrowed("plain"),
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Text""#));
         assert!(json.contains(r#""value":"plain""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_code_block_with_lang() {
+    fn test_serde_code_block_with_lang() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::CodeBlock {
             language: Some(Cow::Borrowed("rust")),
             value: Cow::Borrowed("let x = 1;"),
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"CodeBlock""#));
         assert!(json.contains(r#""language":"rust""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_code_block_without_lang() {
+    fn test_serde_code_block_without_lang() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::CodeBlock {
             language: None,
             value: Cow::Borrowed("plain"),
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"CodeBlock""#));
         // language should be null when None
         assert!(json.contains(r#""language":null"#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_link() {
+    fn test_serde_link() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Link {
             url: Cow::Borrowed("https://example.com"),
             children: vec![AstNode::Text {
                 value: Cow::Borrowed("link text"),
             }],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Link""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_image() {
+    fn test_serde_image() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Image {
             url: Cow::Borrowed("photo.jpg"),
             alt: Cow::Borrowed("A photo"),
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Image""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_math_inline() {
+    fn test_serde_math_inline() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Math {
             value: Cow::Borrowed("x^2"),
             inline: true,
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Math""#));
         assert!(json.contains(r#""inline":true"#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_math_block() {
+    fn test_serde_math_block() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Math {
             value: Cow::Borrowed("\\sum"),
             inline: false,
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""inline":false"#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_blockquote() {
+    fn test_serde_blockquote() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Blockquote {
             children: vec![AstNode::Paragraph {
                 children: vec![AstNode::Text {
@@ -776,14 +846,15 @@ mod tests {
                 }],
             }],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Blockquote""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_list_ordered() {
+    fn test_serde_list_ordered() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::List {
             ordered: true,
             start: Some(5),
@@ -793,78 +864,84 @@ mod tests {
                 }],
             }],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"List""#));
         assert!(json.contains(r#""ordered":true"#));
         assert!(json.contains(r#""start":5"#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_list_unordered_no_start() {
+    fn test_serde_list_unordered_no_start() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::List {
             ordered: false,
             start: None,
             children: vec![],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""ordered":false"#));
         assert!(json.contains(r#""start":null"#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_list_item() {
+    fn test_serde_list_item() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::ListItem {
             children: vec![AstNode::Text {
                 value: Cow::Borrowed("entry"),
             }],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"ListItem""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_thematic_break() {
+    fn test_serde_thematic_break() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::ThematicBreak;
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert_eq!(json, r#"{"type":"ThematicBreak"}"#);
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_strong() {
+    fn test_serde_strong() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Strong {
             children: vec![AstNode::Text {
                 value: Cow::Borrowed("bold"),
             }],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Strong""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_emphasis() {
+    fn test_serde_emphasis() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Emphasis {
             children: vec![AstNode::Text {
                 value: Cow::Borrowed("italic"),
             }],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Emphasis""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_table() {
+    fn test_serde_table() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Table {
             alignments: vec![Some(AlignType::Left), None],
             children: vec![
@@ -884,40 +961,43 @@ mod tests {
                 },
             ],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Table""#));
         assert!(json.contains(r#""type":"TableHead""#));
         assert!(json.contains(r#""type":"TableRow""#));
         assert!(json.contains(r#""type":"TableCell""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_strikethrough() {
+    fn test_serde_strikethrough() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::Strikethrough {
             children: vec![AstNode::Text {
                 value: Cow::Borrowed("deleted"),
             }],
         };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"Strikethrough""#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_task_list_marker() {
+    fn test_serde_task_list_marker() -> Result<(), Box<dyn std::error::Error>> {
         let node = AstNode::TaskListMarker { checked: true };
-        let json = serde_json::to_string(&node).unwrap();
+        let json = serde_json::to_string(&node)?;
         assert!(json.contains(r#""type":"TaskListMarker""#));
         assert!(json.contains(r#""checked":true"#));
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(node, back);
+        Ok(())
     }
 
     #[test]
-    fn test_serde_deeply_nested_tree() {
+    fn test_serde_deeply_nested_tree() -> Result<(), Box<dyn std::error::Error>> {
         // Build: Root > Blockquote > List > ListItem > Paragraph > Strong > Text
         let tree = AstNode::Root {
             children: vec![AstNode::Blockquote {
@@ -936,9 +1016,10 @@ mod tests {
                 }],
             }],
         };
-        let json = serde_json::to_string(&tree).unwrap();
-        let back: AstNodeOwned = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&tree)?;
+        let back: AstNodeOwned = serde_json::from_str(&json)?;
         assert_eq!(tree, back);
+        Ok(())
     }
 
     #[test]
@@ -984,15 +1065,16 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn test_owned_type_alias_deserialize() {
+    fn test_owned_type_alias_deserialize() -> Result<(), Box<dyn std::error::Error>> {
         let json = r#"{"type":"Text","value":"hello"}"#;
-        let owned: AstNodeOwned = serde_json::from_str(json).unwrap();
+        let owned: AstNodeOwned = serde_json::from_str(json)?;
         // AstNodeOwned is AstNode<'static>, so we can move it freely.
         if let AstNode::Text { value } = owned {
             assert_eq!(value.as_ref(), "hello");
         } else {
             panic!("expected Text");
         }
+        Ok(())
     }
 
     #[test]

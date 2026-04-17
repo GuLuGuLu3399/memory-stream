@@ -79,7 +79,8 @@ export const useCardListStore = defineStore("cardList", () => {
         method: "GET",
         endpoint: "/cards/discover",
       });
-      orphanCards.value = result.data.map((c) => ({
+      const cards = result.data ?? (result as unknown as { cards: CardListItem[] }).cards ?? [];
+      orphanCards.value = cards.map((c) => ({
         id: c.id,
         title: c.title || "无标题",
         content: c.excerpt || c.raw_md || "",
@@ -100,7 +101,8 @@ export const useCardListStore = defineStore("cardList", () => {
         method: "GET",
         endpoint: "/cards",
       });
-      recentCards.value = result.data.map((c) => ({
+      const cards = result.data ?? (result as unknown as { cards: CardListItem[] }).cards ?? [];
+      recentCards.value = cards.map((c) => ({
         id: c.id,
         title: c.title || "无标题",
         content: c.excerpt || c.raw_md || "",

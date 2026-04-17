@@ -130,6 +130,7 @@
 | `raw_md`        | string | **Yes** | —            | Markdown 原始内容     |
 | `excerpt`       | string | No      | `""`         | 纯文本摘要             |
 | `ast_data`      | json   | No      | `{}`         | AST 结构化 JSON      |
+| `category_id`   | *uint  | No      | `null`       | 分类 ID，null 表示未分类     |
 | `parent_id`     | string | No      | —            | 父卡片 UUID，若提供则自动建边 |
 | `relation_type` | string | No      | `"sequence"` | 自动建边的关系类型         |
 
@@ -139,6 +140,7 @@
   "raw_md": "# Hello\n\nSome content",
   "excerpt": "A summary",
   "ast_data": { "type": "Root", "children": [] },
+  "category_id": 3,
   "parent_id": "uuid-parent",
   "relation_type": "reference"
 }

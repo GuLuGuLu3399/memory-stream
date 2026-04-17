@@ -8,15 +8,17 @@
  * - 选中项烛光辉
  * - 骨白文字, ms-xiang 结果卡片
  */
-import { ref, computed, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick, onUnmounted } from "vue";
 import { storeToRefs } from "pinia";
 import { Search, FileText, X, Terminal } from "lucide-vue-next";
 import { useGraphStore } from "../store/useGraphStore";
+import { useBreakpoints } from "../composables/useBreakpoints";
 import { useKeyboardListNavigation } from "@memory-stream/ui-shared";
 import { api } from "../api";
 
 const store = useGraphStore();
 const { commandPaletteOpen } = storeToRefs(store);
+const { isMobile } = useBreakpoints();
 
 const query = ref("");
 const results = ref<Array<{
@@ -95,6 +97,10 @@ function selectCard(id: string) {
 function close() {
     commandPaletteOpen.value = false;
 }
+
+onUnmounted(() => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+});
 
 function onKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") {
@@ -192,11 +198,15 @@ function onKeydown(e: KeyboardEvent) {
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-5 py-2 border-t border-ms-copper/30 text-2xs text-ms-ash flex gap-3 font-mono bg-ms-xiang/80">
+                    <div v-if="!isMobile" class="px-5 py-2 border-t border-ms-copper/30 text-2xs text-ms-ash flex gap-3 font-mono bg-ms-xiang/80">
                         <span>↑↓ 导航</span>
                         <span>↵ 打开</span>
                         <span>Esc 关闭</span>
                         <span class="ml-auto text-ms-gold/60">&gt; 命令</span>
+                    </div>
+                    <div v-else class="px-5 py-2 border-t border-ms-copper/30 text-2xs text-ms-ash flex items-center justify-between bg-ms-xiang/80">
+                        <span>点选打开卡片</span>
+                        <span class="text-ms-gold/60">&gt; 命令</span>
                     </div>
                 </div>
             </div>

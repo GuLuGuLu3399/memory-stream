@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func InitRedis() *redis.Client {
+func InitRedis() (*redis.Client, error) {
 	addr := os.Getenv("REDIS_ADDR")
 	if addr == "" {
 		addr = "localhost:6379"
@@ -35,11 +36,11 @@ func InitRedis() *redis.Client {
 	})
 
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
-		logger.Log.Fatalf("unable to connect Redis: %v", err)
+		return nil, fmt.Errorf("unable to connect Redis: %w", err)
 	}
 
 	logger.Log.Infof("Redis connected (pool=%d, idle=%d)", poolSize, minIdle)
-	return rdb
+	return rdb, nil
 }
 
 func envInt(key string, fallback int) int {

@@ -12,11 +12,13 @@ mod auth;
 mod cache;
 pub mod config;
 mod draft;
+mod draft_sync;
 mod export;
 mod image;
 mod importer;
 mod toc;
 mod vault_scanner;
+mod vault_sync;
 mod watcher;
 mod wikilink_replacer;
 mod ws_client;
@@ -117,8 +119,12 @@ struct CreateCardRequest {
     ast_data: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     toc_data: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    category_id: Option<u32>,
     parent_id: Option<String>,
     relation_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    extracted_links: Option<Vec<String>>,
 }
 
 /// Go 后端创建卡片响应
@@ -172,7 +178,7 @@ async fn process_markdown(content: String) -> Result<RenderResult, TempleError> 
         .replace("\\r\\n", "\n")
         .replace("\\n", "\n");
 
-    let extracted_links = extract_wikilinks(&clean);
+    let extracted_links = extract_wikilinks(&clean).unwrap_or_default();
 
     let ast = parse_markdown(&clean)?;
     let html = render_to_html(&ast)?;
@@ -263,8 +269,10 @@ async fn create_card_with_relation(
     ast_data: String,
     excerpt: String,
     toc_data: Option<String>,
+    category_id: Option<u32>,
     parent_id: Option<String>,
     relation: String,
+    extracted_links: Option<Vec<String>>,
 ) -> Result<String, TempleError> {
     let parsed_toc: Option<serde_json::Value> = toc_data
         .and_then(|s| if s.is_empty() { None } else { serde_json::from_str(&s).ok() });
@@ -274,12 +282,16 @@ async fn create_card_with_relation(
         excerpt,
         ast_data,
         toc_data: parsed_toc,
+        category_id,
         parent_id: parent_id.clone(),
         relation_type: Some(relation),
+        extracted_links,
     };
+    let base_url = client.get_base_url();
+    let base_url = base_url.trim_end_matches('/').to_string();
     let mut req = client
-        .0
-        .post(format!("{}/cards", api::API_BASE_URL))
+        .client
+        .post(format!("{}/cards", base_url))
         .json(&body);
     if let Some(token) = auth_state.get_access_token() {
         req = req.header("Authorization", format!("Bearer {}", token));
@@ -307,9 +319,11 @@ async fn delete_card(
     auth_state: State<'_, AuthArc>,
     id: String,
 ) -> Result<(), TempleError> {
+    let base_url = client.get_base_url();
+    let base_url = base_url.trim_end_matches('/').to_string();
     let mut req = client
-        .0
-        .delete(format!("{}/cards/{}", api::API_BASE_URL, id));
+        .client
+        .delete(format!("{}/cards/{}", base_url, id));
     if let Some(token) = auth_state.get_access_token() {
         req = req.header("Authorization", format!("Bearer {}", token));
     }
@@ -332,14 +346,34 @@ async fn get_card_detail(
     auth_state: State<'_, AuthArc>,
     id: String,
 ) -> Result<serde_json::Value, TempleError> {
+    let base_url = client.get_base_url();
+    let base_url = base_url.trim_end_matches('/').to_string();
+    let url = format!("{}/cards/{}", base_url, id);
     let mut req = client
-        .0
-        .get(format!("{}/cards/{}", api::API_BASE_URL, id));
+        .client
+        .get(&url);
     if let Some(token) = auth_state.get_access_token() {
         req = req.header("Authorization", format!("Bearer {}", token));
     }
-    let resp = req.send().await
+    let mut resp = req.send().await
         .map_err(|e| TempleError::new(ErrorCode::NetworkUnreachable, e.to_string()))?;
+
+    if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
+        let should_refresh = auth_state.try_acquire_refresh_lock();
+        if should_refresh {
+            let _ = auth::do_refresh(&client.client, &auth_state, &base_url).await;
+            auth_state.release_refresh_lock();
+        }
+
+        let mut retry_req = client.client.get(&url);
+        if let Some(token) = auth_state.get_access_token() {
+            retry_req = retry_req.header("Authorization", format!("Bearer {}", token));
+        }
+        resp = retry_req
+            .send()
+            .await
+            .map_err(|e| TempleError::new(ErrorCode::NetworkUnreachable, e.to_string()))?;
+    }
 
     if !resp.status().is_success() {
         return Err(TempleError::new(ErrorCode::GraphNodeNotFound, format!("card not found: {}", resp.status())));
@@ -359,10 +393,12 @@ async fn sync_from_server(
     client: State<'_, AppHttpClient>,
     auth_state: State<'_, AuthArc>,
 ) -> Result<SyncResult, TempleError> {
+    let base_url = client.get_base_url();
+    let base_url = base_url.trim_end_matches('/').to_string();
     // Phase 1: 网络请求（不持有任何锁）
     let mut req = client
-        .0
-        .get(format!("{}/graph/outline", api::API_BASE_URL))
+        .client
+        .get(format!("{}/graph/outline", base_url))
         .timeout(std::time::Duration::from_secs(10));
     if let Some(token) = auth_state.get_access_token() {
         req = req.header("Authorization", format!("Bearer {}", token));
@@ -508,10 +544,12 @@ async fn build_knowledge_graph(
     client: State<'_, AppHttpClient>,
     auth_state: State<'_, AuthArc>,
 ) -> Result<serde_json::Value, TempleError> {
+    let base_url = client.get_base_url();
+    let base_url = base_url.trim_end_matches('/').to_string();
     // Phase 1: 网络请求（不持有任何锁）
     let mut req = client
-        .0
-        .get(format!("{}/graph/outline", api::API_BASE_URL))
+        .client
+        .get(format!("{}/graph/outline", base_url))
         .timeout(std::time::Duration::from_secs(15));
     if let Some(token) = auth_state.get_access_token() {
         req = req.header("Authorization", format!("Bearer {}", token));
@@ -621,6 +659,7 @@ fn init_search_index(state: State<'_, Mutex<AppState>>, index_dir: String) -> Re
 #[tauri::command]
 async fn rebuild_search_index(state: State<'_, Mutex<AppState>>) -> Result<serde_json::Value, TempleError> {
     // 短暂持锁：读取快照
+    #[allow(clippy::type_complexity)]
     let (engine_ptr, docs_to_index): (Arc<Mutex<Option<SearchEngine>>>, Vec<(String, String, String)>) = {
         let app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
         let metas = app_state.doc_pool.list_metadata();
@@ -712,6 +751,16 @@ fn start_watcher(
     Ok(format!("watching: {}", watch_dir))
 }
 
+/// 停止文件系统监控器
+#[tauri::command]
+fn stop_watcher(state: State<'_, Mutex<AppState>>) -> Result<(), TempleError> {
+    let mut app_state = state.lock().map_err(|e| TempleError::new(ErrorCode::CacheLockFailed, e.to_string()))?;
+    if let Some(mut watcher) = app_state.watcher.take() {
+        watcher.stop().map_err(|e| TempleError::new(ErrorCode::InternalError, e.to_string()))?;
+    }
+    Ok(())
+}
+
 /// 通过 WebSocket 创建图谱边
 ///
 /// 使用实时 WebSocket 通道而非 HTTP 请求，确保多客户端同步。
@@ -778,8 +827,26 @@ fn import_zip_archive(path: String) -> Result<Vec<importer::ImportCard>, TempleE
 async fn reload_sys_config(app: tauri::AppHandle) -> Result<(), TempleError> {
     let config = config::get_config(&app).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
 
-    let access_key = config::keyring_wrapper::get_secret("S3_ACCESS_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
-    let secret_key = config::keyring_wrapper::get_secret("S3_SECRET_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
+    // 热更新 API 基础 URL（不重启即生效）
+    let http_client = app.state::<api::AppHttpClient>();
+    if !config.api_base_url.is_empty() {
+        http_client.set_base_url(config.api_base_url.clone());
+    }
+
+    let access_key = match config::keyring_wrapper::get_secret("S3_ACCESS_KEY") {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("[reload_sys_config] read S3_ACCESS_KEY failed, fallback to empty: {}", e);
+            None
+        }
+    };
+    let secret_key = match config::keyring_wrapper::get_secret("S3_SECRET_KEY") {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("[reload_sys_config] read S3_SECRET_KEY failed, fallback to empty: {}", e);
+            None
+        }
+    };
 
     let s3_config = ms_storage::StorageConfig {
         endpoint: config.s3_endpoint.clone(),
@@ -809,8 +876,20 @@ async fn reload_sys_config(app: tauri::AppHandle) -> Result<(), TempleError> {
 #[tauri::command]
 async fn get_sys_config(app: tauri::AppHandle) -> Result<config::SysConfig, TempleError> {
     let mut config = config::get_config(&app).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
-    config.s3_access_key = config::keyring_wrapper::get_secret("S3_ACCESS_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
-    config.s3_secret_key = config::keyring_wrapper::get_secret("S3_SECRET_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
+    config.s3_access_key = match config::keyring_wrapper::get_secret("S3_ACCESS_KEY") {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("[get_sys_config] read S3_ACCESS_KEY failed, fallback to None: {}", e);
+            None
+        }
+    };
+    config.s3_secret_key = match config::keyring_wrapper::get_secret("S3_SECRET_KEY") {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("[get_sys_config] read S3_SECRET_KEY failed, fallback to None: {}", e);
+            None
+        }
+    };
     Ok(config)
 }
 
@@ -818,16 +897,60 @@ async fn get_sys_config(app: tauri::AppHandle) -> Result<config::SysConfig, Temp
 ///
 /// 非敏感字段写入 tauri-plugin-store，敏感字段（access_key / secret_key）
 /// 写入 OS keyring，然后自动热重载内存中的 S3 配置。
+/// 返回保存后的完整配置值。
 #[tauri::command]
-async fn save_sys_config(app: tauri::AppHandle, config: config::SysConfig) -> Result<(), TempleError> {
+async fn save_sys_config(app: tauri::AppHandle, config: config::SysConfig) -> Result<config::SysConfig, TempleError> {
+    let previous_config = config::get_config(&app).await.ok();
+
     if let Some(ref key) = config.s3_access_key {
-        config::keyring_wrapper::store_secret("S3_ACCESS_KEY", key).map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
+        if !key.trim().is_empty() {
+            config::keyring_wrapper::store_secret("S3_ACCESS_KEY", key)
+                .map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
+        }
     }
     if let Some(ref key) = config.s3_secret_key {
-        config::keyring_wrapper::store_secret("S3_SECRET_KEY", key).map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
+        if !key.trim().is_empty() {
+            config::keyring_wrapper::store_secret("S3_SECRET_KEY", key)
+                .map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
+        }
     }
     config::save_config(&app, &config).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
-    reload_sys_config(app).await
+
+    // 切换 API 服务端后，旧 token 可能来自其他环境，继续使用会触发 401。
+    if let Some(prev) = previous_config {
+        let old_base = prev.api_base_url.trim_end_matches('/');
+        let new_base = config.api_base_url.trim_end_matches('/');
+        if old_base != new_base {
+            let auth_state = app.state::<Arc<auth::AuthState>>();
+            auth_state.clear();
+            let _ = app.emit("auth_expired", serde_json::json!({ "reason": "api_base_url_changed" }));
+            log::info!("[save_sys_config] API base URL changed, cleared auth tokens");
+        }
+    }
+    
+    // 热重载 S3 配置
+    reload_sys_config(app.clone()).await?;
+    
+    // 立即读回配置，确保前端获得最新值
+    let updated_config = config::get_config(&app).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
+    let mut result = updated_config;
+    result.s3_access_key = match config::keyring_wrapper::get_secret("S3_ACCESS_KEY") {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("[save_sys_config] read-back S3_ACCESS_KEY failed, fallback to None: {}", e);
+            None
+        }
+    };
+    result.s3_secret_key = match config::keyring_wrapper::get_secret("S3_SECRET_KEY") {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("[save_sys_config] read-back S3_SECRET_KEY failed, fallback to None: {}", e);
+            None
+        }
+    };
+    
+    log::info!("[save_sys_config] ✓ Config saved and verified, returning updated config to frontend");
+    Ok(result)
 }
 
 /// 设置本地知识库 (Vault) 目录路径
@@ -846,30 +969,52 @@ async fn set_vault_path(app: tauri::AppHandle, path: String) -> Result<config::S
 }
 
 #[tauri::command]
-async fn test_api_connection(app: tauri::AppHandle) -> Result<(), TempleError> {
-    let config = config::get_config(&app).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-        .map_err(|e| TempleError::new(ErrorCode::InternalError, format!("HTTP client init failed: {}", e)))?;
-    let url = format!("{}/health", config.api_base_url.trim_end_matches('/'));
+async fn test_api_connection(
+    client: State<'_, AppHttpClient>,
+) -> Result<(), TempleError> {
+    let base = client.get_base_url();
+    let base = base.trim_end_matches('/');
+    if base.is_empty() {
+        return Err(TempleError::new(ErrorCode::StorageConfigError, "API 地址未配置".to_string()));
+    }
+    // health endpoint is at server root (/health), not under /api/v1
+    let health_url = if base.contains("/api/") {
+        let mut parts: Vec<&str> = base.split('/').collect();
+        parts.truncate(3);
+        format!("{}/health", parts.join("/"))
+    } else {
+        format!("{}/health", base)
+    };
     let resp = client
-        .get(&url)
+        .client
+        .get(&health_url)
         .send()
         .await
-        .map_err(|e| TempleError::new(ErrorCode::NetworkUnreachable, format!("API unreachable: {}", e)))?;
+        .map_err(|e| TempleError::new(ErrorCode::NetworkUnreachable, format!("API 不可达 ({}): {}", health_url, e)))?;
     if resp.status().is_success() {
         Ok(())
     } else {
-        Err(TempleError::new(ErrorCode::ApiError, format!("API returned HTTP {}", resp.status())))
+        Err(TempleError::new(ErrorCode::ApiError, format!("API 返回 HTTP {}", resp.status())))
     }
 }
 
 #[tauri::command]
 async fn test_s3_connection(app: tauri::AppHandle) -> Result<(), TempleError> {
     let config = config::get_config(&app).await.map_err(|e| TempleError::new(ErrorCode::InternalError, e))?;
-    let access_key = config::keyring_wrapper::get_secret("S3_ACCESS_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
-    let secret_key = config::keyring_wrapper::get_secret("S3_SECRET_KEY").map_err(|e| TempleError::new(ErrorCode::StorageConfigError, e))?;
+    let access_key = match config::keyring_wrapper::get_secret("S3_ACCESS_KEY") {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("[test_s3_connection] read S3_ACCESS_KEY failed, fallback to empty: {}", e);
+            None
+        }
+    };
+    let secret_key = match config::keyring_wrapper::get_secret("S3_SECRET_KEY") {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("[test_s3_connection] read S3_SECRET_KEY failed, fallback to empty: {}", e);
+            None
+        }
+    };
     let storage_config = ms_storage::StorageConfig {
         endpoint: config.s3_endpoint.clone(),
         region: config.s3_region.clone(),
@@ -896,7 +1041,7 @@ async fn test_s3_connection(app: tauri::AppHandle) -> Result<(), TempleError> {
 /// # 参数
 /// - `content`: 原始 Markdown 文本
 /// - `max_len`: 摘要最大字符数
-fn extract_plain_text(content: &str, max_len: usize) -> String {
+pub(crate) fn extract_plain_text(content: &str, max_len: usize) -> String {
     let stripped = strip_wikilinks(content);
 
     let lines: Vec<&str> = stripped.lines().collect();
@@ -1025,11 +1170,13 @@ pub fn run() {
             let data_dir = app
                 .path()
                 .app_data_dir()
-                .expect("cannot get app data dir");
-            std::fs::create_dir_all(&data_dir).ok();
+                .map_err(|e| std::io::Error::other(format!("cannot get app data dir: {e}")))?;
+            std::fs::create_dir_all(&data_dir)?;
             let db_path = data_dir.join("memory-stream-cache.db");
-            let cache =
-                CacheManager::open(db_path.to_str().expect("cache db path must be valid UTF-8")).expect("SQLite init failed");
+            let cache_db_path = db_path
+                .to_str()
+                .ok_or_else(|| std::io::Error::other("cache db path must be valid UTF-8"))?;
+            let cache = CacheManager::open(cache_db_path)?;
             let cache_arc = Arc::new(Mutex::new(Some(cache)));
 
             // ── 2. AuthState + Proactive Refresh ──
@@ -1037,7 +1184,7 @@ pub fn run() {
             
             // Load config from store and initialize reloadable state
             let config = tauri::async_runtime::block_on(config::get_config(app.handle()))
-                .expect("Failed to load config");
+                .map_err(std::io::Error::other)?;
             
             let ws_url = if config.ws_url.is_empty() {
                 "ws://localhost:8080/api/v1/ws".to_string()
@@ -1080,22 +1227,38 @@ pub fn run() {
                 search_engine: Arc::new(Mutex::new(None)),
             }));
 
-            // 注入全局 HTTP 客户端（连接池复用）
-            app.manage(AppHttpClient::new());
+            // 注入全局 HTTP 客户端（连接池复用），并在启动时应用持久化 API 地址
+            let http_client = AppHttpClient::new();
+            if !config.api_base_url.is_empty() {
+                http_client.set_base_url(config.api_base_url.clone());
+            }
+            let refresh_client = http_client.client.clone();
+            app.manage(http_client);
 
             // ── AuthState（JWT 凭据管理） ── 共享 Arc，WS 和 Command 都能读取
             app.manage(auth_arc.clone());
 
-            // ── Proactive Token 刷新 ── 启动后台定时器
-            let refresh_client = reqwest::Client::new();
-            auth::spawn_proactive_refresh(auth_arc.clone(), refresh_client);
+            // ── Proactive Token 刷新 ── 复用全局 HTTP 客户端连接池
+            auth::spawn_proactive_refresh(auth_arc.clone(), refresh_client, app.handle().clone());
 
             // ── DraftDb 本地草稿数据库（独立于缓存 DB） ──
             let draft_db_path = data_dir.join("drafts.db");
             let draft_manager = tauri::async_runtime::block_on(
                 draft::DraftManager::new(&draft_db_path)
-            ).expect("Draft DB init failed");
-            app.manage(draft_manager.into_inner());
+            ).map_err(std::io::Error::other)?;
+            let draft_db_arc = draft_manager.into_inner();
+            app.manage(draft_db_arc.clone());
+
+            // ── Draft 后台同步 Worker ──
+            // 每 5 秒轮询 pending 草稿，静默推送到 Go 后端
+            {
+                let sync_db = draft_db_arc.clone();
+                let sync_auth = auth_arc.clone();
+                let sync_base_url = config.api_base_url.clone();
+                tauri::async_runtime::spawn(async move {
+                    draft_sync::run_sync_loop(sync_db, sync_base_url, sync_auth).await;
+                });
+            }
 
             // ── 3. 系统托盘 ──
             let show_item = MenuItemBuilder::with_id("show", "显示 Memory Stream").build(app)?;
@@ -1107,7 +1270,11 @@ pub fn run() {
                 .build()?;
 
             TrayIconBuilder::with_id("main-tray")
-                .icon(app.default_window_icon().expect("app icon must be configured").clone())
+                .icon(
+                    app.default_window_icon()
+                        .ok_or_else(|| std::io::Error::other("app icon must be configured"))?
+                        .clone(),
+                )
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id().as_ref() {
@@ -1205,6 +1372,10 @@ pub fn run() {
             poll_vault_changes,
             preheat_vault_cmd,
             start_watcher,
+            stop_watcher,
+            vault_sync::sync_cloud_to_vault,
+            vault_sync::import_local_vault_to_cloud,
+            vault_sync::process_local_changes,
             // 图谱边操作（WebSocket）
             create_edge_cmd,
             delete_edge_cmd,
@@ -1229,6 +1400,7 @@ pub fn run() {
             test_s3_connection,
             // 本地草稿（ms-local-draft）
             draft::save_draft,
+            draft::auto_save_draft,
             draft::load_draft,
             draft::list_drafts,
             draft::delete_draft,

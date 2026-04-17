@@ -14,6 +14,9 @@ pub enum MSError {
 
     #[error("未知的 AST 节点类型: {0}")]
     UnknownNodeType(String),
+
+    #[error("非法操作: {0}")]
+    InvalidOperation(String),
 }
 
 pub type MSResult<T> = Result<T, MSError>;

@@ -1,3 +1,5 @@
+#![cfg(feature = "native")]
+
 pub mod error;
 
 use error::{ExportError, ExportResult};
@@ -166,7 +168,7 @@ pub async fn export_to_zip(
         })
     })
     .await
-    .unwrap_or(Err(ExportError::TaskPanic))
+    .map_err(extract_panic_source)?
 }
 
 /// 使用 fetcher 函数导出卡片到 ZIP 文件。
@@ -198,6 +200,22 @@ where
         .collect::<ExportResult<Vec<_>>>()?;
 
     export_to_zip(cards, &dest, ExportOptions::default()).await
+}
+
+fn extract_panic_source(join_err: tokio::task::JoinError) -> ExportError {
+    let reason = if join_err.is_panic() {
+        let panic_err = join_err.into_panic();
+        if let Some(s) = panic_err.downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = panic_err.downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Unknown panic payload".to_string()
+        }
+    } else {
+        "Task cancelled".to_string()
+    };
+    ExportError::TaskPanic { reason }
 }
 
 fn sanitize_filename(name: &str) -> String {
@@ -241,31 +259,32 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_export_single_card() {
-        let dir = TempDir::new().unwrap();
+    async fn test_export_single_card() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = TempDir::new()?;
         let zip_path = dir.path().join("export.zip");
 
         let cards = vec![test_card("Rust", "入门指南", "# Hello Rust\n\n这是一个测试。")];
         let summary = export_to_zip(cards, &zip_path, ExportOptions::default())
-            .await
-            .unwrap();
+            .await?;
 
         assert_eq!(summary.total_cards, 1);
         assert_eq!(summary.total_images, 0);
         assert!(zip_path.exists());
         assert!(summary.zip_size_bytes > 0);
 
-        let file = std::fs::File::open(&zip_path).unwrap();
-        let mut archive = ZipArchive::new(file).unwrap();
-        let mut entry = archive.by_index(0).unwrap();
+        let file = std::fs::File::open(&zip_path)?;
+        let mut archive = ZipArchive::new(file)?;
+        let mut entry = archive.by_index(0)?;
         let mut content = String::new();
-        std::io::Read::read_to_string(&mut entry, &mut content).unwrap();
+        std::io::Read::read_to_string(&mut entry, &mut content)?;
         assert!(content.contains("# Hello Rust"));
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_export_multiple_categories() {
-        let dir = TempDir::new().unwrap();
+    async fn test_export_multiple_categories() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = TempDir::new()?;
         let zip_path = dir.path().join("export.zip");
 
         let cards = vec![
@@ -275,22 +294,23 @@ mod tests {
         ];
 
         let summary = export_to_zip(cards, &zip_path, ExportOptions::default())
-            .await
-            .unwrap();
+            .await?;
 
         assert_eq!(summary.total_cards, 3);
 
-        let file = std::fs::File::open(&zip_path).unwrap();
-        let archive = ZipArchive::new(file).unwrap();
+        let file = std::fs::File::open(&zip_path)?;
+        let archive = ZipArchive::new(file)?;
         let names: Vec<String> = archive.file_names().map(std::string::ToString::to_string).collect();
         assert!(names.iter().any(|n| n.starts_with("Go/")));
         assert!(names.iter().any(|n| n.starts_with("Rust/")));
         assert_eq!(names.len(), 3);
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_export_with_images() {
-        let dir = TempDir::new().unwrap();
+    async fn test_export_with_images() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = TempDir::new()?;
         let zip_path = dir.path().join("export.zip");
 
         let cards = vec![KbCard {
@@ -307,18 +327,20 @@ mod tests {
             flatten_images: true,
             ..Default::default()
         };
-        let summary = export_to_zip(cards, &zip_path, options).await.unwrap();
+        let summary = export_to_zip(cards, &zip_path, options).await?;
         assert_eq!(summary.total_images, 1);
 
-        let file = std::fs::File::open(&zip_path).unwrap();
-        let archive = ZipArchive::new(file).unwrap();
+        let file = std::fs::File::open(&zip_path)?;
+        let archive = ZipArchive::new(file)?;
         let names: Vec<String> = archive.file_names().map(std::string::ToString::to_string).collect();
         assert!(names.iter().any(|n| n.starts_with("images/")));
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_export_with_images_nested_dirs() {
-        let dir = TempDir::new().unwrap();
+    async fn test_export_with_images_nested_dirs() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = TempDir::new()?;
         let zip_path = dir.path().join("export.zip");
 
         let cards = vec![KbCard {
@@ -335,30 +357,33 @@ mod tests {
             flatten_images: false,
             ..Default::default()
         };
-        let summary = export_to_zip(cards, &zip_path, options).await.unwrap();
+        let summary = export_to_zip(cards, &zip_path, options).await?;
         assert_eq!(summary.total_images, 1);
 
-        let file = std::fs::File::open(&zip_path).unwrap();
-        let archive = ZipArchive::new(file).unwrap();
+        let file = std::fs::File::open(&zip_path)?;
+        let archive = ZipArchive::new(file)?;
         let names: Vec<String> = archive.file_names().map(std::string::ToString::to_string).collect();
         assert!(names.iter().any(|n| n == "技术/diagram.png"));
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_export_empty_cards() {
-        let dir = TempDir::new().unwrap();
+    async fn test_export_empty_cards() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = TempDir::new()?;
         let zip_path = dir.path().join("export.zip");
 
         let summary = export_to_zip(vec![], &zip_path, ExportOptions::default())
-            .await
-            .unwrap();
+            .await?;
         assert_eq!(summary.total_cards, 0);
         assert!(zip_path.exists());
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_export_special_chars_in_filename() {
-        let dir = TempDir::new().unwrap();
+    async fn test_export_special_chars_in_filename() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = TempDir::new()?;
         let zip_path = dir.path().join("export.zip");
 
         let cards = vec![test_card(
@@ -367,15 +392,16 @@ mod tests {
             "# 特殊字符",
         )];
         let summary = export_to_zip(cards, &zip_path, ExportOptions::default())
-            .await
-            .unwrap();
+            .await?;
         assert_eq!(summary.total_cards, 1);
 
-        let file = std::fs::File::open(&zip_path).unwrap();
-        let archive = ZipArchive::new(file).unwrap();
+        let file = std::fs::File::open(&zip_path)?;
+        let archive = ZipArchive::new(file)?;
         let names: Vec<String> = archive.file_names().map(std::string::ToString::to_string).collect();
         assert_eq!(names.len(), 1);
         assert!(!names[0].contains(':'));
         assert!(!names[0].contains('?'));
+
+        Ok(())
     }
 }

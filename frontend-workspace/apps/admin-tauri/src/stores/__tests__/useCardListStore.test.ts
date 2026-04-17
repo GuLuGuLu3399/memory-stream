@@ -11,6 +11,11 @@ import { invoke } from '@tauri-apps/api/core'
 
 const mockInvoke = vi.mocked(invoke)
 
+/** Wait for the store's 300ms search debounce to flush */
+function flushDebounce(): Promise<void> {
+  return new Promise((r) => setTimeout(r, 350))
+}
+
 const mockOrphanCards = {
   data: [
     { id: 'orphan-1', title: 'Orphan Card 1', excerpt: 'Excerpt 1', x: 100, y: 200, category_id: null },
@@ -209,6 +214,7 @@ describe('useCardListStore', () => {
       await store.loadOrphans()
 
       store.searchQuery = 'orphan card 1'
+      await flushDebounce()
 
       expect(store.filteredOrphans).toHaveLength(1)
       expect(store.filteredOrphans[0].id).toBe('orphan-1')
@@ -219,6 +225,7 @@ describe('useCardListStore', () => {
       await store.loadOrphans()
 
       store.searchQuery = 'nonexistent'
+      await flushDebounce()
 
       expect(store.filteredOrphans).toHaveLength(0)
     })
@@ -238,6 +245,7 @@ describe('useCardListStore', () => {
       await store.loadOrphans()
 
       store.searchQuery = 'orphan'
+      await flushDebounce()
       store.selectedCategoryId = 1
 
       expect(store.filteredOrphans).toHaveLength(1)
@@ -271,6 +279,7 @@ describe('useCardListStore', () => {
       await store.loadRecent()
 
       store.searchQuery = 'recent card 2'
+      await flushDebounce()
 
       expect(store.filteredRecent).toHaveLength(1)
       expect(store.filteredRecent[0].id).toBe('recent-2')
@@ -291,6 +300,7 @@ describe('useCardListStore', () => {
       await store.loadRecent()
 
       store.searchQuery = 'card'
+      await flushDebounce()
       store.selectedCategoryId = 2
 
       expect(store.filteredRecent).toHaveLength(1)
@@ -308,9 +318,11 @@ describe('useCardListStore', () => {
       expect(store.filteredRecent).toHaveLength(3)
 
       store.searchQuery = 'nonexistent'
+      await flushDebounce()
       expect(store.filteredRecent).toHaveLength(0)
 
       store.searchQuery = 'recent'
+      await flushDebounce()
       expect(store.filteredRecent).toHaveLength(3)
     })
   })

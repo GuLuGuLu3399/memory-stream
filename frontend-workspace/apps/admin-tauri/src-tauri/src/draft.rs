@@ -2,7 +2,11 @@
 //!
 //! 对接 `ms-local-draft` Crate，提供离线草稿的增删查功能。
 //! 草稿数据存储在独立的 SQLite 数据库中，与图谱缓存物理隔离。
+//!
+//! 核心命令 `auto_save_draft`（Parse on Write）：
+//! 在本地保存时同步解析 AST，写入 SQLite 后由后台 Worker 静默推送到 Go 后端。
 
+use md_parser::{extract_wikilinks, parse_markdown};
 use ms_local_draft::DraftDb;
 use serde::Serialize;
 use std::sync::Arc;
@@ -66,9 +70,62 @@ pub async fn save_draft(
     raw_md: String,
     ast_data: Option<String>,
 ) -> Result<(), String> {
-    db.save_draft(&card_id, &raw_md, ast_data.as_deref())
-        .await
-        .map_err(|e| format!("保存草稿失败: {:?}", e))
+    db.save_draft(
+        &card_id,
+        "",
+        &raw_md,
+        ast_data.as_deref(),
+        None,
+        None,
+        None,
+        None,
+        "pending",
+    )
+    .await
+    .map_err(|e| format!("保存草稿失败: {:?}", e))
+}
+
+/// 自动保存草稿（Parse on Write）
+///
+/// 前端 1 秒防抖后调用此命令。Rust 端极速解析 AST（毫秒级），
+/// 将 raw_md + ast_json + excerpt + wikilinks 全量写入本地 SQLite，
+/// `sync_status` 设为 `"pending"`，等待后台 Worker 静默推送到 Go 后端。
+#[tauri::command]
+pub async fn auto_save_draft(
+    db: State<'_, Arc<DraftDb>>,
+    card_id: String,
+    title: String,
+    raw_md: String,
+    category_id: Option<i64>,
+) -> Result<(), String> {
+    // 1. Rust 端极速解析 AST
+    let clean = raw_md
+        .replace("\\r\\n", "\n")
+        .replace("\\n", "\n");
+
+    let ast = parse_markdown(&clean).map_err(|e| format!("AST 解析失败: {}", e))?;
+    let ast_json =
+        serde_json::to_string(&ast).map_err(|e| format!("AST 序列化失败: {}", e))?;
+
+    // 2. 提取摘要和 wikilinks
+    let excerpt = crate::extract_plain_text(&clean, 150);
+    let links = extract_wikilinks(&clean).unwrap_or_default();
+    let links_json = serde_json::to_string(&links).unwrap_or_else(|_| "[]".to_string());
+
+    // 3. 全量写入本地 SQLite，sync_status = "pending"
+    db.save_draft(
+        &card_id,
+        &title,
+        &raw_md,
+        Some(&ast_json),
+        None,
+        Some(&excerpt),
+        category_id,
+        Some(&links_json),
+        "pending",
+    )
+    .await
+    .map_err(|e| format!("保存草稿失败: {:?}", e))
 }
 
 /// 加载指定卡片的本地草稿

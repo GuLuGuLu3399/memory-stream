@@ -3,12 +3,19 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 
 	"github.com/GuLuGuLu3399/memory-stream-server/internal/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+)
+
+// Sentinel errors for merge operations — use errors.Is() to check.
+var (
+	ErrSurvivorInVictims = errors.New("survivor_id cannot be in victim_ids")
+	ErrCardNotFound      = errors.New("one or more card IDs not found")
 )
 
 // MergeRequest represents the input for merging cards
@@ -24,15 +31,25 @@ type MergeResult struct {
 	Warnings      []string `json:"warnings,omitempty"`
 }
 
-// MergeCards merges multiple victim cards into a survivor card.
+// MergeService handles card merge operations via atomic transactions.
+type MergeService struct {
+	db *gorm.DB
+}
+
+// NewMergeService creates a MergeService instance.
+func NewMergeService(db *gorm.DB) *MergeService {
+	return &MergeService{db: db}
+}
+
+// Merge merges multiple victim cards into a survivor card.
 // All edges pointing to/from victims are redirected to the survivor.
 // Duplicate edges are removed, and self-loops for sequence edges are cleaned up.
 // The entire operation is atomic within a single PostgreSQL transaction.
-func MergeCards(ctx context.Context, db *gorm.DB, req MergeRequest) (*MergeResult, error) {
+func (s *MergeService) Merge(ctx context.Context, req MergeRequest) (*MergeResult, error) {
 	// Validation: survivor not in victims
 	for _, vid := range req.VictimIDs {
 		if vid == req.SurvivorID {
-			return nil, errors.New("survivor_id cannot be in victim_ids")
+			return nil, ErrSurvivorInVictims
 		}
 	}
 
@@ -44,17 +61,17 @@ func MergeCards(ctx context.Context, db *gorm.DB, req MergeRequest) (*MergeResul
 		Warnings: []string{},
 	}
 
-	err := db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Row-level lock: lock all involved cards to prevent concurrent merge.
 		// Use SELECT ... FOR UPDATE (not COUNT(*)) since PG forbids FOR UPDATE with aggregates.
 		var lockedCards []models.Card
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("id IN ?", allIDs).
 			Find(&lockedCards).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to lock cards for merge: %w", err)
 		}
 		if len(lockedCards) != len(allIDs) {
-			return errors.New("one or more card IDs not found")
+			return ErrCardNotFound
 		}
 		// Step 1: Collect all edges to migrate
 		type EdgeInfo struct {
@@ -70,7 +87,7 @@ func MergeCards(ctx context.Context, db *gorm.DB, req MergeRequest) (*MergeResul
 			Where("target_id IN ?", req.VictimIDs).
 			Select("source_id, target_id, relation_type, created_at").
 			Scan(&incomingEdges).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to query incoming edges: %w", err)
 		}
 
 		// Get all outgoing edges from victims
@@ -79,20 +96,20 @@ func MergeCards(ctx context.Context, db *gorm.DB, req MergeRequest) (*MergeResul
 			Where("source_id IN ?", req.VictimIDs).
 			Select("source_id, target_id, relation_type, created_at").
 			Scan(&outgoingEdges).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to query outgoing edges: %w", err)
 		}
 
 		// Step 2: Delete all edges involving victims
 		if err := tx.Where("source_id IN ? OR target_id IN ?", req.VictimIDs, req.VictimIDs).
 			Delete(&models.CardEdge{}).Error; err != nil {
-			return err
+		return fmt.Errorf("failed to delete victim edges: %w", err)
 		}
 
 		// Step 3: Collect existing survivor edges to avoid PK conflicts on INSERT
 		var existingSurvivorEdges []models.CardEdge
 		if err := tx.Where("source_id = ? OR target_id = ?", req.SurvivorID, req.SurvivorID).
 			Find(&existingSurvivorEdges).Error; err != nil {
-			return err
+		return fmt.Errorf("failed to query survivor edges: %w", err)
 		}
 		existingEdgeKeys := make(map[string]bool, len(existingSurvivorEdges))
 		for _, e := range existingSurvivorEdges {
@@ -167,24 +184,24 @@ func MergeCards(ctx context.Context, db *gorm.DB, req MergeRequest) (*MergeResul
 				})
 			}
 			if err := tx.Create(&newEdges).Error; err != nil {
-				return err
+				return fmt.Errorf("failed to create merged edges: %w", err)
 			}
 			result.EdgesMigrated = len(newEdges)
 		}
 
 		// Step 6: Optional deduplication of edges (keep earliest CreatedAt)
 		if err := deduplicateEdges(tx, req.SurvivorID); err != nil {
-			return err
+		return fmt.Errorf("failed to deduplicate edges: %w", err)
 		}
 
 		// Step 7: Remove any sequence self-loops on survivor (cleanup)
 		if err := removeSequenceSelfLoops(tx, req.SurvivorID); err != nil {
-			return err
+		return fmt.Errorf("failed to remove self-loops: %w", err)
 		}
 
 		// Step 8: Delete victim cards
 		if err := tx.Where("id IN ?", req.VictimIDs).Delete(&models.Card{}).Error; err != nil {
-			return err
+		return fmt.Errorf("failed to delete victim cards: %w", err)
 		}
 		result.NodesDeleted = len(req.VictimIDs)
 

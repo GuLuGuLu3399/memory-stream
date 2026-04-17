@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from "vue";
+import { onMounted, onUnmounted, ref, computed, watch, nextTick } from "vue";
 import { useKnowledgeStore } from "../stores/knowledge";
 import { useLayoutStore } from "../stores/layout";
 import { storeToRefs } from "pinia";
@@ -51,13 +51,42 @@ const categoryMap = computed(() => {
 });
 
 const displayedCards = computed(() => {
-  return activeTab.value === "orphans" ? filteredOrphans.value : allCards.value;
+  const cards = activeTab.value === "orphans" ? filteredOrphans.value : allCards.value;
+  return cards.slice(0, visibleCount.value);
+});
+
+// ===== Infinite scroll batching =====
+const CARD_BATCH = 50;
+const visibleCount = ref(CARD_BATCH);
+const sentinelRef = ref<HTMLElement>();
+let scrollObserver: IntersectionObserver | null = null;
+
+watch([activeTab, searchQuery], () => {
+  visibleCount.value = CARD_BATCH;
 });
 
 onMounted(() => {
   store.loadCategories();
   store.loadOrphans();
   store.loadRecent();
+
+  scrollObserver = new IntersectionObserver((entries) => {
+    if (entries[0]?.isIntersecting) {
+      visibleCount.value += CARD_BATCH;
+    }
+  });
+  nextTick(() => {
+    if (sentinelRef.value && scrollObserver) {
+      scrollObserver.observe(sentinelRef.value);
+    }
+  });
+});
+
+onUnmounted(() => {
+  if (scrollObserver) {
+    scrollObserver.disconnect();
+    scrollObserver = null;
+  }
 });
 
 async function handleDelete(cardId: string, title: string) {
@@ -161,6 +190,8 @@ function handleCategorySelect(categoryId: number | null) {
             @select="handleCardSelect"
             @delete="handleDelete"
           />
+          <!-- Sentinel for infinite scroll -->
+          <div ref="sentinelRef" class="h-1" />
           <div v-if="displayedCards.length === 0" class="text-2xs text-slate-700 italic py-2 font-mono">
             {{ searchQuery ? '无匹配结果' : (activeTab === 'orphans' ? '暂无孤岛卡片' : '暂无卡片') }}
           </div>

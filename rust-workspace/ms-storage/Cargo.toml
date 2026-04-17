@@ -3,10 +3,14 @@ name = "ms-storage"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["native"]
+native = ["dep:tokio", "dep:rust-s3", "dep:async-trait"]
+
 [dependencies]
-async-trait = "0.1"
-rust-s3 = "0.35"
+async-trait = { version = "0.1", optional = true }
+rust-s3 = { version = "0.35", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, optional = true }

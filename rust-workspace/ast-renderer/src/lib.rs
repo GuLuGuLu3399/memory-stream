@@ -3,64 +3,17 @@
 //! 将 `AstNode` 树递归渲染为安全的 HTML 字符串。
 //! 内置 XSS 防护：所有文本经过 HTML 转义，URL 经过白名单过滤。
 
-use ast_core::{error::MSResult, AlignType, AstNode};
-use regex::Regex;
-use std::collections::HashMap;
+use ast_core::{
+    error::MSResult,
+    visitor::{collect_plain_text, generate_slug},
+    AlignType, AstNode,
+};
 use std::fmt::Write;
-use std::sync::LazyLock;
 
-/// Wikilink 正则：匹配 `[[Card Name]]` 格式。
-static WIKILINK_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[\[([^\]]+)\]\]").expect("wikilink regex should compile"));
-
-/// 将文本中的 wikilink `[[Card Name]]` 转换为带样式的 anchor 标签。
-///
-/// # 参数
-/// - `text`: 原始文本
-/// - `card_name_to_id`: 可选的卡片名称到 UUID 的映射
-///
-/// # 渲染规则
-/// - 当提供 `HashMap` 且包含卡片名称时：`<a href="/cards/{uuid}" class="reference-link">Card Name</a>`
-/// - 当未提供 `HashMap` 或名称未找到时：`<a class="reference-link" data-card-name="Card Name">Card Name</a>`
-fn render_wikilinks(text: &str, card_name_to_id: Option<&HashMap<String, String>>) -> String {
-    let mut result = String::with_capacity(text.len());
-    let mut last_end = 0;
-
-    for caps in WIKILINK_REGEX.captures_iter(text) {
-        let Some(full_match) = caps.get(0) else { continue };
-
-        if full_match.start() > last_end {
-            result.push_str(&escape_html(&text[last_end..full_match.start()]));
-        }
-
-        let card_name = caps.get(1).map_or("", |m| m.as_str());
-        let escaped_name = escape_html(card_name);
-
-        // 尝试从映射中获取 UUID
-        if let Some(uuid) = card_name_to_id.and_then(|map| map.get(card_name)) {
-            // 有 UUID：渲染为带 href 的链接
-            let _ = write!(
-                result,
-                r#"<a href="/cards/{}" class="reference-link">{}</a>"#,
-                escape_html(uuid),
-                escaped_name
-            );
-        } else {
-            // 无 UUID：渲染为 data-card-name 属性
-            let _ = write!(
-                result,
-                r#"<a class="reference-link" data-card-name="{escaped_name}">{escaped_name}</a>"#
-            );
-        }
-
-        last_end = full_match.end();
-    }
-
-    if last_end < text.len() {
-        result.push_str(&escape_html(&text[last_end..]));
-    }
-
-    result
+fn render_wikilink(target: &str, alias: Option<&str>) -> String {
+    let escaped_target = escape_html(target);
+    let label = escape_html(alias.unwrap_or(target));
+    format!(r#"<a class="reference-link wikilink" data-card-name="{escaped_target}">{label}</a>"#)
 }
 
 /// 将 AST 节点递归渲染为 HTML 字符串。
@@ -91,7 +44,7 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
 
         AstNode::Heading { level, children } => {
             let inner_html = render_children(children)?;
-            let slug = generate_slug(&collect_heading_text(children));
+            let slug = generate_slug(&collect_plain_text(children));
             format!(r#"<h{level} id="{slug}">{inner_html}</h{level}>"#)
         }
 
@@ -99,14 +52,20 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
             format!("<p>{}</p>", render_children(children)?)
         }
 
-        AstNode::Text { value } => render_wikilinks(value, None),
+        AstNode::Text { value } => escape_html(value),
+
+        AstNode::Wikilink { target, alias } => render_wikilink(target, alias.as_deref()),
 
         AstNode::InlineCode { value } => {
             format!("<code>{}</code>", escape_html(value))
         }
 
         AstNode::Strong { children } | AstNode::Emphasis { children } => {
-            let tag = if matches!(node, AstNode::Strong { .. }) { "strong" } else { "em" };
+            let tag = if matches!(node, AstNode::Strong { .. }) {
+                "strong"
+            } else {
+                "em"
+            };
             format!("<{tag}>{}</{tag}>", render_children(children)?)
         }
 
@@ -199,15 +158,15 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
                     } => {
                         html.push_str("<tr>");
                         for (i, cell) in head_children.iter().enumerate() {
-                            let align = alignments
-                                .get(i)
-                                .and_then(|a| a.as_ref())
-                                .map_or("", |a| match a {
+                            let align = alignments.get(i).and_then(|a| a.as_ref()).map_or(
+                                "",
+                                |a| match a {
                                     AlignType::Left => " style=\"text-align:left\"",
                                     AlignType::Center => " style=\"text-align:center\"",
                                     AlignType::Right => " style=\"text-align:right\"",
                                     AlignType::None => "",
-                                });
+                                },
+                            );
                             let _ = write!(html, "<th{align}>");
                             if let AstNode::TableCell {
                                 children: cell_children,
@@ -228,15 +187,15 @@ pub fn render_to_html(node: &AstNode) -> MSResult<String> {
                         }
                         html.push_str("<tr>");
                         for (i, cell) in row_children.iter().enumerate() {
-                            let align = alignments
-                                .get(i)
-                                .and_then(|a| a.as_ref())
-                                .map_or("", |a| match a {
+                            let align = alignments.get(i).and_then(|a| a.as_ref()).map_or(
+                                "",
+                                |a| match a {
                                     AlignType::Left => " style=\"text-align:left\"",
                                     AlignType::Center => " style=\"text-align:center\"",
                                     AlignType::Right => " style=\"text-align:right\"",
                                     AlignType::None => "",
-                                });
+                                },
+                            );
                             let _ = write!(html, "<td{align}>");
                             if let AstNode::TableCell {
                                 children: cell_children,
@@ -359,66 +318,6 @@ fn render_children(children: &[AstNode]) -> MSResult<String> {
     Ok(html)
 }
 
-/// Extract plain text from heading children for slug generation.
-fn collect_heading_text(children: &[AstNode]) -> String {
-    let mut s = String::new();
-    for child in children {
-        append_text(child, &mut s);
-    }
-    s
-}
-
-fn append_text(node: &AstNode, out: &mut String) {
-    match node {
-        AstNode::Text { value } | AstNode::CodeBlock { value, .. } => out.push_str(value),
-        AstNode::Strong { children }
-        | AstNode::Emphasis { children }
-        | AstNode::Link { children, .. }
-        | AstNode::Paragraph { children } => {
-            for child in children {
-                append_text(child, out);
-            }
-        }
-        _ => {}
-    }
-}
-
-/// Generate a URL-safe slug from heading text.
-///
-/// Matches the algorithm in `ms-toc-extractor` so that TOC slugs
-/// correspond exactly to heading `id` attributes.
-fn generate_slug(text: &str) -> String {
-    let lower = text.to_lowercase();
-    let mut slug = String::with_capacity(lower.len());
-    for ch in lower.chars() {
-        match ch {
-            'a'..='z' | '0'..='9' => slug.push(ch),
-            _ if is_cjk(ch) => slug.push(ch),
-            ' ' | '-' | '_' => {
-                if !slug.ends_with('-') && !slug.is_empty() {
-                    slug.push('-');
-                }
-            }
-            _ => {}
-        }
-    }
-    let trimmed = slug.trim_end_matches('-');
-    if trimmed.is_empty() {
-        "heading".to_string()
-    } else {
-        trimmed.to_string()
-    }
-}
-
-fn is_cjk(ch: char) -> bool {
-    matches!(ch,
-        '\u{4E00}'..='\u{9FFF}'
-        | '\u{3400}'..='\u{4DBF}'
-        | '\u{3000}'..='\u{303F}'
-        | '\u{F900}'..='\u{FAFF}'
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -433,7 +332,7 @@ mod tests {
     }
 
     #[test]
-    fn test_render_heading_and_paragraph() {
+    fn test_render_heading_and_paragraph() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Root {
             children: vec![
                 AstNode::Heading {
@@ -450,12 +349,13 @@ mod tests {
             ],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, r#"<h2 id="渲染测试">渲染测试</h2><p>纯文本</p>"#);
+        Ok(())
     }
 
     #[test]
-    fn test_render_nested_styles() {
+    fn test_render_nested_styles() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Paragraph {
             children: vec![
                 AstNode::Text {
@@ -471,63 +371,68 @@ mod tests {
             ],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, "<p>你好<strong><em>世界</em></strong></p>");
+        Ok(())
     }
 
     #[test]
-    fn test_render_text_xss_prevention() {
+    fn test_render_text_xss_prevention() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Paragraph {
             children: vec![AstNode::Text {
                 value: Cow::Borrowed("<script>alert('xss')</script>"),
             }],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.contains("&lt;script&gt;"));
         assert!(!html.contains("<script>"));
+        Ok(())
     }
 
     #[test]
-    fn test_render_mermaid_xss_prevention() {
+    fn test_render_mermaid_xss_prevention() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::CodeBlock {
             language: Some(Cow::Borrowed("mermaid")),
             value: Cow::Borrowed("</pre><script>alert('mermaid-xss')</script><pre>"),
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.starts_with("<pre class=\"mermaid\">"));
         assert!(html.contains("&lt;/pre&gt;"));
         assert!(!html.contains("</pre><script>"));
+        Ok(())
     }
 
     #[test]
-    fn test_render_mermaid_whitespace_preserved() {
+    fn test_render_mermaid_whitespace_preserved() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::CodeBlock {
             language: Some(Cow::Borrowed("mermaid")),
             value: Cow::Borrowed("graph TD\n    A --> B"),
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.starts_with("<pre class=\"mermaid\">"));
         assert!(html.contains("graph TD\n    A --&gt; B"));
         assert!(html.ends_with("</pre>"));
+        Ok(())
     }
 
     #[test]
-    fn test_render_code_block_with_language() {
+    fn test_render_code_block_with_language() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::CodeBlock {
             language: Some(Cow::Borrowed("rust")),
             value: Cow::Borrowed("fn main() {}"),
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.contains("class=\"language-rust\""));
         assert!(html.contains("fn main() {}"));
+        Ok(())
     }
 
     #[test]
-    fn test_render_code_block_language_escaped() {
+    fn test_render_code_block_language_escaped() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::CodeBlock {
             language: Some(Cow::Borrowed(
                 "rust\"><script>alert(1)</script><span class=\"rust",
@@ -535,13 +440,14 @@ mod tests {
             value: Cow::Borrowed("code"),
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(!html.contains("<script>"));
         assert!(html.contains("&lt;script&gt;"));
+        Ok(())
     }
 
     #[test]
-    fn test_sanitize_url_blocks_javascript_scheme() {
+    fn test_sanitize_url_blocks_javascript_scheme() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Link {
             url: Cow::Borrowed("javascript:alert('xss')"),
             children: vec![AstNode::Text {
@@ -549,12 +455,13 @@ mod tests {
             }],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, "<a href=\"#\">点击</a>");
+        Ok(())
     }
 
     #[test]
-    fn test_sanitize_url_blocks_javascript_mixed_case() {
+    fn test_sanitize_url_blocks_javascript_mixed_case() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Link {
             url: Cow::Borrowed("JaVaScRiPt:alert(1)"),
             children: vec![AstNode::Text {
@@ -562,12 +469,13 @@ mod tests {
             }],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, "<a href=\"#\">link</a>");
+        Ok(())
     }
 
     #[test]
-    fn test_sanitize_url_blocks_data_scheme() {
+    fn test_sanitize_url_blocks_data_scheme() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Link {
             url: Cow::Borrowed("data:text/html,<script>alert(1)</script>"),
             children: vec![AstNode::Text {
@@ -575,23 +483,25 @@ mod tests {
             }],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, "<a href=\"#\">link</a>");
+        Ok(())
     }
 
     #[test]
-    fn test_sanitize_url_blocks_data_scheme_image() {
+    fn test_sanitize_url_blocks_data_scheme_image() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Image {
             url: Cow::Borrowed("data:image/svg+xml,<svg onload=alert(1)>"),
             alt: Cow::Borrowed("img"),
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, "<img src=\"#\" alt=\"img\" loading=\"lazy\" />");
+        Ok(())
     }
 
     #[test]
-    fn test_sanitize_url_allows_https() {
+    fn test_sanitize_url_allows_https() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Link {
             url: Cow::Borrowed("https://example.com/path?q=1&b=2"),
             children: vec![AstNode::Text {
@@ -599,13 +509,14 @@ mod tests {
             }],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.starts_with("<a href=\"https://example.com/path?q=1&amp;b=2\">"));
         assert!(html.ends_with("安全链接</a>"));
+        Ok(())
     }
 
     #[test]
-    fn test_sanitize_url_allows_http() {
+    fn test_sanitize_url_allows_http() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Link {
             url: Cow::Borrowed("http://example.com"),
             children: vec![AstNode::Text {
@@ -613,12 +524,13 @@ mod tests {
             }],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.contains("href=\"http://example.com\""));
+        Ok(())
     }
 
     #[test]
-    fn test_sanitize_url_allows_mailto() {
+    fn test_sanitize_url_allows_mailto() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Link {
             url: Cow::Borrowed("mailto:user@example.com"),
             children: vec![AstNode::Text {
@@ -626,12 +538,13 @@ mod tests {
             }],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.contains("href=\"mailto:user@example.com\""));
+        Ok(())
     }
 
     #[test]
-    fn test_sanitize_url_allows_relative_paths() {
+    fn test_sanitize_url_allows_relative_paths() -> Result<(), Box<dyn std::error::Error>> {
         let cases = vec!["/about", "#section", "/api/v1/cards"];
         for url in cases {
             let ast = AstNode::Link {
@@ -640,16 +553,18 @@ mod tests {
                     value: Cow::Borrowed("link"),
                 }],
             };
-            let html = render_to_html(&ast).unwrap();
+            let html = render_to_html(&ast)?;
             assert!(
                 html.contains(&format!("href=\"{url}\"")),
                 "relative URL '{url}' should pass through: {html}"
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn test_sanitize_url_blocks_leading_whitespace_javascript() {
+    fn test_sanitize_url_blocks_leading_whitespace_javascript(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Link {
             url: Cow::Borrowed("   javascript:alert(1)"),
             children: vec![AstNode::Text {
@@ -657,18 +572,20 @@ mod tests {
             }],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, "<a href=\"#\">link</a>");
+        Ok(())
     }
 
     #[test]
-    fn test_render_thematic_break() {
+    fn test_render_thematic_break() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::ThematicBreak;
-        assert_eq!(render_to_html(&ast).unwrap(), "<hr />");
+        assert_eq!(render_to_html(&ast)?, "<hr />");
+        Ok(())
     }
 
     #[test]
-    fn test_render_blockquote() {
+    fn test_render_blockquote() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Blockquote {
             children: vec![AstNode::Paragraph {
                 children: vec![AstNode::Text {
@@ -677,13 +594,14 @@ mod tests {
             }],
         };
         assert_eq!(
-            render_to_html(&ast).unwrap(),
+            render_to_html(&ast)?,
             "<blockquote><p>引用</p></blockquote>"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_render_ordered_list_with_start() {
+    fn test_render_ordered_list_with_start() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::List {
             ordered: true,
             start: Some(3),
@@ -694,14 +612,15 @@ mod tests {
             }],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.contains(" start=\"3\""));
         assert!(html.contains("<ol"));
         assert!(html.contains("<li>第三项</li>"));
+        Ok(())
     }
 
     #[test]
-    fn test_render_unordered_list() {
+    fn test_render_unordered_list() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::List {
             ordered: false,
             start: None,
@@ -712,177 +631,167 @@ mod tests {
             }],
         };
 
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.starts_with("<ul>"));
         assert!(html.ends_with("</ul>"));
         assert!(!html.contains("start="));
+        Ok(())
     }
 
     #[test]
-    fn test_render_inline_math() {
+    fn test_render_inline_math() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Math {
             value: Cow::Borrowed("E=mc^2"),
             inline: true,
         };
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, "<span class=\"math-inline\">\\(E=mc^2\\)</span>");
+        Ok(())
     }
 
     #[test]
-    fn test_render_block_math() {
+    fn test_render_block_math() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Math {
             value: Cow::Borrowed("E=mc^2"),
             inline: false,
         };
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, "<div class=\"math-block\">\\[E=mc^2\\]</div>");
+        Ok(())
     }
 
     #[test]
-    fn test_render_image() {
+    fn test_render_image() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Image {
             url: Cow::Borrowed("https://example.com/img.png"),
             alt: Cow::Borrowed("图片\"描述"),
         };
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.contains("src=\"https://example.com/img.png\""));
         assert!(html.contains("alt=\"图片&quot;描述\""));
         assert!(html.contains("loading=\"lazy\""));
+        Ok(())
     }
 
     #[test]
-    fn test_render_empty_url_link() {
+    fn test_render_empty_url_link() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Link {
             url: Cow::Borrowed(""),
             children: vec![AstNode::Text {
                 value: Cow::Borrowed("空链接"),
             }],
         };
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, "<a href=\"\">空链接</a>");
+        Ok(())
     }
 
     #[test]
-    fn test_wikilink_basic() {
+    fn test_wikilink_basic() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Paragraph {
-            children: vec![AstNode::Text {
-                value: Cow::Borrowed("Check [[Card Name]] for details"),
-            }],
+            children: vec![
+                AstNode::Text {
+                    value: Cow::Borrowed("Check "),
+                },
+                AstNode::Wikilink {
+                    target: Cow::Borrowed("Card Name"),
+                    alias: None,
+                },
+                AstNode::Text {
+                    value: Cow::Borrowed(" for details"),
+                },
+            ],
         };
-        let html = render_to_html(&ast).unwrap();
-        assert!(
-            html.contains(r#"<a class="reference-link" data-card-name="Card Name">Card Name</a>"#)
-        );
+        let html = render_to_html(&ast)?;
+        assert!(html.contains(
+            r#"<a class="reference-link wikilink" data-card-name="Card Name">Card Name</a>"#
+        ));
         assert!(html.contains("Check "));
         assert!(html.contains(" for details"));
+        Ok(())
     }
 
     #[test]
-    fn test_wikilink_multiple() {
+    fn test_wikilink_multiple() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Paragraph {
-            children: vec![AstNode::Text {
-                value: Cow::Borrowed("See [[A]] and [[B]]"),
-            }],
+            children: vec![
+                AstNode::Text {
+                    value: Cow::Borrowed("See "),
+                },
+                AstNode::Wikilink {
+                    target: Cow::Borrowed("A"),
+                    alias: None,
+                },
+                AstNode::Text {
+                    value: Cow::Borrowed(" and "),
+                },
+                AstNode::Wikilink {
+                    target: Cow::Borrowed("B"),
+                    alias: None,
+                },
+            ],
         };
-        let html = render_to_html(&ast).unwrap();
-        assert!(html.contains(r#"<a class="reference-link" data-card-name="A">A</a>"#));
-        assert!(html.contains(r#"<a class="reference-link" data-card-name="B">B</a>"#));
+        let html = render_to_html(&ast)?;
+        assert!(html.contains(r#"<a class="reference-link wikilink" data-card-name="A">A</a>"#));
+        assert!(html.contains(r#"<a class="reference-link wikilink" data-card-name="B">B</a>"#));
+        Ok(())
     }
 
     #[test]
-    fn test_wikilink_special_chars() {
+    fn test_wikilink_special_chars() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Paragraph {
-            children: vec![AstNode::Text {
-                value: Cow::Borrowed("See [[C++ Notes]]"),
-            }],
+            children: vec![
+                AstNode::Text {
+                    value: Cow::Borrowed("See "),
+                },
+                AstNode::Wikilink {
+                    target: Cow::Borrowed("C++ Notes"),
+                    alias: None,
+                },
+            ],
         };
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.contains(r#"data-card-name="C++ Notes""#));
         assert!(!html.contains("<script>"));
+        Ok(())
     }
 
     #[test]
-    fn test_wikilink_no_match() {
+    fn test_wikilink_no_match() -> Result<(), Box<dyn std::error::Error>> {
         let ast = AstNode::Paragraph {
             children: vec![AstNode::Text {
                 value: Cow::Borrowed("No links here"),
             }],
         };
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert_eq!(html, "<p>No links here</p>");
         assert!(!html.contains("reference-link"));
+        Ok(())
     }
 
     #[test]
-    fn test_wikilink_with_html_chars() {
-        let ast = AstNode::Paragraph {
-            children: vec![AstNode::Text {
-                value: Cow::Borrowed("[[Card<script>]] text"),
-            }],
+    fn test_wikilink_with_html_chars() -> Result<(), Box<dyn std::error::Error>> {
+        let ast = AstNode::Wikilink {
+            target: Cow::Borrowed("Card<script>"),
+            alias: None,
         };
-        let html = render_to_html(&ast).unwrap();
+        let html = render_to_html(&ast)?;
         assert!(html.contains(r#"data-card-name="Card&lt;script&gt;""#));
         assert!(!html.contains("<script>"));
+        Ok(())
     }
 
     #[test]
-    fn test_wikilink_with_uuid_resolution() {
-        let mut card_map: HashMap<String, String> = HashMap::new();
-        card_map.insert("Card Name".to_string(), "uuid-123-abc".to_string());
+    fn test_wikilink_alias_rendering() -> Result<(), Box<dyn std::error::Error>> {
+        let ast = AstNode::Wikilink {
+            target: Cow::Borrowed("4.9线性代数"),
+            alias: Some(Cow::Borrowed("线代 4.9")),
+        };
+        let html = render_to_html(&ast)?;
 
-        let text = "Check [[Card Name]] for details";
-        let html = render_wikilinks(text, Some(&card_map));
-
-        assert!(html.contains(r#"href="/cards/uuid-123-abc""#));
-        assert!(html.contains(r#"class="reference-link""#));
-        assert!(html.contains(">Card Name</a>"));
-        assert!(!html.contains("data-card-name"));
-    }
-
-    #[test]
-    fn test_wikilink_without_uuid_map() {
-        let text = "Check [[Card Name]] for details";
-        let html = render_wikilinks(text, None);
-
-        assert!(html.contains(r#"data-card-name="Card Name""#));
-        assert!(html.contains(r#"class="reference-link""#));
-        assert!(!html.contains("href="));
-    }
-
-    #[test]
-    fn test_wikilink_uuid_map_name_not_found() {
-        let mut card_map: HashMap<String, String> = HashMap::new();
-        card_map.insert("Other Card".to_string(), "uuid-other".to_string());
-
-        let text = "Check [[Card Name]] for details";
-        let html = render_wikilinks(text, Some(&card_map));
-
-        assert!(html.contains(r#"data-card-name="Card Name""#));
-        assert!(html.contains(r#"class="reference-link""#));
-        assert!(!html.contains("href="));
-    }
-
-    #[test]
-    fn test_wikilink_mixed_resolution() {
-        let mut card_map: HashMap<String, String> = HashMap::new();
-        card_map.insert("Known Card".to_string(), "uuid-known".to_string());
-
-        let text = "See [[Known Card]] and [[Unknown Card]]";
-        let html = render_wikilinks(text, Some(&card_map));
-
-        assert!(html.contains(r#"href="/cards/uuid-known""#));
-        assert!(html.contains(r#"data-card-name="Unknown Card""#));
-    }
-
-    #[test]
-    fn test_wikilink_uuid_escaped() {
-        let mut card_map: HashMap<String, String> = HashMap::new();
-        card_map.insert("Card".to_string(), "uuid<\"evil>".to_string());
-
-        let text = "[[Card]]";
-        let html = render_wikilinks(text, Some(&card_map));
-
-        assert!(html.contains(r#"href="/cards/uuid&lt;&quot;evil&gt;""#));
-        assert!(!html.contains("<\"evil>"));
+        assert!(html.contains(r#"class="reference-link wikilink""#));
+        assert!(html.contains(r#"data-card-name="4.9线性代数""#));
+        assert!(html.contains(">线代 4.9</a>"));
+        Ok(())
     }
 }

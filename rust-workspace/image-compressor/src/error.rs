@@ -11,8 +11,11 @@ pub enum CompressError {
     #[error("图片缩放失败: {0}")]
     ResizeError(String),
 
-    #[error("线程执行崩溃")]
-    TaskPanic,
+    #[error("Blocking task panicked: {reason}")]
+    TaskPanic { reason: String },
+
+    #[error("输入数据过大: {0}")]
+    PayloadTooLarge(String),
 }
 
 pub type CompressResult<T> = Result<T, CompressError>;

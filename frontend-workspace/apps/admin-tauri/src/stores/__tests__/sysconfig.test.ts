@@ -18,13 +18,13 @@ const mockInvoke = vi.mocked(invoke)
 const defaultConfig: SysConfig = {
   api_base_url: 'http://localhost:8080/api/v1',
   ws_url: 'ws://localhost:8080/api/v1/ws',
-  s3_endpoint: '',
+  s3_endpoint: 'http://localhost:9000',
   s3_region: 'us-east-1',
-  s3_bucket: '',
-  s3_access_key: '',
-  s3_secret_key: '',
-  s3_public_url_base: '',
-  s3_use_path_style: false,
+  s3_bucket: 'memory-stream',
+  s3_access_key: 'admin',
+  s3_secret_key: 'adminpassword',
+  s3_public_url_base: 'http://localhost:9000',
+  s3_use_path_style: true,
   vault_path: null,
 }
 

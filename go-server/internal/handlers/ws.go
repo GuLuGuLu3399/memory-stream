@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/GuLuGuLu3399/memory-stream-server/internal/pkg/logger"
@@ -13,72 +14,167 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Allowed origins for WebSocket connections
-var allowedOrigins = map[string]bool{
-	"http://localhost:5173":   true, // web-reader dev
-	"http://localhost:1420":   true, // admin-tauri dev
-	"http://localhost:4173":   true, // vite preview
-	"https://tauri.localhost": true, // tauri production
-	"http://tauri.localhost":  true, // tauri production (some versions)
-}
+const (
+	// 心跳超时：客户端必须在此时间内发送Pong，否则连接断开
+	pongWait = 60 * time.Second
+	// 发送心跳间隔
+	pingInterval = 30 * time.Second
+)
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		if origin == "" {
-			// Allow connections without Origin header (e.g., direct WebSocket clients)
-			return true
-		}
-		allowed, exists := allowedOrigins[origin]
-		return exists && allowed
-	},
+	CheckOrigin:     checkWebSocketOrigin,
 }
 
-// HandleWS upgrades an HTTP connection to WebSocket and starts the client pumps.
-func HandleWS(c *gin.Context, hub *ws.Hub) {
+// checkWebSocketOrigin validates incoming WebSocket upgrade requests against allowed origins.
+// Supports local development (Vite), Tauri desktop, and production deployments.
+func checkWebSocketOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	
+	// Allowed origins: development servers, Tauri, and production domains
+	allowedOrigins := []string{
+		"http://localhost:5173",   // Vite dev server
+		"http://localhost:1420",   // Tauri dev server
+		"http://localhost:4173",   // Vite preview
+		"https://tauri.localhost",
+		"http://tauri.localhost",
+	}
+	
+	for _, allowed := range allowedOrigins {
+		if origin == allowed {
+			return true
+		}
+	}
+	
+	logger.Log.Warnf("[WS] rejected upgrade from disallowed origin: %s", origin)
+	return false
+}
+
+// extractBearerToken 从请求头或URL Query中提取Token
+// 优先级：Authorization header > URL query parameter
+func extractBearerToken(r *http.Request) string {
+	// 1. 尝试从 Authorization header 提取 (标准方式)
+	auth := r.Header.Get("Authorization")
+	if auth != "" {
+		parts := strings.SplitN(auth, " ", 2)
+		if len(parts) == 2 && strings.EqualFold(parts[0], "bearer") {
+			return strings.TrimSpace(parts[1])
+		}
+	}
+	
+	// 2. 降阶到 URL Query (WebSocket API原生兼容性)
+	return r.URL.Query().Get("token")
+}
+
+// HandleWS 处理WebSocket握手与升级
+// 【第一纪元】在HTTP升级握手阶段直接验证Token，拦截伪造者于门外
+func HandleWS(c *gin.Context, hub *ws.Hub, authSvc *services.AuthService) {
+	// ══════════════════════════════════════════════════════════════════
+	// 阶段1：Token提取与验证（握手阶段拦截）
+	// ══════════════════════════════════════════════════════════════════
+	tokenString := extractBearerToken(c.Request)
+	if tokenString == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "缺少认证令牌"})
+		logger.Log.Warnf("[WS] connection attempt without token from %s", c.ClientIP())
+		return
+	}
+
+	// Token校验：无效Token直接拒绝，不给升级机会
+	userID, role, err := authSvc.ParseAccessToken(tokenString)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "令牌无效或已过期"})
+		logger.Log.Warnf("[WS] auth failed for %s: %v", c.ClientIP(), err)
+		return
+	}
+
+	// ══════════════════════════════════════════════════════════════════
+	// 阶段2：正式升级连接（已验证的客户端）
+	// ══════════════════════════════════════════════════════════════════
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		logger.Log.Errorf("[WS] upgrade failed: %v", err)
 		return
 	}
+	defer conn.Close()
 
+	// ══════════════════════════════════════════════════════════════════
+	// 阶段3：创建客户端对象与心跳管理
+	// ══════════════════════════════════════════════════════════════════
 	client := ws.NewClient(hub, conn)
+	client.SetAuth(userID, role)
 
-	// 所有客户端必须通过 AUTH 消息认证，不再接受 URL Query Token
-	client.SetAuthDeadline(3*time.Second, func() {
-		client.SendError("AUTH", "认证超时")
-		client.Close()
+	// 设置心跳超时：如果60秒内没有收到Pong，连接自动断开
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	
+	// Pong处理器：收到客户端的心跳回应，续命
+	conn.SetPongHandler(func(string) error {
+		logger.Log.Debugf("[WS] pong from %s", userID)
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
 	})
 
 	hub.Register(client)
+	
+	logger.Log.Infof("[WS] authenticated: user=%s role=%s from=%s", 
+		userID, role, c.ClientIP())
+
+	// ══════════════════════════════════════════════════════════════════
+	// 阶段4：启动读写泵与心跳发送器
+	// ══════════════════════════════════════════════════════════════════
 	go client.WritePump()
 	go client.ReadPump()
+	go heartbeatSender(conn, userID, pingInterval)
+}
+
+// heartbeatSender 周期性向客户端发送Ping心跳
+// 如果客户端在pongWait内不回应Pong，连接会因SetReadDeadline而断开
+func heartbeatSender(conn *websocket.Conn, userID string, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if err := conn.WriteControl(
+			websocket.PingMessage,
+			[]byte{},
+			time.Now().Add(5*time.Second),
+		); err != nil {
+			logger.Log.Warnf("[WS] heartbeat send failed for %s: %v", userID, err)
+			return
+		}
+		logger.Log.Debugf("[WS] ping sent to %s", userID)
+	}
 }
 
 // SetupWSHandlers registers action handlers for WebSocket events (AUTH, CREATE_EDGE, DELETE_EDGE, PING).
 func SetupWSHandlers(hub *ws.Hub, edgeSvc *services.EdgeService, authSvc *services.AuthService) {
 	hub.SetActionHandler(func(client *ws.Client, action ws.Action) {
 		switch action.Action {
+		// 注意：由于Token已在握手阶段验证，这里的AUTH消息不再必需
+		// 但保留以兼容旧客户端
 		case "AUTH":
-			handleWSAuth(authSvc, client, action.Payload)
+			// 握手时已验证，这里只是日志记录
+			logger.Log.Debugf("[WS] client reaffirms auth")
+			
 		case "CREATE_EDGE":
 			if !client.Authenticated() {
 				client.SendError("CREATE_EDGE", "未认证")
 				return
 			}
 			handleWSCreateEdge(hub, edgeSvc, action.Payload)
+			
 		case "DELETE_EDGE":
 			if !client.Authenticated() {
 				client.SendError("DELETE_EDGE", "未认证")
 				return
 			}
 			handleWSDeleteEdge(hub, edgeSvc, action.Payload)
+			
 		case "PING":
-			// 心跳延迟检测 — 回送 PONG
+			// 心跳应答：客户端主动Ping，服务端回Pong
 			data, _ := json.Marshal(ws.WSEvent{Event: "PONG"})
 			client.Send(data)
+			
 		default:
 			hub.BroadcastEvent(ws.WSEvent{
 				Event:   "ERROR",
@@ -86,30 +182,6 @@ func SetupWSHandlers(hub *ws.Hub, edgeSvc *services.EdgeService, authSvc *servic
 			})
 		}
 	})
-}
-
-func handleWSAuth(authSvc *services.AuthService, client *ws.Client, payload json.RawMessage) {
-	var req ws.AuthPayload
-	if err := json.Unmarshal(payload, &req); err != nil {
-		client.SendError("AUTH", "invalid AUTH payload")
-		return
-	}
-
-	userID, role, err := authSvc.ParseAccessToken(req.Token)
-	if err != nil {
-		client.SendError("AUTH", "token无效或已过期")
-		return
-	}
-
-	client.SetAuth(userID, role)
-
-	data, _ := json.Marshal(ws.WSEvent{
-		Event:   "AUTH_OK",
-		Payload: map[string]string{"user_id": userID, "role": role},
-	})
-	client.Send(data)
-
-	logger.Log.Infof("[WS] client authenticated: user=%s role=%s", userID, role)
 }
 
 func handleWSCreateEdge(hub *ws.Hub, edgeSvc *services.EdgeService, payload json.RawMessage) {
@@ -130,7 +202,10 @@ func handleWSCreateEdge(hub *ws.Hub, edgeSvc *services.EdgeService, payload json
 		return
 	}
 
-	if err := edgeSvc.CreateEdge(context.Background(), req.SourceID, req.TargetID, req.RelationType); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := edgeSvc.CreateEdge(ctx, req.SourceID, req.TargetID, req.RelationType); err != nil {
 		hub.BroadcastEvent(ws.WSEvent{
 			Event:   "ERROR",
 			Payload: ws.ErrorPayload{Message: "failed to create edge: " + err.Error()},
@@ -168,7 +243,10 @@ func handleWSDeleteEdge(hub *ws.Hub, edgeSvc *services.EdgeService, payload json
 		return
 	}
 
-	if err := edgeSvc.DeleteEdge(context.Background(), req.SourceID, req.TargetID); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := edgeSvc.DeleteEdge(ctx, req.SourceID, req.TargetID); err != nil {
 		hub.BroadcastEvent(ws.WSEvent{
 			Event:   "ERROR",
 			Payload: ws.ErrorPayload{Message: "failed to delete edge: " + err.Error()},

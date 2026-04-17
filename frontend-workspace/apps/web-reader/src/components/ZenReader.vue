@@ -17,6 +17,7 @@ import MarkdownViewer from "@memory-stream/ui-shared/components/MarkdownViewer.v
 import { useGraphStore } from "../store/useGraphStore";
 import { useCards } from "../composables/useCards";
 import { useActiveHeading } from "../composables/useActiveHeading";
+import { resolveWikilinkTarget } from "../composables/useWikilinkNavigation";
 import FloatingCompass from "./FloatingCompass.vue";
 import type { CardDetail, TocItem } from "../composables/useCards";
 
@@ -56,6 +57,14 @@ const { activeSlug, delayedRefresh } = useActiveHeading(proseRef);
 
 const toggleProseWidth = () => {
     proseWidth.value = proseWidth.value === 'prose' ? 'reading' : 'prose';
+};
+
+// 🗡️ Wikilink 点击跳转
+const onWikilinkClick = async (targetId: string) => {
+    const resolvedId = await resolveWikilinkTarget(targetId);
+    if (!resolvedId) return;
+    // 保持禅模式，导航到新卡片
+    store.selectNode(resolvedId);
 };
 
 // 手势已移除：退出仅通过按钮（移动端 × 帘幕按钮 / 桌面端帘杆 + ESC）
@@ -157,14 +166,13 @@ onUnmounted(() => {
 <template>
     <Teleport to="body">
         <Transition name="ms-scale">
-            <div v-if="zenMode && detail"
-                class="fixed inset-0 z-fullscreen bg-ms-xuan flex zen-container zen-vignette">
+            <div v-if="zenMode && detail" class="fixed inset-0 z-fullscreen bg-ms-xuan flex zen-container zen-vignette">
 
                 <!-- 金缮顶线装饰 - 笔触动画 -->
                 <div class="zen-gold-topline">
                     <svg class="zen-brush-svg" viewBox="0 0 1200 2" preserveAspectRatio="none">
-                        <path class="zen-brush-path" d="M 0 1 Q 300 1, 600 1 T 1200 1"
-                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <path class="zen-brush-path" d="M 0 1 Q 300 1, 600 1 T 1200 1" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" />
                     </svg>
                 </div>
 
@@ -174,10 +182,7 @@ onUnmounted(() => {
 
                 <!-- 金缮帘杆 — 桌面端鼠标靠近顶部浮现 -->
                 <Transition name="zen-rod">
-                    <button v-if="showExitRod && !isMobile"
-                        class="zen-exit-rod"
-                        @click="exitZen"
-                        title="退出禅模式 (ESC)">
+                    <button v-if="showExitRod && !isMobile" class="zen-exit-rod" @click="exitZen" title="退出禅模式 (ESC)">
                         <span class="zen-exit-rod__line" />
                         <span class="zen-exit-rod__diamond">
                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -191,16 +196,19 @@ onUnmounted(() => {
                 <!-- 移动端底部退出帘幕 — 卷轴收卷 -->
                 <Transition name="zen-veil">
                     <button v-if="isMobile" class="zen-scroll-exit" @click="exitZen" title="退出禅模式">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M4 6C4 6 5.5 4 8 4C10.5 4 12 7 12 7C12 7 13.5 4 16 4C18.5 4 20 6 20 6" />
-                            <path d="M4 18C4 18 5.5 20 8 20C10.5 20 12 17 12 17C12 17 13.5 20 16 20C18.5 20 20 18 20 18" />
+                            <path
+                                d="M4 18C4 18 5.5 20 8 20C10.5 20 12 17 12 17C12 17 13.5 20 16 20C18.5 20 20 18 20 18" />
                             <line x1="12" y1="7" x2="12" y2="17" />
                         </svg>
                     </button>
                 </Transition>
 
                 <!-- 全屏 Markdown 阅读 -->
-                <div class="flex-1 overflow-y-auto scrollbar-thin text-stone-300 relative z-[2]" ref="proseRef" @scroll="onScrollThrottled">
+                <div class="flex-1 overflow-y-auto scrollbar-thin text-stone-300 relative z-[2]" ref="proseRef"
+                    @scroll="onScrollThrottled">
                     <div class="mx-auto zen-content-area [&_li_p]:m-0 [&_li]:my-1"
                         :class="[proseMaxWidth, isMobile ? 'px-4 py-12' : 'px-8 py-16']"
                         @dblclick="!isMobile && toggleProseWidth()">
@@ -212,7 +220,7 @@ onUnmounted(() => {
                         </Transition>
 
                         <!-- 正文 -->
-                        <MarkdownViewer :html-content="detail.html" />
+                        <MarkdownViewer :html-content="detail.html" @wikilink-click="onWikilinkClick" />
                     </div>
                 </div>
 
@@ -232,7 +240,8 @@ onUnmounted(() => {
                 <Transition name="fade">
                     <div v-if="proseWidth === 'reading'" class="fixed bottom-4 left-4 z-[3]">
                         <div class="flex items-center gap-3">
-                            <span class="text-xs font-mono text-ms-bone/70 bg-ms-xuan/90 border border-ms-copper/40 px-3 py-1.5 rounded">
+                            <span
+                                class="text-xs font-mono text-ms-bone/70 bg-ms-xuan/90 border border-ms-copper/40 px-3 py-1.5 rounded">
                                 88ch 阅读宽
                             </span>
                         </div>
@@ -243,7 +252,8 @@ onUnmounted(() => {
                 <Transition name="fade">
                     <div v-if="showExitHint" class="fixed left-1/2 -translate-x-1/2 z-[3]"
                         :class="isMobile ? 'bottom-20' : 'top-8'">
-                        <span class="text-xs font-mono text-ms-ash bg-ms-xuan/80 border border-ms-copper/30 px-3 py-1.5 rounded">
+                        <span
+                            class="text-xs font-mono text-ms-ash bg-ms-xuan/80 border border-ms-copper/30 px-3 py-1.5 rounded">
                             {{ isMobile ? '点击右下角卷轴退出禅模式' : '鼠标移至顶部可退出禅模式 · ESC' }}
                         </span>
                     </div>
@@ -261,11 +271,9 @@ onUnmounted(() => {
     inset: 0;
     pointer-events: none;
     z-index: 1;
-    background: radial-gradient(
-        ellipse 70% 60% at 50% 50%,
-        transparent 50%,
-        rgba(10, 8, 6, 0.4) 100%
-    );
+    background: radial-gradient(ellipse 70% 60% at 50% 50%,
+            transparent 50%,
+            rgba(10, 8, 6, 0.4) 100%);
 }
 
 /* ── 移动端退出按钮 — 卷轴收卷 ── */
@@ -415,7 +423,7 @@ onUnmounted(() => {
     stroke-dasharray: 1200;
     stroke-dashoffset: 1200;
     animation: zen-brush-draw 2.5s cubic-bezier(0.37, 0, 0.63, 1) forwards,
-               zen-gold-pulse 3s ease-in-out infinite 2.5s;
+        zen-gold-pulse 3s ease-in-out infinite 2.5s;
 }
 
 @keyframes zen-brush-draw {
@@ -425,9 +433,12 @@ onUnmounted(() => {
 }
 
 @keyframes zen-gold-pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         filter: drop-shadow(0 0 4px rgba(201, 168, 76, 0.3));
     }
+
     50% {
         filter: drop-shadow(0 0 12px rgba(201, 168, 76, 0.5));
     }
@@ -441,11 +452,11 @@ onUnmounted(() => {
     bottom: 0;
     width: 1px;
     background: linear-gradient(to bottom,
-        transparent 0%,
-        rgba(166, 38, 38, 0.08) 20%,
-        rgba(166, 38, 38, 0.12) 50%,
-        rgba(166, 38, 38, 0.08) 80%,
-        transparent 100%);
+            transparent 0%,
+            rgba(166, 38, 38, 0.08) 20%,
+            rgba(166, 38, 38, 0.12) 50%,
+            rgba(166, 38, 38, 0.08) 80%,
+            transparent 100%);
     z-index: 1;
     animation: zen-guideline-pulse 4s ease-in-out infinite;
     pointer-events: none;
@@ -460,9 +471,12 @@ onUnmounted(() => {
 }
 
 @keyframes zen-guideline-pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 0.6;
     }
+
     50% {
         opacity: 1;
     }

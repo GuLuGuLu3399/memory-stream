@@ -34,12 +34,31 @@ go run cmd/api/main.go
 
 ## 环境变量
 
-| 变量           | 必填 | 默认值  | 说明                          |
-| -------------- | ---- | ------- | ----------------------------- |
-| `DATABASE_URL` | ✅   | —       | PostgreSQL 连接串             |
-| `PORT`         | ❌   | `8080`  | HTTP 监听端口                 |
-| `JWT_SECRET`   | ✅   | —       | JWT 签名密钥（≥32 字节）      |
-| `GIN_MODE`     | ❌   | `debug` | Gin 框架模式（release/debug） |
+| 变量           | 必填 | 默认值    | 说明                                                     |
+| -------------- | ---- | --------- | -------------------------------------------------------- |
+| `DATABASE_URL` | ✅   | —         | PostgreSQL 连接串                                        |
+| `REDIS_ADDR`   | ✅   | —         | Redis 连接地址 (host:port)                               |
+| `JWT_SECRET`   | ✅   | —         | JWT 签名密钥（≥32 字节，生产环境必填）                   |
+| `PORT`         | ❌   | `8080`    | HTTP 监听端口                                            |
+| `GO_ENV`       | ❌   | —         | 环境标识：`production` \| `development`                  |
+| `GIN_MODE`     | ❌   | `release` | Gin 框架模式：`debug`（详细日志）\| `release` 精简日志） |
+| `DEBUG`        | ❌   | —         | 快速启用调试模式：`true` 或 `1`                          |
+
+### 环境变量优先级
+
+**Gin 模式设置优先级**（从高到低）：
+
+1. `GIN_MODE` 环境变量 - 最优先
+2. `DEBUG` 环境变量 - 如果为 `true` 则启用 debug 模式
+3. `GO_ENV=production` - 启用 release 模式
+4. 默认 `release` 模式
+
+**配置文件加载优先级**（按顺序尝试）：
+
+1. `.env.production` - 生产环境推荐
+2. `.env.local` - 本地开发（.gitignore 中）
+3. `.env` - 开发模板
+4. 系统环境变量 - Docker/K8s 环境
 
 > **注意**：S3/MinIO 对象存储由 Tauri 桌面端直接调用，Go 后端不涉及图片存储。
 

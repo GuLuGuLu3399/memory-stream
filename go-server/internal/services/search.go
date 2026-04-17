@@ -38,13 +38,13 @@ func (s *SearchService) SearchCards(ctx context.Context, query string, limit, of
 	}
 
 	var total int64
-	err := s.db.Raw(`SELECT count(*) FROM cards WHERE search_vector @@ plainto_tsquery('simple', ?)`, query).Scan(&total).Error
+	err := s.db.WithContext(ctx).Raw(`SELECT count(*) FROM cards WHERE search_vector @@ plainto_tsquery('simple', ?)`, query).Scan(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
 	var results []SearchResult
-	err = s.db.Raw(`
+	err = s.db.WithContext(ctx).Raw(`
 		SELECT 
 			id, 
 			title, 

@@ -30,9 +30,9 @@ const categoryName = computed(() => {
   return props.categoryInfo.get(props.card.category_id) || null;
 });
 
-function contentPreview(content: string): string {
-  if (!content) return '';
-  const firstLine = content.split('\n').find((l) => l.trim()) || '';
+const preview = computed(() => {
+  if (!props.card.content) return '';
+  const firstLine = props.card.content.split('\n').find((l) => l.trim()) || '';
   const cleaned = firstLine
     .replace(/\[\[([^\]]+)\]\]/g, '$1')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -44,7 +44,7 @@ function contentPreview(content: string): string {
   const truncated = cleaned.slice(0, 40);
   const lastSpace = truncated.lastIndexOf(' ');
   return (lastSpace > 20 ? truncated.slice(0, lastSpace) : truncated) + '…';
-}
+});
 </script>
 
 <template>
@@ -80,7 +80,7 @@ function contentPreview(content: string): string {
       class="truncate text-2xs mt-0.5 font-mono"
       :class="isSelected ? 'text-brass/40' : 'text-slate-600'"
     >
-      {{ contentPreview(card.content) }}
+      {{ preview }}
     </div>
   </div>
 </template>

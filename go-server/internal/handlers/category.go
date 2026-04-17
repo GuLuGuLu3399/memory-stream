@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -97,7 +98,7 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 	}
 	if err := h.service.Delete(c.Request.Context(), uint(id)); err != nil {
 		// If the category has children, return HTTP 409 per contract
-		if err.Error() == "category has children" {
+		if errors.Is(err, services.ErrCategoryHasChildren) {
 			appErr.Respond(c, appErr.Wrap(err, 409, 40901, err.Error()))
 			return
 		}

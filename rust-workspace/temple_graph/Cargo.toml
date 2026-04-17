@@ -4,9 +4,13 @@ version = "0.1.0"
 edition = "2021"
 description = "Memory Stream — 图谱拓扑与双链计算引擎"
 
+[features]
+default = ["native"]
+native = ["temple-core/native", "dep:rayon"]
+
 [dependencies]
-temple-core = { path = "../temple_core" }
+temple-core = { path = "../temple_core", default-features = false }
 petgraph = "0.7"
 serde = { workspace = true }
 serde_json = { workspace = true }
-rayon = "1.10"
+rayon = { version = "1.10", optional = true }

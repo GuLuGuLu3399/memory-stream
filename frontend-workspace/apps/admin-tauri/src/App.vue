@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed, onErrorCaptured } from "vue";
+import { onMounted, onUnmounted, ref, computed, onErrorCaptured, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { ScanResult } from "@memory-stream/types/ipc";
 import { useKnowledgeStore } from "./stores/knowledge";
 import { useLayoutStore } from "./stores/layout";
+import { useSysConfigStore } from "./stores/sysconfig";
 import { useWSListener } from "./composables/useWSListener";
 import { useGlobalShortcuts } from "./composables/useGlobalShortcuts";
 import { useAuth } from "./composables/useAuth";
+import { useVaultSync } from "./composables/useVaultSync";
 import { storeToRefs } from "pinia";
 import TitleBar from "./components/TitleBar.vue";
 import LeftSidebar from "./components/LeftSidebar.vue";
@@ -18,11 +20,14 @@ import CategoryPanel from "./components/CategoryPanel.vue";
 import Settings from "./views/Settings.vue";
 import MergePanel from "./components/MergePanel.vue";
 
+
 const store = useKnowledgeStore();
 const layoutStore = useLayoutStore();
+const sysConfigStore = useSysConfigStore();
 const { toasts, recentCards, orphanCards } = storeToRefs(store);
-const { isRightPanelOpen, isMergeConsoleOpen } = storeToRefs(layoutStore);
+const { isRightPanelOpen, activeChamber } = storeToRefs(layoutStore);
 const { isReady, silentLogin } = useAuth();
+const { startWatcher } = useVaultSync();
 
 // Error boundary state
 const hasError = ref(false);
@@ -58,9 +63,7 @@ const allCardsForMerge = computed(() => {
 const showConfigBanner = ref(false);
 const bannerPermanentDismissKey = "ms_config_banner_permanent_dismissed";
 
-function openSettings() {
-  layoutStore.openSettings();
-}
+
 
 async function checkInitialConfig() {
   try {
@@ -80,9 +83,7 @@ async function checkInitialConfig() {
   }
 }
 
-function dismissBanner() {
-  showConfigBanner.value = false;
-}
+
 
 function handleMergeCompleted(_payload: { survivorId: string; victimIds: string[] }) {
   // Reload card lists after merge
@@ -107,6 +108,8 @@ async function handleConfigSaved() {
 let _configSavedListener: (() => void) | undefined;
 
 onMounted(async () => {
+  await sysConfigStore.loadConfig();
+  await sysConfigStore.reloadConfig();
   await silentLogin();
   await checkInitialConfig();
   const onConfigSaved = () => handleConfigSaved();
@@ -117,6 +120,18 @@ onMounted(async () => {
 onUnmounted(() => {
   if (_configSavedListener) _configSavedListener();
 });
+
+// Auto-start vault sync after auth is ready
+watch(isReady, async (ready: boolean) => {
+  if (ready && sysConfigStore.config?.vault_path) {
+    try {
+      await sysConfigStore.syncCloudToVault();
+      await startWatcher(sysConfigStore.config.vault_path);
+    } catch (e) {
+      console.error("[App] Vault sync init failed:", e);
+    }
+  }
+});
 </script>
 
 <template>
@@ -124,9 +139,12 @@ onUnmounted(() => {
   <div v-if="hasError" class="h-screen w-screen bg-ms-deep/95 flex items-center justify-center">
     <div class="flex flex-col items-center gap-4 text-center max-w-md px-6">
       <!-- Brass Gear Icon with Neon Glow -->
-      <svg class="w-16 h-16 text-brass animate-spin" style="animation-duration: 3s;" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-        <path d="M12 2V4M12 20V22M2 12H4M20 12H22M4.929 4.929L6.343 6.343M17.657 17.657L19.071 19.071M4.929 19.071L6.343 17.657M17.657 6.343L19.071 4.929" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <svg class="w-16 h-16 text-brass animate-spin" style="animation-duration: 3s;" viewBox="0 0 24 24" fill="none"
+        xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
+        <path
+          d="M12 2V4M12 20V22M2 12H4M20 12H22M4.929 4.929L6.343 6.343M17.657 17.657L19.071 19.071M4.929 19.071L6.343 17.657M17.657 6.343L19.071 4.929"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" />
       </svg>
 
       <h1 class="text-xl font-mono font-bold text-white">祭坛能量中断</h1>
@@ -135,10 +153,8 @@ onUnmounted(() => {
         {{ errorMessage }}
       </p>
 
-      <button
-        @click="reloadPage"
-        class="mt-4 px-6 py-2 text-sm font-mono border border-brass/30 text-brass hover:bg-brass/10 transition-all"
-      >
+      <button @click="reloadPage"
+        class="mt-4 px-6 py-2 text-sm font-mono border border-brass/30 text-brass hover:bg-brass/10 transition-all">
         重新连接
       </button>
     </div>
@@ -149,8 +165,10 @@ onUnmounted(() => {
     <div class="flex flex-col items-center gap-3">
       <!-- Large Brass Gear Spinner -->
       <svg class="w-12 h-12 text-brass animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-        <path d="M12 2V4M12 20V22M2 12H4M20 12H22M4.929 4.929L6.343 6.343M17.657 17.657L19.071 19.071M4.929 19.071L6.343 17.657M17.657 6.343L19.071 4.929" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
+        <path
+          d="M12 2V4M12 20V22M2 12H4M20 12H22M4.929 4.929L6.343 6.343M17.657 17.657L19.071 19.071M4.929 19.071L6.343 17.657M17.657 6.343L19.071 4.929"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" />
       </svg>
       <span class="text-slate-500 text-xs font-mono tracking-wider">CONNECTING...</span>
     </div>
@@ -160,35 +178,23 @@ onUnmounted(() => {
   <div v-else class="h-screen w-screen bg-ms-deep overflow-hidden font-body flex flex-col">
 
     <!-- First-run configuration banner (fixed at top) -->
-    <div v-if="showConfigBanner" class="fixed top-0 left-0 right-0 z-chrome bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between font-mono text-xs">
-      <span class="text-amber-400">⚠ 首次使用 — 请完成系统配置</span>
-      <div class="flex gap-2">
-        <button @click="openSettings" class="text-amber-400 hover:text-amber-300 underline">前往配置</button>
-        <button @click="dismissBanner" class="text-slate-500 hover:text-slate-400">✕</button>
-      </div>
-    </div>
+
 
     <!-- Top Title Bar -->
     <TitleBar />
 
     <!-- Main Area: Left card library, center editing area, right graph -->
     <div class="flex-1 min-h-0 flex">
-            <LeftSidebar />
-            <main class="flex-1 min-w-0 relative">
-                <TheForge :class="{ 'opacity-10 pointer-events-none': isMergeConsoleOpen }" />
-                <Transition name="merge-console">
-                    <MergePanel
-                        v-if="isMergeConsoleOpen"
-                        :cards="allCardsForMerge"
-                        @merge-completed="handleMergeCompleted"
-                    />
-                </Transition>
-            </main>
-            <RightAstrolabe v-if="isRightPanelOpen" />
-        </div>
+      <LeftSidebar />
+      <main class="flex-1 min-w-0 relative">
+        <TheForge :class="{ 'opacity-10 pointer-events-none': activeChamber }" />
+      </main>
+      <RightAstrolabe v-if="isRightPanelOpen" />
+    </div>
 
     <!-- Bottom Status Bar -->
-    <footer class="h-6 bg-ms-void border-t border-ms-border flex items-center px-3 justify-between select-none shrink-0 engrave">
+    <footer
+      class="h-6 bg-ms-void border-t border-ms-border flex items-center px-3 justify-between select-none shrink-0 engrave">
       <div class="flex items-center gap-3">
         <span class="text-2xs text-brass font-mono font-medium">MS-ADMIN</span>
         <span class="text-2xs text-slate-700 font-mono">·</span>
@@ -205,28 +211,38 @@ onUnmounted(() => {
     <!-- Floating Components -->
     <CommandPalette />
     <ConfirmDialog />
-    <CategoryPanel />
-    <Settings />
+
+    <!-- Chamber Panels (mutually exclusive, self-positioned via fixed) -->
+    <Transition name="chamber">
+      <CategoryPanel v-if="activeChamber === 'category'" />
+    </Transition>
+    <Transition name="chamber">
+      <Settings v-if="activeChamber === 'settings'" />
+    </Transition>
+    <Transition name="chamber">
+      <MergePanel v-if="activeChamber === 'merge'" :cards="allCardsForMerge" @merge-completed="handleMergeCompleted" />
+    </Transition>
 
     <!-- Toast Notifications -->
-    <div class="fixed bottom-8 right-4 z-toast flex flex-col-reverse gap-1.5 max-w-[220px]">
-      <TransitionGroup name="toast">
-        <div v-for="toast in toasts" :key="toast.id"
-          class="px-3 py-1.5 rounded-sm text-xs font-mono backdrop-blur-md border flex items-center gap-1.5"
-          :class="{
-            'bg-ms-void/90 text-ms-success/80 border-brass/30 shadow-brass-glow-sm': toast.type === 'success',
-            'bg-ms-void/90 text-ms-danger/80 border-ms-danger/20': toast.type === 'error',
-            'bg-ms-void/90 text-neon/80 border-brass/30': toast.type === 'info',
-          }">
-          <span class="w-1 h-1 rounded-full shrink-0" :class="{
-            'bg-ms-success': toast.type === 'success',
-            'bg-ms-danger': toast.type === 'error',
-            'bg-neon': toast.type === 'info',
-          }" />
-          {{ toast.text }}
-        </div>
-      </TransitionGroup>
-    </div>
+    <Teleport to="body">
+      <div class="fixed bottom-8 right-4 z-toast flex flex-col-reverse gap-1.5 max-w-[220px]">
+        <TransitionGroup name="toast">
+          <div v-for="toast in toasts" :key="toast.id"
+            class="px-3 py-1.5 rounded-sm text-xs font-mono backdrop-blur-md border flex items-center gap-1.5" :class="{
+              'bg-ms-void/90 text-ms-success/80 border-brass/30 shadow-brass-glow-sm': toast.type === 'success',
+              'bg-ms-void/90 text-ms-danger/80 border-ms-danger/20': toast.type === 'error',
+              'bg-ms-void/90 text-neon/80 border-brass/30': toast.type === 'info',
+            }">
+            <span class="w-1 h-1 rounded-full shrink-0" :class="{
+              'bg-ms-success': toast.type === 'success',
+              'bg-ms-danger': toast.type === 'error',
+              'bg-neon': toast.type === 'info',
+            }" />
+            {{ toast.text }}
+          </div>
+        </TransitionGroup>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -234,13 +250,16 @@ onUnmounted(() => {
 .toast-enter-active {
   transition: all 0.2s ease-out;
 }
+
 .toast-leave-active {
   transition: opacity 0.15s ease-in;
 }
+
 .toast-enter-from {
   opacity: 0;
   transform: translateX(12px);
 }
+
 .toast-leave-to {
   opacity: 0;
 }
@@ -248,9 +267,11 @@ onUnmounted(() => {
 .fade-enter-active {
   transition: opacity 0.2s ease-out;
 }
+
 .fade-leave-active {
   transition: opacity 0.15s ease-in;
 }
+
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
@@ -266,6 +287,19 @@ onUnmounted(() => {
 
 .merge-console-enter-from,
 .merge-console-leave-to {
+  opacity: 0;
+}
+
+.chamber-enter-active {
+  transition: opacity 0.15s ease-out;
+}
+
+.chamber-leave-active {
+  transition: opacity 0.1s ease-in;
+}
+
+.chamber-enter-from,
+.chamber-leave-to {
   opacity: 0;
 }
 </style>

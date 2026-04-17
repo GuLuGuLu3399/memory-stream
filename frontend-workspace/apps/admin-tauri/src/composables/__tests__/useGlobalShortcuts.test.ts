@@ -52,6 +52,7 @@ describe('useGlobalShortcuts', () => {
       isLeftDrawerOpen: false,
       isRightPanelOpen: false,
       isLeftSidebarPinned: false,
+      activeChamber: null,
       isCategoryPanelOpen: false,
       isSettingsOpen: false,
       isMergeConsoleOpen: false,
@@ -61,6 +62,8 @@ describe('useGlobalShortcuts', () => {
       openSettings: vi.fn(),
       openMergeConsole: vi.fn(),
       closeMergeConsole: vi.fn(),
+      openChamber: vi.fn(),
+      closeChamber: vi.fn(),
       openImportPanel: vi.fn(),
       closeImportPanel: vi.fn(),
     }

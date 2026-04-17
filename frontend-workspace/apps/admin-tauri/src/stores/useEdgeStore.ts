@@ -9,6 +9,7 @@
 import { defineStore } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "./useToast";
+import { extractMsg } from "../composables/useTempleError";
 
 export const useEdgeStore = defineStore("edge", () => {
   const toast = useToast();
@@ -35,7 +36,7 @@ export const useEdgeStore = defineStore("edge", () => {
       });
       toast.addToast("连线已创建 ✓", "success");
     } catch (e) {
-      toast.addToast("创建连线失败: " + String(e), "error");
+      toast.addToast("创建连线失败: " + extractMsg(e), "error");
       throw e;
     }
   }
@@ -50,7 +51,7 @@ export const useEdgeStore = defineStore("edge", () => {
       });
       toast.addToast("连线已断开 ✓", "success");
     } catch (e) {
-      toast.addToast("删除连线失败: " + String(e), "error");
+      toast.addToast("删除连线失败: " + extractMsg(e), "error");
       throw e;
     }
   }
@@ -73,7 +74,7 @@ export const useEdgeStore = defineStore("edge", () => {
       });
       toast.addToast("连线类型已更新 ✓", "success");
     } catch (e) {
-      toast.addToast("更新连线失败: " + String(e), "error");
+      toast.addToast("更新连线失败: " + extractMsg(e), "error");
       throw e;
     }
   }

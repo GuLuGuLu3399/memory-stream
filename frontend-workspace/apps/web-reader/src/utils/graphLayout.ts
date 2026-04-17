@@ -63,6 +63,8 @@ interface NodeDimensions {
 export interface SerializableEdge {
   source: string;
   target: string;
+  /** 边的类型：'sequence' 物理布局 | 其他 = 参考线（仅展示）*/
+  type?: string;
 }
 
 /** 序列化节点（Worker 传输用） */
@@ -74,7 +76,9 @@ export interface SerializableNode {
 
 /** 从 Vue Flow Node 安全提取尺寸（dimensions 存在于运行时但不在 TS 类型中） */
 function getNodeDimensions(n: Node): { width: number; height: number } {
-  const dims = (n as unknown as { dimensions?: { width: number; height: number } }).dimensions;
+  const dims = (
+    n as unknown as { dimensions?: { width: number; height: number } }
+  ).dimensions;
   return dims ?? { width: NODE_WIDTH, height: NODE_HEIGHT };
 }
 
@@ -84,7 +88,11 @@ function getNodeDimensions(n: Node): { width: number; height: number } {
  * 构建 graphology 无向图
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildGraphologyGraph(GraphCtor: any, nodeIds: string[], edges: SerializableEdge[]): any {
+function buildGraphologyGraph(
+  GraphCtor: any,
+  nodeIds: string[],
+  edges: SerializableEdge[],
+): any {
   const graph = new GraphCtor({ multi: false, type: "undirected" });
 
   for (const id of nodeIds) {
@@ -109,21 +117,18 @@ function buildGraphologyGraph(GraphCtor: any, nodeIds: string[], edges: Serializ
 }
 
 /**
- * 筛选属于某个分量的边
+ * 筛选属于某个分量的边（包含类型信息）
  */
 function filterComponentEdges(
   componentNodeIds: string[],
-  edgeSet: Set<string>,
+  edgeMap: Map<string, SerializableEdge>,
 ): SerializableEdge[] {
   const nodeIdSet = new Set(componentNodeIds);
   const result: SerializableEdge[] = [];
 
-  for (const edgeKey of edgeSet) {
-    const colonIdx = edgeKey.indexOf(":");
-    const source = edgeKey.substring(0, colonIdx);
-    const target = edgeKey.substring(colonIdx + 1);
-    if (nodeIdSet.has(source) && nodeIdSet.has(target)) {
-      result.push({ source, target });
+  for (const edge of edgeMap.values()) {
+    if (nodeIdSet.has(edge.source) && nodeIdSet.has(edge.target)) {
+      result.push(edge);
     }
   }
 
@@ -135,13 +140,15 @@ function filterComponentEdges(
  */
 function layoutComponentDagre(
   dagreMod: {
-    graphlib: { Graph: new () => {
-      setDefaultEdgeLabel(fn: () => {}): void;
-      setGraph(opts: Record<string, unknown>): void;
-      setNode(id: string, attrs: Record<string, unknown>): void;
-      setEdge(source: string, target: string): void;
-      node(id: string): { x: number; y: number } | undefined;
-    } };
+    graphlib: {
+      Graph: new () => {
+        setDefaultEdgeLabel(fn: () => {}): void;
+        setGraph(opts: Record<string, unknown>): void;
+        setNode(id: string, attrs: Record<string, unknown>): void;
+        setEdge(source: string, target: string): void;
+        node(id: string): { x: number; y: number } | undefined;
+      };
+    };
     layout(g: unknown): void;
   },
   nodeIds: string[],
@@ -167,11 +174,18 @@ function layoutComponentDagre(
   });
 
   for (const nodeId of nodeIds) {
-    const dims = nodeDimensions.get(nodeId) ?? { width: NODE_WIDTH, height: NODE_HEIGHT };
+    const dims = nodeDimensions.get(nodeId) ?? {
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+    };
     g.setNode(nodeId, { width: dims.width, height: dims.height });
   }
 
-  for (const edge of componentEdges) {
+  // 🗡️ 核心隔离：只把 sequence 边喂给 Dagre，参考线边不参与物理布局
+  const mainChainEdges = componentEdges.filter(
+    (edge) => edge.type === "sequence",
+  );
+  for (const edge of mainChainEdges) {
     g.setEdge(edge.source, edge.target);
   }
 
@@ -179,7 +193,10 @@ function layoutComponentDagre(
 
   for (const nodeId of nodeIds) {
     const pos = g.node(nodeId);
-    const dims = nodeDimensions.get(nodeId) ?? { width: NODE_WIDTH, height: NODE_HEIGHT };
+    const dims = nodeDimensions.get(nodeId) ?? {
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+    };
     if (pos) {
       positions.set(nodeId, {
         x: pos.x - dims.width / 2,
@@ -205,9 +222,14 @@ function computeBoundingBox(
     maxY = -Infinity;
 
   for (const [nodeId, pos] of positions) {
-    const dims = nodeDimensions.get(nodeId) ?? { width: NODE_WIDTH, height: NODE_HEIGHT };
+    const dims = nodeDimensions.get(nodeId) ?? {
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+    };
     const w = isOrphan ? Math.min(dims.width, ORPHAN_NODE_SIZE) : dims.width;
-    const h = isOrphan ? Math.min(dims.height, ORPHAN_NODE_SIZE * (80 / 220)) : dims.height;
+    const h = isOrphan
+      ? Math.min(dims.height, ORPHAN_NODE_SIZE * (80 / 220))
+      : dims.height;
 
     minX = Math.min(minX, pos.x);
     maxX = Math.max(maxX, pos.x + w);
@@ -240,13 +262,17 @@ export async function computePositions(
 ): Promise<Record<string, { x: number; y: number }>> {
   if (nodes.length === 0) return {};
 
-  const [{ default: Graph }, { connectedComponents }, { default: dagre }, { default: potpack }] =
-    await Promise.all([
-      import("graphology"),
-      import("graphology-components"),
-      import("dagre"),
-      import("potpack"),
-    ]);
+  const [
+    { default: Graph },
+    { connectedComponents },
+    { default: dagre },
+    { default: potpack },
+  ] = await Promise.all([
+    import("graphology"),
+    import("graphology-components"),
+    import("dagre"),
+    import("potpack"),
+  ]);
 
   const nodeIds = nodes.map((n) => n.id);
   const graph = buildGraphologyGraph(Graph, nodeIds, edges);
@@ -257,13 +283,24 @@ export async function computePositions(
   const nodeDimensions = new Map<string, NodeDimensions>(
     nodes.map((n) => [n.id, { width: n.width, height: n.height }]),
   );
-  const edgeSet = new Set(edges.map((e) => `${e.source}:${e.target}`));
+
+  // 维护边的 Map，保留类型信息
+  const edgeMap = new Map<string, SerializableEdge>(
+    edges.map((e) => [`${e.source}:${e.target}`, e]),
+  );
+
   const layouts: ComponentLayout[] = [];
 
   for (const componentNodeIds of components) {
     const isOrphan = componentNodeIds.length === 1;
-    const componentEdges = filterComponentEdges(componentNodeIds, edgeSet);
-    const positions = layoutComponentDagre(dagre as any, componentNodeIds, componentEdges, isOrphan, nodeDimensions);
+    const componentEdges = filterComponentEdges(componentNodeIds, edgeMap);
+    const positions = layoutComponentDagre(
+      dagre as any,
+      componentNodeIds,
+      componentEdges,
+      isOrphan,
+      nodeDimensions,
+    );
     const bbox = computeBoundingBox(positions, isOrphan, nodeDimensions);
 
     layouts.push({ nodeIds: componentNodeIds, positions, bbox, isOrphan });
@@ -307,16 +344,22 @@ export async function computePositions(
  * 接收 Vue Flow 的 nodes/edges，返回带绝对坐标的新 nodes 数组。
  * 重型依赖延迟到首次调用时加载。
  */
-export async function layoutMultiComponent(nodes: Node[], edges: Edge[]): Promise<Node[]> {
+export async function layoutMultiComponent(
+  nodes: Node[],
+  edges: Edge[],
+): Promise<Node[]> {
   if (nodes.length === 0) return [];
 
   const layoutNodes: SerializableNode[] = nodes.map((n) => {
     const dims = getNodeDimensions(n);
     return { id: n.id, width: dims.width, height: dims.height };
   });
+
+  // 🗡️ 从 Vue Flow Edge.data.type 中提取边的类型（如 'sequence' 或 'reference'）
   const layoutEdges: SerializableEdge[] = edges.map((e) => ({
     source: e.source,
     target: e.target,
+    type: (e.data as { type?: string })?.type,
   }));
 
   const positions = await computePositions(layoutNodes, layoutEdges);
@@ -343,9 +386,12 @@ export async function layoutMultiComponentAsync(
     const dims = getNodeDimensions(n);
     return { id: n.id, width: dims.width, height: dims.height };
   });
+
+  // 🗡️ 从 Vue Flow Edge.data.type 中提取边的类型（如 'sequence' 或 'reference'）
   const layoutEdges: SerializableEdge[] = edges.map((e) => ({
     source: e.source,
     target: e.target,
+    type: (e.data as { type?: string })?.type,
   }));
 
   const positions = await runLayoutWorker(layoutNodes, layoutEdges);
@@ -361,10 +407,9 @@ function runLayoutWorker(
   edges: SerializableEdge[],
 ): Promise<Record<string, { x: number; y: number }>> {
   return new Promise((resolve, reject) => {
-    const worker = new Worker(
-      new URL("./layout.worker.ts", import.meta.url),
-      { type: "module" },
-    );
+    const worker = new Worker(new URL("./layout.worker.ts", import.meta.url), {
+      type: "module",
+    });
     worker.onmessage = (e) => {
       worker.terminate();
       resolve(e.data);

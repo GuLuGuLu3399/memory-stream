@@ -9,6 +9,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// Sentinel errors for category operations — use errors.Is() to check.
+var ErrCategoryHasChildren = errors.New("category has children")
+
 // CategoryService 处理知识分类的 CRUD 操作。
 type CategoryService struct {
 	db *gorm.DB
@@ -22,7 +25,7 @@ func NewCategoryService(db *gorm.DB) *CategoryService {
 // ListAll 获取全部分类列表，按名称排序。
 func (s *CategoryService) ListAll(ctx context.Context) ([]models.Category, error) {
 	var categories []models.Category
-	if err := s.db.Order("name").Find(&categories).Error; err != nil {
+	if err := s.db.WithContext(ctx).Order("name").Find(&categories).Error; err != nil {
 		return nil, err
 	}
 	return categories, nil
@@ -32,7 +35,7 @@ func (s *CategoryService) ListAll(ctx context.Context) ([]models.Category, error
 func (s *CategoryService) GetTree(ctx context.Context) ([]models.CategoryTreeNode, error) {
 	var categories []models.Category
 	// Query all categories ordered by sort_order, then name
-	if err := s.db.Order("sort_order, name").Find(&categories).Error; err != nil {
+	if err := s.db.WithContext(ctx).Order("sort_order, name").Find(&categories).Error; err != nil {
 		return nil, err
 	}
 
@@ -51,19 +54,24 @@ func (s *CategoryService) GetTree(ctx context.Context) ([]models.CategoryTreeNod
 		}
 	}
 
-	// Attach children to parents and collect roots
-	var roots []models.CategoryTreeNode
+	// Attach children to parents and collect root pointers.
+	// Keep pointers until the end to avoid value-copy divergence.
+	var rootNodes []*models.CategoryTreeNode
 	for _, cat := range categories {
 		node := nodeMap[cat.ID]
 		if cat.ParentID == nil {
-			// Root node
-			roots = append(roots, *node)
+			rootNodes = append(rootNodes, node)
 		} else {
 			// Attach to parent
 			if parent, exists := nodeMap[*cat.ParentID]; exists {
 				parent.Children = append(parent.Children, *node)
 			}
 		}
+	}
+
+	roots := make([]models.CategoryTreeNode, 0, len(rootNodes))
+	for _, node := range rootNodes {
+		roots = append(roots, *node)
 	}
 
 	return roots, nil
@@ -76,10 +84,10 @@ func (s *CategoryService) Create(ctx context.Context, name string, description s
 	}
 	// 进行父级相关的验证（若提供某个父级）
 	if parentID != nil {
-		if err := s.validateDepth(*parentID); err != nil {
+		if err := s.validateDepth(ctx, *parentID); err != nil {
 			return nil, err
 		}
-		if err := s.validateCircularReference(0, *parentID); err != nil {
+		if err := s.validateCircularReference(ctx, 0, *parentID); err != nil {
 			return nil, err
 		}
 	}
@@ -90,7 +98,7 @@ func (s *CategoryService) Create(ctx context.Context, name string, description s
 		ParentID:    parentID,
 		SortOrder:   0,
 	}
-	if err := s.db.Create(cat).Error; err != nil {
+	if err := s.db.WithContext(ctx).Create(cat).Error; err != nil {
 		return nil, err
 	}
 	return cat, nil
@@ -103,17 +111,17 @@ func (s *CategoryService) Update(ctx context.Context, id uint, name string, desc
 	}
 	// 验证父级关系（如果提供了父ID）
 	if parentID != nil {
-		if err := s.validateDepth(*parentID); err != nil {
-			return err
+		if err := s.validateDepth(ctx, *parentID); err != nil {
+			return fmt.Errorf("failed to validate category depth: %w", err)
 		}
-		if err := s.validateCircularReference(id, *parentID); err != nil {
-			return err
+		if err := s.validateCircularReference(ctx, id, *parentID); err != nil {
+			return fmt.Errorf("failed to validate circular reference: %w", err)
 		}
 		if id == *parentID {
 			return fmt.Errorf("invalid circular reference")
 		}
 	}
-	return s.db.Model(&models.Category{}).Where("id = ?", id).Updates(map[string]interface{}{
+	return s.db.WithContext(ctx).Model(&models.Category{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"name":        name,
 		"description": description,
 		"theme_color": themeColor,
@@ -125,18 +133,18 @@ func (s *CategoryService) Update(ctx context.Context, id uint, name string, desc
 // 使用事务确保原子性。
 func (s *CategoryService) Delete(ctx context.Context, id uint) error {
 	// 1) 必须先检查子分类是否存在
-	hasChild, err := s.HasChildren(id)
+	hasChild, err := s.HasChildren(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check child categories: %w", err)
 	}
 	if hasChild {
-		return fmt.Errorf("category has children")
+		return ErrCategoryHasChildren
 	}
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1. 将该分类下所有卡片的 category_id 置为 NULL
 		if err := tx.Model(&models.Card{}).Where("category_id = ?", id).
 			Update("category_id", nil).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to uncategorize cards: %w", err)
 		}
 		// 2. 删除分类本身
 		return tx.Where("id = ?", id).Delete(&models.Category{}).Error
@@ -144,25 +152,25 @@ func (s *CategoryService) Delete(ctx context.Context, id uint) error {
 }
 
 // HasChildren 判断指定分类是否存在子分类
-func (s *CategoryService) HasChildren(id uint) (bool, error) {
+func (s *CategoryService) HasChildren(ctx context.Context, id uint) (bool, error) {
 	var count int64
-	if err := s.db.Model(&models.Category{}).Where("parent_id = ?", id).Count(&count).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&models.Category{}).Where("parent_id = ?", id).Count(&count).Error; err != nil {
 		return false, err
 	}
 	return count > 0, nil
 }
 
 // validateCircularReference 检查在将节点放到 parentID 下时，是否会产生循环引用
-func (s *CategoryService) validateCircularReference(id uint, parentID uint) error {
+func (s *CategoryService) validateCircularReference(ctx context.Context, id uint, parentID uint) error {
 	current := parentID
 	for {
 		var c models.Category
-		if err := s.db.Select("id", "parent_id").Where("id = ?", current).First(&c).Error; err != nil {
+		if err := s.db.WithContext(ctx).Select("id", "parent_id").Where("id = ?", current).First(&c).Error; err != nil {
 			// 不存在的父级视为无循环
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				break
 			}
-			return err
+			return fmt.Errorf("failed to query category for circular check: %w", err)
 		}
 		if c.ParentID == nil {
 			break
@@ -176,16 +184,16 @@ func (s *CategoryService) validateCircularReference(id uint, parentID uint) erro
 }
 
 // validateDepth 验证在 parentID 下的层级深度不能超过 5 层（不包含待新增节点）
-func (s *CategoryService) validateDepth(parentID uint) error {
+func (s *CategoryService) validateDepth(ctx context.Context, parentID uint) error {
 	depth := 1
 	current := parentID
 	for {
 		var c models.Category
-		if err := s.db.Select("parent_id").Where("id = ?", current).First(&c).Error; err != nil {
+		if err := s.db.WithContext(ctx).Select("parent_id").Where("id = ?", current).First(&c).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				break
 			}
-			return err
+			return fmt.Errorf("failed to query category for depth check: %w", err)
 		}
 		if c.ParentID == nil {
 			break
@@ -203,7 +211,7 @@ func (s *CategoryService) validateDepth(parentID uint) error {
 func (s *CategoryService) GetClusters(ctx context.Context, categoryID uint) ([]ClusterResult, error) {
 	var clusters []ClusterResult
 
-	err := s.db.Raw(`
+	err := s.db.WithContext(ctx).Raw(`
 		SELECT 
 			c.id as card_id,
 			c.title,

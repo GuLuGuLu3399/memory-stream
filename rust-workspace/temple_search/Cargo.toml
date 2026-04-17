@@ -4,9 +4,13 @@ version = "0.1.0"
 edition = "2021"
 description = "Memory Stream — 毫秒级全文搜索引擎"
 
+[features]
+default = ["native"]
+native = ["temple-core/native", "dep:tantivy", "dep:jieba-rs"]
+
 [dependencies]
-temple-core = { path = "../temple_core" }
-tantivy = "0.22"
-jieba-rs = "0.7"
+temple-core = { path = "../temple_core", default-features = false }
+tantivy = { version = "0.22", optional = true }
+jieba-rs = { version = "0.7", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

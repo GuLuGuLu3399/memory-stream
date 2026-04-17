@@ -19,17 +19,17 @@ const emit = defineEmits<{
   (e: "navigate-to-backlink", cardId: string): void;
   (e: "prose-mouse-over", event: MouseEvent): void;
   (e: "prose-mouse-out", event: MouseEvent): void;
+  (e: "prose-click", event: MouseEvent): void;
+  (e: "wikilink-click", targetId: string): void;
 }>();
 
 const hasBacklinks = computed(() => props.backlinks.length > 0 || props.backlinksLoading);
 </script>
 
 <template>
-  <div
-    class="detail-drawer__content prose-container scrollbar-thin relative"
-    @mouseover="emit('prose-mouse-over', $event)"
-    @mouseout="emit('prose-mouse-out', $event)"
-  >
+  <div class="detail-drawer__content prose-container scrollbar-thin relative"
+    @mouseover="emit('prose-mouse-over', $event)" @mouseout="emit('prose-mouse-out', $event)"
+    @click="emit('prose-click', $event)">
     <!-- Paper-grain texture overlay -->
     <div class="detail-drawer__texture" />
 
@@ -55,18 +55,12 @@ const hasBacklinks = computed(() => props.backlinks.length > 0 || props.backlink
         <!-- Gold-leaf decorative rule -->
         <div class="detail-drawer__gold-rule" />
 
-        <MarkdownViewer :html-content="detail.html" />
+        <MarkdownViewer :html-content="detail.html" @wikilink-click="emit('wikilink-click', $event)" />
 
         <!-- Backlinks Section -->
-        <BacklinksPanel
-          v-if="hasBacklinks"
-          :card-id="detail.id"
-          :is-open="backlinksOpen"
-          :backlinks="backlinks"
-          :loading="backlinksLoading"
-          @toggle="emit('toggle-backlinks')"
-          @navigate="emit('navigate-to-backlink', $event)"
-        />
+        <BacklinksPanel v-if="hasBacklinks" :card-id="detail.id" :is-open="backlinksOpen" :backlinks="backlinks"
+          :loading="backlinksLoading" @toggle="emit('toggle-backlinks')"
+          @navigate="emit('navigate-to-backlink', $event)" />
       </div>
 
       <!-- Error State -->
@@ -109,14 +103,12 @@ const hasBacklinks = computed(() => props.backlinks.length > 0 || props.backlink
   width: 100%;
   height: 2px;
   margin: 0 auto 24px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    theme('colors.ms-gold') 20%,
-    theme('colors.ms-gold-dim') 50%,
-    theme('colors.ms-gold') 80%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg,
+      transparent 0%,
+      theme('colors.ms-gold') 20%,
+      theme('colors.ms-gold-dim') 50%,
+      theme('colors.ms-gold') 80%,
+      transparent 100%);
   position: relative;
 }
 

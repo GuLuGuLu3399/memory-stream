@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+import { LAYER_Z_INDEX } from "../../packages/ui-shared/styles/layers.mjs";
+
 export default {
     content: [
         "./index.html",
@@ -58,17 +60,17 @@ export default {
                 'ms-success': '#5a9c60',
             },
             zIndex: {
-                'base': '0',
-                'chrome': '20',
-                'drawer': '30',
-                'panel': '40',
-                'overlay': '50',
-                'modal': '60',
-                'fullscreen': '70',
-                'toast': '80',
-                'dropdown': '90',
-                'entrance': '100',
-                'error': '110',
+                'base': String(LAYER_Z_INDEX.base),
+                'chrome': String(LAYER_Z_INDEX.chrome),
+                'drawer': String(LAYER_Z_INDEX.drawer),
+                'panel': String(LAYER_Z_INDEX.panel),
+                'overlay': String(LAYER_Z_INDEX.overlay),
+                'toast': String(LAYER_Z_INDEX.toast),
+                'dropdown': String(LAYER_Z_INDEX.dropdown),
+                'entrance': String(LAYER_Z_INDEX.entrance),
+                'modal': String(LAYER_Z_INDEX.modal),
+                'fullscreen': String(LAYER_Z_INDEX.fullscreen),
+                'error': String(LAYER_Z_INDEX.error),
             },
             fontFamily: {
                 mono: ['"JetBrains Mono"', '"Fira Code"', "Consolas", "Monaco", "monospace"],

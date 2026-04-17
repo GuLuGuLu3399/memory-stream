@@ -1,24 +1,24 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	appErr "github.com/GuLuGuLu3399/memory-stream-server/internal/errors"
 	"github.com/GuLuGuLu3399/memory-stream-server/internal/services"
 	"github.com/GuLuGuLu3399/memory-stream-server/internal/ws"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // MergeHandler handles card merge HTTP requests.
 type MergeHandler struct {
-	DB  *gorm.DB
-	Hub *ws.Hub
+	mergeSvc *services.MergeService
+	Hub      *ws.Hub
 }
 
 // NewMergeHandler creates a new MergeHandler instance.
-func NewMergeHandler(db *gorm.DB, hub *ws.Hub) *MergeHandler {
-	return &MergeHandler{DB: db, Hub: hub}
+func NewMergeHandler(mergeSvc *services.MergeService, hub *ws.Hub) *MergeHandler {
+	return &MergeHandler{mergeSvc: mergeSvc, Hub: hub}
 }
 
 type mergeCardsReq struct {
@@ -35,16 +35,16 @@ func (h *MergeHandler) MergeCards(c *gin.Context) {
 		return
 	}
 
-	result, err := services.MergeCards(c.Request.Context(), h.DB, services.MergeRequest{
+	result, err := h.mergeSvc.Merge(c.Request.Context(), services.MergeRequest{
 		SurvivorID: req.SurvivorID,
 		VictimIDs:  req.VictimIDs,
 	})
 	if err != nil {
-		if err.Error() == "survivor_id cannot be in victim_ids" {
+		if errors.Is(err, services.ErrSurvivorInVictims) {
 			appErr.Respond(c, appErr.NewBadRequest(err.Error()))
 			return
 		}
-		if err.Error() == "one or more card IDs not found" {
+		if errors.Is(err, services.ErrCardNotFound) {
 			appErr.Respond(c, appErr.NewNotFound(err.Error()))
 			return
 		}

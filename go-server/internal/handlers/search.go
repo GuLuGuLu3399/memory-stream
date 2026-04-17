@@ -28,8 +28,16 @@ func (h *SearchHandler) Search(c *gin.Context) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if err != nil {
+		appErr.Respond(c, appErr.NewBadRequest("limit 必须是整数"))
+		return
+	}
+	offset, err := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if err != nil {
+		appErr.Respond(c, appErr.NewBadRequest("offset 必须是整数"))
+		return
+	}
 
 	if limit > 100 {
 		appErr.Respond(c, appErr.NewBadRequest("limit cannot exceed 100"))

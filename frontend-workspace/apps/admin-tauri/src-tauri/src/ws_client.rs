@@ -37,23 +37,56 @@ pub fn start_ws_client(
     app_handle: AppHandle,
     cache: Arc<Mutex<Option<CacheManager>>>,
     auth_state: Arc<AuthState>,
-    ws_url: String,
+    _ws_url: String,
 ) -> WsSender {
     let (tx, mut rx) = mpsc::channel::<String>(256);
     let app_h = app_handle.clone();
     let cache_c = cache.clone();
     let http_client = reqwest::Client::new();
-    let url = if ws_url.is_empty() {
-        WS_URL.to_string()
-    } else {
-        ws_url
-    };
-
     tauri::async_runtime::spawn(async move {
         let mut retry_delay = std::time::Duration::from_secs(3);
         let mut retry_count: u32 = 0;
         const MAX_RETRIES: u32 = 30;
         loop {
+                // 每次重连前都读取最新配置，避免运行时仍使用旧 ws_url（如 localhost）。
+                let cfg = match crate::config::get_config(&app_h).await {
+                    Ok(cfg) => cfg,
+                    Err(e) => {
+                        eprintln!("[WS] failed to read config for ws_url, fallback to default: {}", e);
+                        crate::config::SysConfig::default()
+                    }
+                };
+
+                let url = {
+                    if cfg.ws_url.is_empty() {
+                        WS_URL.to_string()
+                    } else {
+                        cfg.ws_url.clone()
+                    }
+                };
+
+                let api_base_url = {
+                    if cfg.api_base_url.is_empty() {
+                        crate::api::API_BASE_URL.to_string()
+                    } else {
+                        cfg.api_base_url.clone()
+                    }
+                };
+
+                if auth_state.get_access_token().is_none() {
+                    let should_refresh = auth_state.try_acquire_refresh_lock();
+                    if should_refresh {
+                        let _ = crate::auth::do_refresh(&http_client, &auth_state, &api_base_url).await;
+                        auth_state.release_refresh_lock();
+                    }
+
+                    if auth_state.get_access_token().is_none() {
+                        eprintln!("[WS] no access token yet, waiting before connect...");
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                        continue;
+                    }
+                }
+
                 eprintln!("[WS] connecting to {}...", url);
 
                 match connect_async(&url).await {
@@ -67,13 +100,15 @@ pub fn start_ws_client(
 
                         let auth_sent = send_auth_message(&mut write, &auth_state).await;
                         if !auth_sent {
-                            eprintln!("[WS] no token available, waiting for auth...");
+                            eprintln!("[WS] failed to send AUTH, reconnecting...");
+                            drop(write);
+                            continue;
                         }
 
                         let auth_deadline = tokio::time::Instant::now()
                             + std::time::Duration::from_secs(AUTH_TIMEOUT_SECS);
-                        let mut auth_ok_received = !auth_sent;
-                        let mut auth_deadline_checked = !auth_sent;
+                        let mut auth_ok_received = false;
+                        let mut auth_deadline_checked = false;
 
                         loop {
                             tokio::select! {
@@ -139,7 +174,7 @@ pub fn start_ws_client(
 
                 let should_refresh = auth_state.try_acquire_refresh_lock();
                 if should_refresh {
-                    let refreshed = crate::auth::do_refresh(&http_client, &auth_state).await;
+                    let refreshed = crate::auth::do_refresh(&http_client, &auth_state, &api_base_url).await;
                     auth_state.release_refresh_lock();
                     if !refreshed {
                         let has_refresh = auth_state.get_refresh_token().is_some();

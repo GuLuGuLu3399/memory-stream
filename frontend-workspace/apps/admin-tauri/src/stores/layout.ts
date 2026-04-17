@@ -1,15 +1,58 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, computed } from "vue";
+
+export type Chamber = "category" | "merge" | "settings" | "debug" | null;
 
 export const useLayoutStore = defineStore("layout", () => {
+  // ===== 舱室 (Chamber) 状态 =====
+  // 三大功能面板共享同一舱室位 — 互斥切换
+  const activeChamber = ref<Chamber>(null);
+
+  const isCategoryPanelOpen = computed(
+    () => activeChamber.value === "category",
+  );
+  const isSettingsOpen = computed(() => activeChamber.value === "settings");
+  const isMergeConsoleOpen = computed(() => activeChamber.value === "merge");
+  const isDebugPanelOpen = computed(() => activeChamber.value === "debug");
+
+  function openChamber(chamber: NonNullable<Chamber>) {
+    activeChamber.value = chamber;
+  }
+
+  function closeChamber() {
+    activeChamber.value = null;
+  }
+
+  // Named convenience functions (backward-compatible)
+  function openCategoryPanel() {
+    openChamber("category");
+  }
+
+  function closeCategoryPanel() {
+    if (activeChamber.value === "category") closeChamber();
+  }
+
+  function openSettings() {
+    openChamber("settings");
+  }
+
+  function openMergeConsole() {
+    openChamber("merge");
+  }
+
+  function openDebugPanel() {
+    openChamber("debug");
+  }
+
+  function closeMergeConsole() {
+    if (activeChamber.value === "merge") closeChamber();
+  }
+
   // ===== 抽屉/面板状态 =====
   const isLeftDrawerOpen = ref(false);
   const isRightPanelOpen = ref(false);
   const isLeftSidebarPinned = ref(false); // 常驻侧栏模式
-  const isCategoryPanelOpen = ref(false)
-  const isSettingsOpen = ref(false)
-  const isMergeConsoleOpen = ref(false)
-  const isImportPanelOpen = ref(false)
+  const isImportPanelOpen = ref(false);
 
   function toggleLeftDrawer() {
     isLeftDrawerOpen.value = !isLeftDrawerOpen.value;
@@ -45,49 +88,36 @@ export const useLayoutStore = defineStore("layout", () => {
   function closeAll() {
     isLeftDrawerOpen.value = false;
     isRightPanelOpen.value = false;
-  }
-
-  function openCategoryPanel() {
-    isSettingsOpen.value = false;
-    isMergeConsoleOpen.value = false;
-    isCategoryPanelOpen.value = true;
-  }
-
-  function closeCategoryPanel() {
-    isCategoryPanelOpen.value = false;
-  }
-
-  function openSettings() {
-    isCategoryPanelOpen.value = false;
-    isMergeConsoleOpen.value = false;
-    isSettingsOpen.value = true;
-  }
-
-  function openMergeConsole() {
-    isSettingsOpen.value = false;
-    isCategoryPanelOpen.value = false;
-    isMergeConsoleOpen.value = true;
-  }
-
-  function closeMergeConsole() {
-    isMergeConsoleOpen.value = false
+    activeChamber.value = null;
   }
 
   function openImportPanel() {
-    isImportPanelOpen.value = true
+    isImportPanelOpen.value = true;
   }
 
   function closeImportPanel() {
-    isImportPanelOpen.value = false
+    isImportPanelOpen.value = false;
   }
 
   return {
-    isLeftDrawerOpen,
-    isRightPanelOpen,
-    isLeftSidebarPinned,
+    // Chamber
+    activeChamber,
     isCategoryPanelOpen,
     isSettingsOpen,
     isMergeConsoleOpen,
+    isDebugPanelOpen,
+    openChamber,
+    closeChamber,
+    openCategoryPanel,
+    closeCategoryPanel,
+    openSettings,
+    openMergeConsole,
+    openDebugPanel,
+    closeMergeConsole,
+    // Drawers
+    isLeftDrawerOpen,
+    isRightPanelOpen,
+    isLeftSidebarPinned,
     isImportPanelOpen,
     toggleLeftDrawer,
     toggleSidebarPin,
@@ -95,11 +125,6 @@ export const useLayoutStore = defineStore("layout", () => {
     closeLeftDrawer,
     closeRightPanel,
     closeAll,
-    openCategoryPanel,
-    closeCategoryPanel,
-    openSettings,
-    openMergeConsole,
-    closeMergeConsole,
     openImportPanel,
     closeImportPanel,
   };

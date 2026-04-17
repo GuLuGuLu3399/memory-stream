@@ -19,6 +19,7 @@ describe('useLayoutStore', () => {
       expect(store.isSettingsOpen).toBe(false)
       expect(store.isMergeConsoleOpen).toBe(false)
       expect(store.isImportPanelOpen).toBe(false)
+      expect(store.activeChamber).toBe(null)
     })
   })
 
@@ -139,54 +140,93 @@ describe('useLayoutStore', () => {
 
       store.toggleLeftDrawer()
       store.toggleRightPanel()
+      store.openCategoryPanel()
       expect(store.isRightPanelOpen).toBe(true)
 
       store.closeAll()
       expect(store.isLeftDrawerOpen).toBe(false)
       expect(store.isRightPanelOpen).toBe(false)
+      expect(store.activeChamber).toBe(null)
     })
   })
 
-  describe('category panel', () => {
-    it('should open category panel', () => {
+  describe('chamber system (mutual exclusion)', () => {
+    it('should open category chamber', () => {
       const store = useLayoutStore()
 
       store.openCategoryPanel()
+      expect(store.activeChamber).toBe('category')
       expect(store.isCategoryPanelOpen).toBe(true)
+      expect(store.isSettingsOpen).toBe(false)
+      expect(store.isMergeConsoleOpen).toBe(false)
     })
 
-    it('should close category panel', () => {
+    it('should close category chamber', () => {
       const store = useLayoutStore()
 
       store.openCategoryPanel()
       store.closeCategoryPanel()
       expect(store.isCategoryPanelOpen).toBe(false)
+      expect(store.activeChamber).toBe(null)
     })
-  })
 
-  describe('settings', () => {
-    it('should open settings', () => {
+    it('should open settings chamber', () => {
       const store = useLayoutStore()
 
       store.openSettings()
+      expect(store.activeChamber).toBe('settings')
       expect(store.isSettingsOpen).toBe(true)
+      expect(store.isCategoryPanelOpen).toBe(false)
+      expect(store.isMergeConsoleOpen).toBe(false)
     })
-  })
 
-  describe('merge console', () => {
-    it('should open merge console', () => {
+    it('should open merge chamber', () => {
       const store = useLayoutStore()
 
       store.openMergeConsole()
+      expect(store.activeChamber).toBe('merge')
       expect(store.isMergeConsoleOpen).toBe(true)
+      expect(store.isCategoryPanelOpen).toBe(false)
+      expect(store.isSettingsOpen).toBe(false)
     })
 
-    it('should close merge console', () => {
+    it('should close merge chamber', () => {
       const store = useLayoutStore()
 
       store.openMergeConsole()
       store.closeMergeConsole()
       expect(store.isMergeConsoleOpen).toBe(false)
+      expect(store.activeChamber).toBe(null)
+    })
+
+    it('should switch chambers — opening one closes the previous', () => {
+      const store = useLayoutStore()
+
+      store.openCategoryPanel()
+      expect(store.isCategoryPanelOpen).toBe(true)
+
+      store.openSettings()
+      expect(store.isCategoryPanelOpen).toBe(false)
+      expect(store.isSettingsOpen).toBe(true)
+
+      store.openMergeConsole()
+      expect(store.isSettingsOpen).toBe(false)
+      expect(store.isMergeConsoleOpen).toBe(true)
+    })
+
+    it('closeChamber always works regardless of which chamber is active', () => {
+      const store = useLayoutStore()
+
+      store.openSettings()
+      store.closeChamber()
+      expect(store.activeChamber).toBe(null)
+    })
+
+    it('openChamber with explicit value', () => {
+      const store = useLayoutStore()
+
+      store.openChamber('category')
+      expect(store.activeChamber).toBe('category')
     })
   })
 
@@ -227,18 +267,6 @@ describe('useLayoutStore', () => {
       // Now close should work
       store.closeLeftDrawer()
       expect(store.isLeftDrawerOpen).toBe(false)
-    })
-
-    it('should allow independent panel operations', () => {
-      const store = useLayoutStore()
-
-      store.openCategoryPanel()
-      store.openSettings()
-      store.openMergeConsole()
-
-      expect(store.isCategoryPanelOpen).toBe(true)
-      expect(store.isSettingsOpen).toBe(true)
-      expect(store.isMergeConsoleOpen).toBe(true)
     })
   })
 })

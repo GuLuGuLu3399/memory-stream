@@ -14,8 +14,8 @@ pub enum ExportError {
     #[error("数据拉取失败: {0}")]
     FetchError(String),
 
-    #[error("线程执行崩溃")]
-    TaskPanic,
+    #[error("Blocking task panicked: {reason}")]
+    TaskPanic { reason: String },
 }
 
 pub type ExportResult<T> = Result<T, ExportError>;

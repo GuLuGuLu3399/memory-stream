@@ -10,6 +10,7 @@
 
 import { ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { extractMsg } from '../../composables/useTempleError'
 
 export function useForgeRender(rawMd: () => string) {
   const html = ref('')
@@ -35,7 +36,7 @@ export function useForgeRender(rawMd: () => string) {
       html.value = result.html
     } catch (e) {
       console.error('[useForgeRender] render failed:', e)
-      renderError.value = String(e)
+      renderError.value = extractMsg(e)
       html.value = ''
     } finally {
       isRendering.value = false

@@ -15,6 +15,21 @@ import (
 	"gorm.io/gorm"
 )
 
+// Pre-compiled regex patterns for sanitizeSnippet — compiled once, reused across all requests.
+var (
+	reCodeFence      = regexp.MustCompile("(?s)```.*?```")
+	reImage          = regexp.MustCompile(`!\[([^\]]*)\]\([^)]*\)`)
+	reLink           = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+	reWikilink       = regexp.MustCompile(`\[\[([^\]]+)\]\]`)
+	reBoldItalic     = regexp.MustCompile(`\*{1,3}([^*]+)\*{1,3}`)
+	reBoldItalicUnd  = regexp.MustCompile(`_{1,3}([^_]+)_{1,3}`)
+	reHeading        = regexp.MustCompile(`(?m)^#{1,6}\s+`)
+	reBlockquote     = regexp.MustCompile(`(?m)^>\s?`)
+	reHorizontalRule = regexp.MustCompile(`(?m)^[-*]{3,}\s*$`)
+	reUnorderedList  = regexp.MustCompile(`(?m)^[-*]\s+`)
+	reOrderedList    = regexp.MustCompile(`(?m)^\d+\.\s+`)
+)
+
 type CursorPage struct {
 	Cursor string
 	Limit  int
@@ -44,30 +59,30 @@ func NewCardService(db *gorm.DB, rdb *redis.Client) *CardService {
 func (s *CardService) FindOrCreateByTitle(ctx context.Context, title string) (*models.Card, error) {
 	var result models.Card
 
-	if err := s.db.Where("title = ?", title).First(&result).Error; err == nil {
+	if err := s.db.WithContext(ctx).Where("title = ?", title).First(&result).Error; err == nil {
 		return &result, nil
 	}
 
 	// Use raw SQL to match the partial unique index:
 	//   idx_cards_title_unique ON cards (title) WHERE title IS NOT NULL AND title != ''
 	// GORM's clause.OnConflict cannot express the WHERE clause needed for partial indexes.
-	s.db.Exec(`INSERT INTO cards (title, raw_md, excerpt, ast_data, toc_data)
+	s.db.WithContext(ctx).Exec(`INSERT INTO cards (title, raw_md, excerpt, ast_data, toc_data)
 		VALUES (?, '', '', '{}', '{}')
 		ON CONFLICT (title) WHERE title IS NOT NULL AND title != '' DO NOTHING`, title)
 
-	if err := s.db.Where("title = ?", title).First(&result).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("title = ?", title).First(&result).Error; err != nil {
 		return nil, err
 	}
 	return &result, nil
 }
 
-func (s *CardService) CreateCard(ctx context.Context, title string, rawMd string, excerpt string, astData models.JSONB, tocData models.JSONB) (*models.Card, error) {
+func (s *CardService) CreateCard(ctx context.Context, title string, rawMd string, excerpt string, astData models.JSONB, tocData models.JSONB, categoryID *uint) (*models.Card, error) {
 	if rawMd == "" {
 		return nil, errors.New("card content cannot be empty")
 	}
 
 	var card models.Card
-	err := s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if title != "" {
 			var existing models.Card
 			if err := tx.Where("title = ? AND raw_md = ''", title).First(&existing).Error; err == nil {
@@ -75,8 +90,9 @@ func (s *CardService) CreateCard(ctx context.Context, title string, rawMd string
 				existing.Excerpt = excerpt
 				existing.AstData = astData
 				existing.TocData = tocData
+				existing.CategoryID = categoryID
 				if err := tx.Save(&existing).Error; err != nil {
-					return err
+					return fmt.Errorf("failed to update existing card: %w", err)
 				}
 				card = existing
 				return nil
@@ -84,11 +100,12 @@ func (s *CardService) CreateCard(ctx context.Context, title string, rawMd string
 		}
 
 		card = models.Card{
-			Title:   title,
-			RawMd:   rawMd,
-			Excerpt: excerpt,
-			AstData: astData,
-			TocData: tocData,
+			Title:      title,
+			RawMd:      rawMd,
+			Excerpt:    excerpt,
+			AstData:    astData,
+			TocData:    tocData,
+			CategoryID: categoryID,
 		}
 		return tx.Create(&card).Error
 	})
@@ -113,7 +130,7 @@ func (s *CardService) GetCardByID(ctx context.Context, id string) (*models.Card,
 	}
 
 	var card models.Card
-	if err := s.db.Preload("Metrics").Preload("Category").First(&card, "id = ?", id).Error; err != nil {
+	if err := s.db.WithContext(ctx).Preload("Metrics").Preload("Category").First(&card, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 
@@ -127,15 +144,92 @@ func (s *CardService) GetCardByID(ctx context.Context, id string) (*models.Card,
 	return &card, nil
 }
 
+// CardCompact holds lightweight card fields for sidebar/preview views.
+type CardCompact struct {
+	ID         string  `json:"id"`
+	Title      string  `json:"title"`
+	Excerpt    string  `json:"excerpt"`
+	CategoryID *uint   `json:"category_id"`
+	CreatedAt  string  `json:"created_at"`
+	UpdatedAt  string  `json:"updated_at"`
+	Category   *struct {
+		ID   uint   `json:"id"`
+		Name string `json:"name"`
+	} `json:"category"`
+	Metrics *struct {
+		CardID    string  `json:"card_id"`
+		ViewCount int64   `json:"view_count"`
+		HotScore  float64 `json:"hot_score"`
+	} `json:"metrics"`
+}
+
+// GetCardCompact returns a card excluding heavy fields (raw_md, ast_data, toc_data).
+func (s *CardService) GetCardCompact(ctx context.Context, id string) (*CardCompact, error) {
+	var result struct {
+		ID         string
+		Title      string
+		Excerpt    string
+		CategoryID *uint
+		CreatedAt  time.Time
+		UpdatedAt  time.Time
+	}
+	if err := s.db.WithContext(ctx).
+		Select("id, title, excerpt, category_id, created_at, updated_at").
+		Table("cards").
+		Where("id = ?", id).
+		Scan(&result).Error; err != nil {
+		return nil, err
+	}
+
+	compact := &CardCompact{
+		ID:         result.ID,
+		Title:      result.Title,
+		Excerpt:    result.Excerpt,
+		CategoryID: result.CategoryID,
+		CreatedAt:  result.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  result.UpdatedAt.Format(time.RFC3339),
+	}
+
+	// Preload category name if set
+	if result.CategoryID != nil {
+		var cat struct {
+			ID   uint
+			Name string
+		}
+		if err := s.db.WithContext(ctx).Select("id, name").Table("categories").Where("id = ?", *result.CategoryID).Scan(&cat).Error; err == nil {
+			compact.Category = &struct {
+				ID   uint   `json:"id"`
+				Name string `json:"name"`
+			}{ID: cat.ID, Name: cat.Name}
+		}
+	}
+
+	// Preload metrics
+	var m struct {
+		CardID    string
+		ViewCount int64
+		HotScore  float64
+	}
+	if err := s.db.WithContext(ctx).Select("card_id, view_count, hot_score").Table("card_metrics").Where("card_id = ?", id).Scan(&m).Error; err == nil {
+		compact.Metrics = &struct {
+			CardID    string  `json:"card_id"`
+			ViewCount int64   `json:"view_count"`
+			HotScore  float64 `json:"hot_score"`
+		}{CardID: m.CardID, ViewCount: m.ViewCount, HotScore: m.HotScore}
+	}
+
+	return compact, nil
+}
+
 func (s *CardService) ListCards(ctx context.Context, page CursorPage) (*PaginatedResult, error) {
 	if page.Limit < 1 || page.Limit > 100 {
 		page.Limit = 20
 	}
 
 	var totalCount int64
-	s.db.Model(&models.Card{}).Count(&totalCount)
+	s.db.WithContext(ctx).Model(&models.Card{}).Count(&totalCount)
 
-	query := s.db.Select("id, title, excerpt, category_id, created_at, updated_at").
+	query := s.db.WithContext(ctx).Select("id, title, excerpt, category_id, created_at, updated_at").
 		Preload("Category", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id, name")
 		}).
@@ -189,9 +283,9 @@ func (s *CardService) GetDiscover(ctx context.Context, sort string, page OffsetP
 	}
 
 	var totalCount int64
-	islandJoins(s.db.Model(&models.Card{})).Count(&totalCount)
+	islandJoins(s.db.WithContext(ctx).Model(&models.Card{})).Count(&totalCount)
 
-	query := s.db.Select("DISTINCT cards.id, cards.title, cards.excerpt, cards.category_id, cards.created_at, cards.updated_at")
+	query := s.db.WithContext(ctx).Select("DISTINCT cards.id, cards.title, cards.excerpt, cards.category_id, cards.created_at, cards.updated_at")
 	query = islandJoins(query)
 
 	switch sort {
@@ -239,7 +333,7 @@ func (s *CardService) UpdateCard(ctx context.Context, id string, title string, r
 		updates["category_id"] = nil
 	}
 
-	err := s.db.Model(&models.Card{}).Where("id = ?", id).Updates(updates).Error
+	err := s.db.WithContext(ctx).Model(&models.Card{}).Where("id = ?", id).Updates(updates).Error
 	if err != nil {
 		return fmt.Errorf("failed to update card %s: %w", id, err)
 	}
@@ -252,15 +346,15 @@ func (s *CardService) UpdateCard(ctx context.Context, id string, title string, r
 }
 
 func (s *CardService) DeleteCard(ctx context.Context, id string) error {
-	err := s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("source_id = ? OR target_id = ?", id, id).Delete(&models.CardEdge{}).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to delete card edges: %w", err)
 		}
 		if err := tx.Where("card_id = ?", id).Delete(&models.CardLayout{}).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to delete card layout: %w", err)
 		}
 		if err := tx.Where("card_id = ?", id).Delete(&models.CardMetrics{}).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to delete card metrics: %w", err)
 		}
 		return tx.Where("id = ?", id).Delete(&models.Card{}).Error
 	})
@@ -278,14 +372,14 @@ func (s *CardService) DeleteCard(ctx context.Context, id string) error {
 func (s *CardService) IncrementView(ctx context.Context, cardID string) error {
 	if cardID == "root" {
 		var realID string
-		err := s.db.Raw(`
+		err := s.db.WithContext(ctx).Raw(`
 					SELECT c.id FROM cards c
 					LEFT JOIN card_edges e ON c.id = e.target_id
 					WHERE e.target_id IS NULL
 					ORDER BY c.created_at LIMIT 1
 				`).Scan(&realID).Error
 		if err != nil || realID == "" {
-			s.db.Raw(`SELECT id FROM cards ORDER BY created_at LIMIT 1`).Scan(&realID)
+			s.db.WithContext(ctx).Raw(`SELECT id FROM cards ORDER BY created_at LIMIT 1`).Scan(&realID)
 		}
 		if realID == "" {
 			return errors.New("knowledge base is empty")
@@ -293,7 +387,7 @@ func (s *CardService) IncrementView(ctx context.Context, cardID string) error {
 		cardID = realID
 	}
 
-	return s.db.Exec(`
+	return s.db.WithContext(ctx).Exec(`
 		INSERT INTO card_metrics (card_id, view_count, hot_score, updated_at)
 		VALUES (?, 1, 0.4, NOW())
 		ON CONFLICT (card_id) DO UPDATE SET
@@ -301,35 +395,6 @@ func (s *CardService) IncrementView(ctx context.Context, cardID string) error {
 			hot_score = card_metrics.hot_score + 0.4,
 			updated_at = NOW()
 	`, cardID).Error
-}
-
-func (s *CardService) GetGraphWithCache(ctx context.Context, cardID string, depth int) (*GraphResult, error) {
-	cacheKey := fmt.Sprintf("graph:detail:%s:%d", cardID, depth)
-
-	if s.rdb != nil {
-		cached, err := s.rdb.Get(ctx, cacheKey).Bytes()
-		if err == nil {
-			var result GraphResult
-			if json.Unmarshal(cached, &result) == nil {
-				return &result, nil
-			}
-		}
-	}
-
-	graphSvc := NewGraphService(s.db)
-	result, err := graphSvc.GetGraph(ctx, cardID, depth)
-	if err != nil {
-		return nil, err
-	}
-
-	if s.rdb != nil {
-		data, err := json.Marshal(result)
-		if err == nil {
-			s.rdb.Set(ctx, cacheKey, data, 1*time.Hour)
-		}
-	}
-
-	return result, nil
 }
 
 // BacklinkItem 表示一条反向引用（其他卡片指向当前卡片）
@@ -412,39 +477,39 @@ func extractContextSnippet(rawMd string, targetTitle string) string {
 // returning clean plain text suitable for display as a context snippet.
 func sanitizeSnippet(text string) string {
 	// Remove fenced code blocks (```...```)
-	text = regexp.MustCompile("(?s)```.*?```").ReplaceAllString(text, "")
+	text = reCodeFence.ReplaceAllString(text, "")
 
 	// Remove remaining code fence markers and inline backticks
 	text = strings.ReplaceAll(text, "```", "")
 	text = strings.ReplaceAll(text, "`", "")
 
 	// Extract image alt text: ![alt](url) → alt
-	text = regexp.MustCompile(`!\[([^\]]*)\]\([^)]*\)`).ReplaceAllString(text, "$1")
+	text = reImage.ReplaceAllString(text, "$1")
 
 	// Extract link text: [text](url) → text
-	text = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`).ReplaceAllString(text, "$1")
+	text = reLink.ReplaceAllString(text, "$1")
 
 	// Extract wikilink text: [[target]] → target
-	text = regexp.MustCompile(`\[\[([^\]]+)\]\]`).ReplaceAllString(text, "$1")
+	text = reWikilink.ReplaceAllString(text, "$1")
 
 	// Remove bold/italic markers: ***text***, **text**, *text*
-	text = regexp.MustCompile(`\*{1,3}([^*]+)\*{1,3}`).ReplaceAllString(text, "$1")
-	text = regexp.MustCompile(`_{1,3}([^_]+)_{1,3}`).ReplaceAllString(text, "$1")
+	text = reBoldItalic.ReplaceAllString(text, "$1")
+	text = reBoldItalicUnd.ReplaceAllString(text, "$1")
 
 	// Remove heading markers: # ## ### etc.
-	text = regexp.MustCompile(`(?m)^#{1,6}\s+`).ReplaceAllString(text, "")
+	text = reHeading.ReplaceAllString(text, "")
 
 	// Remove blockquote markers: > text
-	text = regexp.MustCompile(`(?m)^>\s?`).ReplaceAllString(text, "")
+	text = reBlockquote.ReplaceAllString(text, "")
 
 	// Remove horizontal rules: --- or ***
-	text = regexp.MustCompile(`(?m)^[-*]{3,}\s*$`).ReplaceAllString(text, "")
+	text = reHorizontalRule.ReplaceAllString(text, "")
 
 	// Remove unordered list markers: - or * followed by space
-	text = regexp.MustCompile(`(?m)^[-*]\s+`).ReplaceAllString(text, "")
+	text = reUnorderedList.ReplaceAllString(text, "")
 
 	// Remove ordered list markers: 1. etc.
-	text = regexp.MustCompile(`(?m)^\d+\.\s+`).ReplaceAllString(text, "")
+	text = reOrderedList.ReplaceAllString(text, "")
 
 	// Flatten newlines into spaces and collapse whitespace
 	text = strings.ReplaceAll(text, "\n", " ")
@@ -457,7 +522,7 @@ func sanitizeSnippet(text string) string {
 // 利用 idx_card_edges_target 索引高效查询。
 func (s *CardService) GetBacklinks(ctx context.Context, cardID string) ([]BacklinkItem, error) {
 	var targetCard models.Card
-	if err := s.db.Select("title").First(&targetCard, "id = ?", cardID).Error; err != nil {
+	if err := s.db.WithContext(ctx).Select("title").First(&targetCard, "id = ?", cardID).Error; err != nil {
 		return nil, err
 	}
 
@@ -469,7 +534,7 @@ func (s *CardService) GetBacklinks(ctx context.Context, cardID string) ([]Backli
 	}
 
 	var queryResults []backlinkQuery
-	err := s.db.Table("card_edges").
+	err := s.db.WithContext(ctx).Table("card_edges").
 		Select("card_edges.source_id, cards.title as source_title, card_edges.relation_type, cards.raw_md").
 		Joins("JOIN cards ON cards.id = card_edges.source_id").
 		Where("card_edges.target_id = ?", cardID).

@@ -168,13 +168,14 @@ mod tests {
     }
 
     #[test]
-    fn test_watcher_creation() {
+    fn test_watcher_creation() -> Result<(), Box<dyn std::error::Error>> {
         let tmp_dir = std::env::temp_dir().join("temple_cache_test_watcher");
         let _ = fs::create_dir_all(&tmp_dir);
 
-        let result = VaultWatcher::new(tmp_dir.to_str().unwrap());
+        let result = VaultWatcher::new(tmp_dir.to_str().ok_or("invalid temp path")?);
         assert!(result.is_ok());
 
         let _ = fs::remove_dir_all(&tmp_dir);
+        Ok(())
     }
 }

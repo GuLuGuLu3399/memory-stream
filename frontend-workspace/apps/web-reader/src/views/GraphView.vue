@@ -12,11 +12,11 @@
  * - 拓扑潜流：右键提取 SEQ 链，FlowReader 线性阅读
  */
 
-import { shallowRef, ref, onMounted, nextTick, provide } from "vue";
+import { shallowRef, ref, computed, onMounted, nextTick, provide, onUnmounted } from "vue";
 import {
     VueFlow,
     useVueFlow,
-    Position,
+    MarkerType,
     type NodeMouseEvent,
     type Node,
     type Edge,
@@ -29,7 +29,7 @@ import CardNode from "../components/ui/CardNode.vue";
 import FlowReader from "../components/FlowReader.vue";
 import { useGraph } from "../composables/useGraph";
 import { useGraphStore } from "../store/useGraphStore";
-import { layoutMultiComponent } from "../utils/graphLayout";
+import { layoutMultiComponent, layoutMultiComponentAsync } from "../utils/graphLayout";
 import { useOblivionHeatmap } from "../composables/useOblivionHeatmap";
 import { extractSeqChain, isInSeqChain } from "../utils/seqTraversal";
 
@@ -49,7 +49,80 @@ const {
 } = useGraph();
 
 const nodes = shallowRef<Node[]>([]);
-const edges = shallowRef<Edge[]>([]);
+const rawEdges = shallowRef<Edge[]>([]);
+
+// ── 聚光灯：hover 节点时只点亮关联的参考线 ──
+const hoveredNodeId = ref<string | null>(null);
+
+// ── 语义化边：参考线支持 Hover 点亮 ──
+const edges = computed(() => {
+    return rawEdges.value.map((edge) => {
+        const edgeData = (edge.data as { type?: string; isBidirectional?: boolean }) || {};
+        const relation = edgeData.type;
+        const isReference = relation !== "sequence"; // 参考线判断
+        const isBiDir = edgeData.isBidirectional || false; // 双向标记
+
+        // 🗡️ 第三击：交互点亮（Hover 降噪）
+        // 只有参考线支持点亮，序列线保持常态
+        let style: Record<string, any>;
+
+        if (isReference) {
+            // 参考线：Hover 时从暗淡变橙亮
+            const isConnected = hoveredNodeId.value !== null &&
+                (edge.source === hoveredNodeId.value || edge.target === hoveredNodeId.value);
+            
+            if (isConnected) {
+                // 点亮状态：橙色 + 高透明度 + 增粗
+                style = {
+                    stroke: "#ffaa00",
+                    strokeWidth: 2,
+                    opacity: 1,
+                };
+            } else if (hoveredNodeId.value !== null) {
+                // 其他参考线在 Hover 时进一步暗淡
+                style = {
+                    stroke: "#555",
+                    strokeWidth: 1,
+                    opacity: 0.1,
+                };
+            } else {
+                // 默认状态：极暗（双向线稍亮一点）
+                style = {
+                    stroke: isBiDir ? "#888" : "#555",
+                    strokeWidth: isBiDir ? 1.5 : 1,
+                    opacity: 0.2,
+                };
+            }
+        } else {
+            // 序列线：始终保持醒目状态，不受 Hover 影响
+            style = {
+                stroke: "#00e5ff",
+                strokeWidth: 2,
+                opacity: 1,
+            };
+        }
+
+        // 🎨 双向边视觉映射：两头都有箭头
+        return {
+            ...edge,
+            type: isReference ? "default" : "smoothstep",
+            animated: !isReference,
+            style,
+            zIndex: isReference ? 0 : 10,
+            // 核心：双向边在两端都显示箭头
+            markerEnd: MarkerType.ArrowClosed,
+            markerStart: isBiDir ? MarkerType.ArrowClosed : undefined,
+        };
+    });
+});
+
+function onNodeMouseEnter(event: NodeMouseEvent) {
+    hoveredNodeId.value = event.node.id;
+}
+
+function onNodeMouseLeave() {
+    hoveredNodeId.value = null;
+}
 
 // ── VueFlow 钩子 ──
 const { onNodesInitialized, fitView, getNodes, getEdges, onPaneClick } = useVueFlow();
@@ -66,9 +139,23 @@ provide("heatmapEnabled", heatmapEnabled);
 const flowReaderOpen = ref(false);
 const flowChainIds = ref<string[]>([]);
 const flowCurrentNodeId = ref<string | null>(null);
+const LONG_PRESS_MS = 450;
+const ASYNC_LAYOUT_THRESHOLD = 120;
+const CONTEXT_MENU_WIDTH = 140;
+const CONTEXT_MENU_HEIGHT = 42;
+const CONTEXT_MENU_GAP = 8;
+
+let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+let longPressMoved = false;
 
 // ── 右键菜单 ──
 const contextMenu = ref<{ x: number; y: number; nodeId: string } | null>(null);
+
+const canExtractFlowFromContextMenu = computed(() => {
+    if (!contextMenu.value) return false;
+    const vfEdges = getEdges.value as Edge[];
+    return isInSeqChain(contextMenu.value.nodeId, vfEdges);
+});
 
 function onNodeClick(event: NodeMouseEvent) {
     // 记录浏览时间
@@ -81,25 +168,79 @@ onPaneClick(() => {
     contextMenu.value = null;
 });
 
-// ── 右键菜单：提取潜流 ──
+// ── 右键菜单：节点快捷操作 ──
 function onNodeContextMenu(event: NodeMouseEvent) {
     event.event.preventDefault();
     const nodeId = event.node.id;
     const vfEdges = getEdges.value as Edge[];
-
-    if (isInSeqChain(nodeId, vfEdges)) {
-        contextMenu.value = {
-            x: (event.event as MouseEvent).clientX,
-            y: (event.event as MouseEvent).clientY,
-            nodeId,
-        };
+    if (!isInSeqChain(nodeId, vfEdges)) {
+        contextMenu.value = null;
+        return;
     }
+
+    const mouseEvent = event.event as MouseEvent;
+    openContextMenuAt(mouseEvent.clientX, mouseEvent.clientY, nodeId);
+}
+
+function getClampedContextMenuPosition(clientX: number, clientY: number) {
+    const maxX = window.innerWidth - CONTEXT_MENU_WIDTH - CONTEXT_MENU_GAP;
+    const maxY = window.innerHeight - CONTEXT_MENU_HEIGHT - CONTEXT_MENU_GAP;
+    return {
+        x: Math.max(CONTEXT_MENU_GAP, Math.min(clientX, maxX)),
+        y: Math.max(CONTEXT_MENU_GAP, Math.min(clientY, maxY)),
+    };
+}
+
+function openContextMenuAt(clientX: number, clientY: number, nodeId: string) {
+    const { x, y } = getClampedContextMenuPosition(clientX, clientY);
+    contextMenu.value = { x, y, nodeId };
+}
+
+function clearLongPressTimer() {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+}
+
+function handleTouchStart(e: TouchEvent) {
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const target = e.target as HTMLElement | null;
+    const nodeEl = target?.closest(".vue-flow__node") as HTMLElement | null;
+    const nodeId = nodeEl?.dataset.id;
+    if (!nodeId) return;
+
+    longPressMoved = false;
+    clearLongPressTimer();
+
+    longPressTimer = setTimeout(() => {
+        if (longPressMoved) return;
+
+        const vfEdges = getEdges.value as Edge[];
+        if (!isInSeqChain(nodeId, vfEdges)) return;
+
+        store.selectNode(nodeId);
+        openContextMenuAt(touch.clientX, touch.clientY, nodeId);
+    }, LONG_PRESS_MS);
+}
+
+function handleTouchMove() {
+    longPressMoved = true;
+    clearLongPressTimer();
+}
+
+function handleTouchEnd() {
+    clearLongPressTimer();
 }
 
 function openFlowReader() {
     if (!contextMenu.value) return;
 
     const vfEdges = getEdges.value as Edge[];
+    if (!isInSeqChain(contextMenu.value.nodeId, vfEdges)) return;
+
     const chain = extractSeqChain(contextMenu.value.nodeId, vfEdges);
 
     if (chain.length > 0) {
@@ -125,11 +266,18 @@ function resetViewport() {
     fitView({ padding: 0.2, duration: 800, maxZoom: 1.2 });
 }
 
+async function applyAdaptiveLayout(currentNodes: Node[], currentEdges: Edge[]) {
+    if (currentNodes.length >= ASYNC_LAYOUT_THRESHOLD) {
+        return layoutMultiComponentAsync(currentNodes, currentEdges);
+    }
+    return layoutMultiComponent(currentNodes, currentEdges);
+}
+
 async function resetLayout() {
     try {
         const measuredNodes = getNodes.value as Node[];
         const currentEdges = getEdges.value as Edge[];
-        const layouted = await layoutMultiComponent(measuredNodes, currentEdges);
+        const layouted = await applyAdaptiveLayout(measuredNodes, currentEdges);
         nodes.value = layouted;
     } catch (err) {
         console.error("❌ Dagre 重置布局失败:", err);
@@ -150,7 +298,7 @@ onNodesInitialized(async () => {
     try {
         const measuredNodes = getNodes.value as Node[];
         const currentEdges = getEdges.value as Edge[];
-        const layouted = await layoutMultiComponent(measuredNodes, currentEdges);
+        const layouted = await applyAdaptiveLayout(measuredNodes, currentEdges);
         nodes.value = layouted;
     } catch (err) {
         console.error("❌ Dagre 布局失败:", err);
@@ -161,32 +309,22 @@ onNodesInitialized(async () => {
     });
 });
 
-// ── 加载数据 + 构建语义化边 ──
+// ── 加载数据 ──
 onMounted(async () => {
     await loadFullGraph();
 
     nodes.value = apiNodes.value as Node[];
+    rawEdges.value = apiEdges.value as Edge[];
+});
 
-    edges.value = (apiEdges.value as Edge[]).map((edge) => {
-        const relation = (edge.data as { type?: string })?.type;
-        const isSequence = relation === "sequence";
-
-        return {
-            ...edge,
-            type: isSequence ? "smoothstep" : "default",
-            animated: isSequence,
-            sourcePosition: Position.Right,
-            targetPosition: Position.Left,
-            style: isSequence
-                ? { stroke: "#00e5ff", strokeWidth: 2 }
-                : { stroke: "#71717a", strokeWidth: 1.5, strokeDasharray: "5 5" },
-        };
-    });
+onUnmounted(() => {
+    clearLongPressTimer();
 });
 </script>
 
 <template>
-    <div class="graph-container">
+    <div class="graph-container" @touchstart.passive="handleTouchStart" @touchmove.passive="handleTouchMove"
+        @touchend.passive="handleTouchEnd" @touchcancel.passive="handleTouchEnd">
         <!-- 加载态 -->
         <div v-if="graphLoading" class="state-overlay">
             <p class="text-zinc-500 text-xs font-mono animate-pulse">正在加载图谱...</p>
@@ -203,16 +341,10 @@ onMounted(async () => {
         </div>
 
         <!-- 图谱渲染 -->
-        <VueFlow
-            v-else
-            :nodes="nodes"
-            :edges="edges"
-            :fit-view-on-init="true"
-            :default-viewport="{ zoom: 1 }"
-            @node-click="onNodeClick"
-            @node-context-menu="onNodeContextMenu"
-        >
-            <Background :pattern-color="'#27272a'" :gap="20" />
+        <VueFlow v-else :nodes="nodes" :edges="edges" :fit-view-on-init="true" :default-viewport="{ zoom: 1 }"
+            @node-click="onNodeClick" @node-context-menu="onNodeContextMenu"
+            @node-mouse-enter="onNodeMouseEnter" @node-mouse-leave="onNodeMouseLeave">
+            <Background :pattern-color="'#1a1a1a'" :gap="20" />
             <Controls />
 
             <!-- 显式插槽映射：node type "card" → CardNode -->
@@ -222,53 +354,35 @@ onMounted(async () => {
         </VueFlow>
 
         <!-- 右键菜单 -->
-        <Transition name="ctx-fade">
-            <div
-                v-if="contextMenu"
-                class="context-menu"
-                :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-            >
-                <button class="context-menu__item" @click="openFlowReader">
-                    <Flame :size="12" />
-                    <span>提取潜流</span>
-                </button>
-            </div>
-        </Transition>
+        <Teleport to="body">
+            <Transition name="ctx-fade">
+                <div v-if="contextMenu" class="context-menu z-dropdown"
+                    :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }">
+                    <button class="context-menu__item" :disabled="!canExtractFlowFromContextMenu" @click="openFlowReader">
+                        <Flame :size="12" />
+                        <span>提取潜流</span>
+                    </button>
+                </div>
+            </Transition>
+        </Teleport>
 
         <!-- 右上角工具栏 -->
         <div class="toolbar">
-            <button
-                class="toolbar-btn"
-                :class="{ 'toolbar-btn--active': heatmapEnabled }"
-                :title="heatmapEnabled ? '关闭遗忘热力学' : '开启遗忘热力学'"
-                @click="heatmapEnabled = !heatmapEnabled"
-            >
+            <button class="toolbar-btn" :class="{ 'toolbar-btn--active': heatmapEnabled }"
+                :title="heatmapEnabled ? '关闭遗忘热力学' : '开启遗忘热力学'" @click="heatmapEnabled = !heatmapEnabled">
                 <Eye :size="14" />
             </button>
-            <button
-                class="toolbar-btn"
-                title="视界归位"
-                @click="resetViewport"
-            >
+            <button class="toolbar-btn" title="视界归位" @click="resetViewport">
                 <Crosshair :size="14" />
             </button>
-            <button
-                class="toolbar-btn"
-                title="物理重置"
-                @click="resetLayout"
-            >
+            <button class="toolbar-btn" title="物理重置" @click="resetLayout">
                 <RotateCw :size="14" />
             </button>
         </div>
 
         <!-- 潜流阅读器 -->
-        <FlowReader
-            :open="flowReaderOpen"
-            :chain-ids="flowChainIds"
-            :current-node-id="flowCurrentNodeId"
-            @close="closeFlowReader"
-            @navigate="onFlowNavigate"
-        />
+        <FlowReader :open="flowReaderOpen" :chain-ids="flowChainIds" :current-node-id="flowCurrentNodeId"
+            @close="closeFlowReader" @navigate="onFlowNavigate" />
     </div>
 </template>
 
@@ -277,9 +391,10 @@ onMounted(async () => {
     height: 100%;
     width: 100%;
     background:
-        radial-gradient(ellipse 80% 60% at 50% 50%, rgba(166, 38, 38, 0.03) 0%, transparent 70%),
-        radial-gradient(circle at 20% 80%, rgba(201, 168, 76, 0.02) 0%, transparent 40%),
-        #09090b;
+        radial-gradient(ellipse at 20% 30%, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(0, 229, 255, 0.015) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(0, 229, 255, 0.01) 0%, transparent 70%),
+        #0d0d0d;
     position: relative;
     overflow: hidden;
 }
@@ -292,30 +407,29 @@ onMounted(async () => {
     justify-content: center;
 }
 
-/* ── Controls 暗色主题 ── */
+/* ── Controls dark industrial theme ── */
 :deep(.vue-flow__controls) {
-    background: #18181b;
-    border: 1px solid #27272a;
+    background: #141414;
+    border: 1px solid #2a2a2a;
     border-radius: 3px;
 }
 
 :deep(.vue-flow__controls-button) {
-    background: #18181b;
-    border-bottom: 1px solid #27272a;
+    background: #141414;
+    border-bottom: 1px solid #2a2a2a;
     fill: #71717a;
 }
 
 :deep(.vue-flow__controls-button:hover) {
-    background: #27272a;
-    fill: #e4e4e7;
+    background: #2a2a2a;
+    fill: #cbd5e1;
 }
 
 /* ── 右键菜单 — hard entity shadow ── */
 .context-menu {
     position: fixed;
-    z-index: 40;
-    background: #18181b;
-    border: 1px solid #3a3228;
+    background: #141414;
+    border: 1px solid #2a2a2a;
     border-radius: 3px;
     padding: 4px 0;
     min-width: 140px;
@@ -331,7 +445,7 @@ onMounted(async () => {
     width: 100%;
     padding: 8px 14px;
     font-size: 12px;
-    color: #c8bfa8;
+    color: #cbd5e1;
     background: transparent;
     border: none;
     cursor: pointer;
@@ -339,8 +453,18 @@ onMounted(async () => {
 }
 
 .context-menu__item:hover {
-    background: rgba(201, 168, 76, 0.08);
-    color: #c9a84c;
+    background: rgba(0, 229, 255, 0.08);
+    color: #00e5ff;
+}
+
+.context-menu__item:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.context-menu__item:disabled:hover {
+    background: transparent;
+    color: #cbd5e1;
 }
 
 .ctx-fade-enter-active,
@@ -370,8 +494,8 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #18181b;
-    border: 1px solid #3a3228;
+    background: #141414;
+    border: 1px solid #2a2a2a;
     border-radius: 3px;
     color: #71717a;
     box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.5);
@@ -380,8 +504,8 @@ onMounted(async () => {
 }
 
 .toolbar-btn:hover {
-    background: #27272a;
-    color: #c8bfa8;
+    background: #2a2a2a;
+    color: #cbd5e1;
     transform: translate(-1px, -1px);
     box-shadow: 3px 3px 0 0 rgba(0, 0, 0, 0.5);
 }
@@ -392,8 +516,32 @@ onMounted(async () => {
 }
 
 .toolbar-btn--active {
-    color: #c9a84c;
-    border-color: rgba(201, 168, 76, 0.3);
-    box-shadow: 0 0 6px rgba(201, 168, 76, 0.15), 2px 2px 0 0 rgba(0, 0, 0, 0.5);
+    color: #00e5ff;
+    border-color: rgba(0, 229, 255, 0.3);
+    box-shadow: 0 0 6px rgba(0, 229, 255, 0.15), 2px 2px 0 0 rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 900px) {
+    .toolbar {
+        top: auto;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        right: 10px;
+        gap: 6px;
+    }
+
+    .toolbar-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+}
+
+/* ── Edge spotlight transitions ── */
+:deep(.vue-flow__edge-path) {
+    transition: opacity 0.25s ease, stroke 0.25s ease;
+}
+
+:deep(.vue-flow__edge:hover) {
+    cursor: pointer;
 }
 </style>

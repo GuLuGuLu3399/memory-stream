@@ -181,6 +181,7 @@ onUnmounted(() => {
                         </g>
                     </svg>
                     <div v-for="(point, idx) in dataPoints" :key="idx" class="sparkline-zone"
+                        v-memo="[point.x, point.value, hoveredPoint === idx]"
                         :style="{ left: `${(point.x / 160) * 100}%`, width: `${100 / dataPoints.length}%` }"
                         @mouseenter="handlePointHover(idx)">
                         <div v-if="hoveredPoint === idx" class="sparkline-tip">
