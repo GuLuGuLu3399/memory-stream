@@ -1,22 +1,20 @@
+// Package models defines database models for the Memory Stream server.
 package models
 
-import "time"
+import (
+	"time"
 
-// User 用户表 - 支持双 Token 认证
-//
-// 约束说明（由 migration/003_users.sql 管理）：
-//   - username: UNIQUE 约束（已通过 gorm:"uniqueIndex" 定义）
-//   - role: CHECK 约束，仅允许 'admin', 'user', 'guest'
-//
-// 索引说明：
-//   - idx_users_username (username) - 冗余索引，UNIQUE 已自带索引
+	"github.com/google/uuid"
+)
+
+// User 认证用户
 type User struct {
-	ID           string    `json:"id" gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	Username     string    `json:"username" gorm:"type:varchar(50);uniqueIndex;not null"`
-	PasswordHash string    `json:"-" gorm:"column:password_hash;type:varchar(255);not null"`
-	Role         string    `json:"role" gorm:"type:varchar(20);not null;default:'guest'"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"` // 用户 ID
+	Username     string    `gorm:"type:varchar(50);uniqueIndex;not null" json:"username"`    // 用户名
+	PasswordHash string    `gorm:"column:password_hash;type:varchar(255);not null" json:"-"` // 密码哈希
+	Role         string    `gorm:"type:varchar(20);not null;default:'guest'" json:"role"`    // 角色
+	CreatedAt    time.Time `json:"created_at"`                                                // 创建时间
+	UpdatedAt    time.Time `json:"updated_at"`                                                // 更新时间
 }
 
 func (User) TableName() string { return "users" }

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
@@ -8,10 +8,14 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "esModuleInterop": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
-    "declaration": true,
-    "outDir": "./dist"
+    "noEmit": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@memory-stream/types": ["../types/src/index.ts"]
+    }
   },
-  "include": ["**/*.ts", "**/*.vue", "types/**/*.d.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue"],
+  "references": [{ "path": "../types" }]
 }

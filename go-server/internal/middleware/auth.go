@@ -1,7 +1,15 @@
+
+// ────────────────────────────────────────────────────────────────
+// auth.go — Authentication and authorization middleware
+// auth.go — 认证和授权中间件
+// ────────────────────────────────────────────────────────────────
+
+
 package middleware
 
 import (
 	"net/http"
+	"os"
 	"strings"
 
 	appErr "github.com/GuLuGuLu3399/memory-stream-server/internal/errors"
@@ -76,12 +84,10 @@ func CORSConfig() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
 
-		allowedOrigins := []string{
-			"http://localhost:5173",
-			"http://localhost:1420",
-			"http://localhost:4173",
-			"https://tauri.localhost",
-			"http://tauri.localhost",
+		defaultOrigins := "http://localhost:5173,http://localhost:1420,http://localhost:4173,https://tauri.localhost,http://tauri.localhost"
+		allowedOrigins := strings.Split(defaultOrigins, ",")
+		if raw := os.Getenv("CORS_ORIGINS"); raw != "" {
+			allowedOrigins = strings.Split(raw, ",")
 		}
 
 		isAllowed := false

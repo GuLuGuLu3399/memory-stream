@@ -1,0 +1,312 @@
+@import "tailwindcss";
+
+/* ────────────────────────────────────────────────────────────────
+   Reader Web — 纸墨禅 (Paper Ink Zen)
+   Warm charcoal · Bamboo green accent · Breath-like calm
+   ──────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Background depth */
+  --ms-deep: #1A1A1A;
+  --ms-void: #151515;
+  --ms-surface: #222222;
+  --ms-surface-elevated: #2A2826;
+  --ms-border: #2E2C28;
+  --ms-border-light: #3A3832;
+  --ms-smoke: #7A7268;
+
+  /* Ink text */
+  --text-primary: #E0D8C8;
+  --text-secondary: #9A9080;
+  --text-muted: #5A5448;
+
+  /* Primary accent — bamboo green */
+  --accent: #6B8E7B;
+  --accent-dim: #4A6B5A;
+  --accent-glow: rgba(107, 142, 123, 0.12);
+
+  /* Warm accent — sandalwood */
+  --warm: #C4A47A;
+  --warm-dim: #9A8060;
+  --warm-glow: rgba(196, 164, 122, 0.10);
+
+  /* Graph accents — steel neon & warm brass (纸案 graph design) */
+  --ms-carbon: #161616;
+  --neon: #8b9eb7;
+  --neon-rgb: 139, 158, 183;
+  --neon-dim: rgba(139, 158, 183, 0.12);
+  --brass: #c4a882;
+  --brass-rgb: 196, 168, 130;
+  --brass-dim: rgba(196, 168, 130, 0.12);
+
+  /* Semantic */
+  --destructive: #A85050;
+
+  /* Typography */
+  --font-serif: 'Noto Serif SC', 'Crimson Pro', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-display: 'Crimson Pro', 'Noto Serif SC', serif;
+  --font-sans: 'Noto Serif SC', 'Crimson Pro', system-ui, serif;
+
+  /* Motion — breath-like */
+  --ease-gentle: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-emerge: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-snap: cubic-bezier(0.33, 0, 0.2, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+
+  /* Layout */
+  --reading-width: 640px;
+}
+
+/* ── Global Reset ────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background: var(--ms-deep);
+  color: var(--text-primary);
+  font-family: var(--font-serif);
+  line-height: 1.6;
+  position: relative;
+  overflow-y: scroll;
+}
+
+/* ── Subtle paper grain ──────────────────────── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.02;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+/* ── Scrollbar — nearly invisible ────────────── */
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Links ────────────────────────────────────── */
+a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-gentle);
+}
+
+a:hover {
+  color: var(--warm);
+}
+
+/* ── Article Typography ──────────────────────── */
+.reader-article :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--text-primary);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 700;
+  scroll-margin-top: 64px;
+  font-family: var(--font-display);
+}
+
+.reader-article h1 {
+  font-size: 1.6rem;
+}
+
+.reader-article h2 {
+  font-size: 1.35rem;
+  padding-bottom: 0.4em;
+}
+
+.reader-article h3 {
+  font-size: 1.15rem;
+}
+
+.reader-article h4 {
+  font-size: 1rem;
+}
+
+.reader-article p {
+  margin: 0.6em 0;
+}
+
+.reader-article :is(pre, code) {
+  font-family: var(--font-mono);
+}
+
+.reader-article pre {
+  border-left: 2px solid var(--accent-dim);
+  padding-left: 16px;
+  margin: 1em 0;
+  overflow-x: auto;
+}
+
+.reader-article :is(ul, ol) {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.reader-article blockquote {
+  border-left: 3px solid var(--accent-dim);
+  margin: 1em 0;
+  padding: 0.4em 1em;
+  color: var(--text-secondary);
+  background: var(--accent-glow);
+  border-radius: 0 4px 4px 0;
+}
+
+.reader-article img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+.reader-article hr {
+  border: none;
+  height: 1px;
+  background: var(--ms-border-light);
+  margin: 2em 0;
+}
+
+/* ── Selection ────────────────────────────────── */
+::selection {
+  background: rgba(107, 142, 123, 0.25);
+  color: #fff;
+}
+
+/* ── Shared Components ───────────────────────── */
+
+.ms-card {
+  background: var(--ms-surface-elevated);
+  border-radius: 6px;
+  padding: 12px 16px;
+  border: 1px solid var(--ms-border);
+  transition: border-color var(--duration-normal) var(--ease-gentle);
+}
+
+.ms-card:hover {
+  border-color: var(--accent-dim);
+}
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color var(--duration-fast) var(--ease-gentle),
+    background var(--duration-fast) var(--ease-gentle);
+}
+
+.icon-btn:hover {
+  color: var(--accent);
+  background: var(--ms-surface);
+}
+
+/* ── Animations ──────────────────────────────── */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes breathe {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.02);
+  }
+}
+
+.fade-up {
+  animation: fadeUp var(--duration-slow) var(--ease-emerge) both;
+}
+
+.reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 1px;
+  background: var(--accent);
+  z-index: 9998;
+  transition: width 100ms linear, opacity var(--duration-normal);
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--ms-surface) 25%, var(--ms-surface-elevated) 50%, var(--ms-surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.empty-line {
+  width: 32px;
+  height: 1px;
+  margin: 0 auto 16px;
+  background: var(--ms-border-light);
+}
+
+/* ── Base Layer ────────────────────────────── */
+@layer base {
+
+  html,
+  body,
+  #app {
+    height: 100%;
+    margin: 0;
+  }
+}

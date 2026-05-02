@@ -1,9 +1,8 @@
+// 用途：应用入口，初始化 Vue、Pinia 和路由
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
-import "./style.css";
-import "@memory-stream/ui-shared/styles/transitions.css";
+import router from "./router";
+import "./assets/main.css";
 
-const app = createApp(App);
-app.use(createPinia());
-app.mount("#app");
+createApp(App).use(createPinia()).use(router).mount("#app");

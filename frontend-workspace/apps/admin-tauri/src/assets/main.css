@@ -1,0 +1,413 @@
+/* ──────────────────────────────────────────────
+   纸案 (Paper Desk) — Warm Minimalist Theme
+   admin-tauri design foundation (dark-only)
+   ────────────────────────────────────────────── */
+
+/* Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn-vue/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Tailwind v4 Theme Bridge ─── */
+@theme inline {
+    /* Typography */
+    --font-sans: 'Outfit', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-heading: var(--font-sans);
+
+    /* Shadcn variable bridges */
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+
+    /* 纸案 — custom theme tokens */
+    --color-ms-void: #0a0a0a;
+    --color-ms-deep: #111111;
+    --color-ms-carbon: #161616;
+    --color-ms-panel: #161616;
+    --color-ms-surface: #1c1c1c;
+    --color-ms-surface-hover: #242424;
+    --color-ms-smoke: #5a5a5a;
+    --color-ms-border: #1e1e1e;
+    --color-ms-border-light: #2a2a2a;
+    --color-neon: #8b9eb7;
+    --color-neon-dim: oklch(0.67 0.05 245 / 0.12);
+    --color-brass: #c4a882;
+    --color-brass-dim: oklch(0.76 0.06 65 / 0.12);
+
+    /* Radius — warm minimal (4px base) */
+    --radius: 0.25rem;
+    --radius-sm: 0.125rem;
+    --radius-md: 0.25rem;
+    --radius-lg: 0.375rem;
+    --radius-xl: 0.5rem;
+
+    /* Shadows — subtle, warm */
+    --shadow-raised: 0 1px 3px oklch(0 0 0 / 0.3), 0 2px 8px oklch(0 0 0 / 0.2);
+}
+
+/* ─── 纸案 — Shadcn Variable Overrides ─── */
+:root {
+    /* Background depth layers */
+    --ms-void: #0a0a0a;
+    --ms-deep: #111111;
+    --ms-carbon: #161616;
+    --ms-panel: #161616;
+    --ms-surface: #1c1c1c;
+    --ms-surface-hover: #242424;
+    --ms-smoke: #5a5a5a;
+
+    /* Borders */
+    --ms-border: #1e1e1e;
+    --ms-border-light: #2a2a2a;
+
+    /* Core accent colors — steel blue (was neon) */
+    --neon: #8b9eb7;
+    --neon-rgb: 139, 158, 183;
+    --neon-dim: rgba(139, 158, 183, 0.12);
+
+    /* Warm accent — parchment (was brass) */
+    --brass: #c4a882;
+    --brass-rgb: 196, 168, 130;
+    --brass-dim: rgba(196, 168, 130, 0.12);
+
+    /* Text */
+    --text-primary: #e4e4e4;
+    --text-secondary: #8a8a8a;
+    --text-muted: #5a5a5a;
+
+    /* Typography */
+    --font-sans: 'Outfit', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+    /* Easing curves */
+    --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+    --ease-snap: cubic-bezier(0.68, -0.3, 0.32, 1.3);
+    --ease-emerge: cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* Durations */
+    --duration-fast: 120ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+
+    /* Z-axis */
+    --z-base: 0;
+    --z-chrome: 100;
+    --z-float: 200;
+    --z-overlay: 400;
+    --z-modal: 800;
+
+    /* ─── Shadcn variable mapping ─── */
+    --background: #111111;
+    --foreground: #e4e4e4;
+    --card: #161616;
+    --card-foreground: #e4e4e4;
+    --popover: #161616;
+    --popover-foreground: #e4e4e4;
+    --primary: #8b9eb7;
+    --primary-foreground: #0a0a0a;
+    --secondary: #161616;
+    --secondary-foreground: #e4e4e4;
+    --muted: #161616;
+    --muted-foreground: #8a8a8a;
+    --accent: #1c1c1c;
+    --accent-foreground: #e4e4e4;
+    --destructive: #c45454;
+    --border: #1e1e1e;
+    --input: #1e1e1e;
+    --ring: #8b9eb7;
+    --radius: 0.25rem;
+
+    /* Sidebar */
+    --sidebar: #0a0a0a;
+    --sidebar-foreground: #e4e4e4;
+    --sidebar-primary: #8b9eb7;
+    --sidebar-primary-foreground: #0a0a0a;
+    --sidebar-accent: #161616;
+    --sidebar-accent-foreground: #e4e4e4;
+    --sidebar-border: #1e1e1e;
+    --sidebar-ring: #8b9eb7;
+
+    /* Charts */
+    --chart-1: #8b9eb7;
+    --chart-2: #c4a882;
+    --chart-3: #c45454;
+    --chart-4: #8a8a8a;
+    --chart-5: #5a5a5a;
+}
+
+/* ─── Keyframe Animations (minimal set) ─── */
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slide-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(12px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes emerge {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* ─── Animation Utilities ─── */
+
+.animate-shimmer {
+    background: linear-gradient(90deg,
+        transparent 0%,
+        oklch(0.67 0.05 245 / 0.06) 50%,
+        transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+    animation: fade-in var(--duration-normal) var(--ease-out) both;
+}
+
+.animate-slide-up {
+    animation: slide-up var(--duration-normal) var(--ease-emerge) both;
+}
+
+.animate-slide-in-right {
+    animation: slide-in-right var(--duration-slow) var(--ease-out) both;
+}
+
+.animate-emerge {
+    animation: emerge var(--duration-normal) var(--ease-emerge) both;
+}
+
+/* Stagger children — apply to parent */
+.stagger-children>* {
+    animation: slide-up var(--duration-normal) var(--ease-emerge) both;
+}
+
+.stagger-children>*:nth-child(1) { animation-delay: 0ms; }
+.stagger-children>*:nth-child(2) { animation-delay: 30ms; }
+.stagger-children>*:nth-child(3) { animation-delay: 60ms; }
+.stagger-children>*:nth-child(4) { animation-delay: 90ms; }
+.stagger-children>*:nth-child(5) { animation-delay: 120ms; }
+.stagger-children>*:nth-child(6) { animation-delay: 150ms; }
+.stagger-children>*:nth-child(7) { animation-delay: 180ms; }
+.stagger-children>*:nth-child(8) { animation-delay: 210ms; }
+.stagger-children>*:nth-child(n+9) { animation-delay: 240ms; }
+
+/* ─── Transition Utilities ─── */
+
+.transition-default {
+    transition-timing-function: var(--ease-out);
+    transition-duration: var(--duration-normal);
+}
+
+/* ─── Focus Ring ─── */
+
+.focus-ring {
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 1.5px var(--neon);
+    }
+}
+
+/* ─── Scrollbar ─── */
+
+@supports (scrollbar-color: auto) {
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--ms-surface) transparent;
+    }
+}
+
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--ms-surface);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--ms-smoke);
+}
+
+/* ─── Selection ─── */
+
+::selection {
+    background: oklch(0.67 0.05 245 / 0.25);
+    color: #ffffff;
+}
+
+/* ─── Form Toolkit ─── */
+
+input[type="text"],
+input[type="search"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+textarea,
+select {
+    background: var(--ms-carbon);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text-primary);
+    caret-color: var(--neon);
+    font-family: var(--font-sans);
+    transition: border-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-fast) var(--ease-out);
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+textarea:focus {
+    border-color: var(--neon);
+    box-shadow: 0 0 0 2px oklch(0.67 0.05 245 / 0.15);
+    outline: none;
+}
+
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23555' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+}
+
+select:focus {
+    border-color: var(--neon);
+    outline: none;
+}
+
+/* ─── Scroll Fade Mask ─── */
+
+.scroll-fade {
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        black 12px,
+        black calc(100% - 12px),
+        transparent 100%
+    );
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        black 12px,
+        black calc(100% - 12px),
+        transparent 100%
+    );
+}
+
+/* ─── Interaction States ─── */
+
+:disabled, [disabled], [aria-disabled="true"] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+[aria-invalid="true"], .is-error {
+    border-color: var(--destructive);
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--destructive) 30%, transparent);
+}
+
+/* ─── Tables ─── */
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th {
+    border-bottom: 1px solid var(--ms-border-light);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--text-secondary);
+}
+
+td {
+    border-bottom: 1px solid var(--ms-border);
+    padding: 6px 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* ─── Base Layer ─── */
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+
+    body {
+        @apply bg-background text-foreground font-sans;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    html {
+        color-scheme: dark;
+    }
+
+    html, body, #app {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+    }
+}

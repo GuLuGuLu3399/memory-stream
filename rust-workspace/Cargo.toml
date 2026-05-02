@@ -1,24 +1,13 @@
 [workspace]
 members = [
-  "ast-core",
-  "md-parser",
-  "ast-renderer",
-  "wasm-engine",
-  "ast-gen",
-  "ms-toc-extractor",
-  "image-compressor",
-  "ms-local-draft",
-  "ms-storage",
-  "ms-kb-exporter",
-  "temple_core",
-  "temple_cache",
-  "temple_graph",
-  "temple_search",
+  "ms-ast",
+  "ms-io",
+  "ms-graph",
+  "ms-meta",
 ]
 
 resolver = "2"
 
-# WASM 体积优化 profile（wasm-engine 继承）
 [profile.release]
 codegen-units = 1
 lto = true
@@ -31,3 +20,5 @@ serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 thiserror = "2.0"
 tokio = {version = "1", features = ["rt", "sync", "macros", "io-util"]}
+sha2 = "0.10"
+rusqlite = { version = "0.31", features = ["bundled"] }

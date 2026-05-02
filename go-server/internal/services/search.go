@@ -2,17 +2,12 @@ package services
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"strings"
 
+	"github.com/GuLuGuLu3399/memory-stream-server/internal/models"
 	"gorm.io/gorm"
 )
-
-type SearchResult struct {
-	ID      string  `json:"id"`
-	Title   string  `json:"title"`
-	Excerpt string  `json:"excerpt"`
-	Rank    float64 `json:"rank"`
-}
 
 type SearchService struct {
 	db *gorm.DB
@@ -22,42 +17,40 @@ func NewSearchService(db *gorm.DB) *SearchService {
 	return &SearchService{db: db}
 }
 
-func (s *SearchService) SearchCards(ctx context.Context, query string, limit, offset int) ([]SearchResult, int, error) {
-	if query == "" {
-		return nil, 0, errors.New("search query cannot be empty")
-	}
+type SearchHit struct {
+	UUID    string `json:"uuid"`
+	Title   string `json:"title"`
+	Excerpt string `json:"excerpt"`
+}
 
-	if limit < 1 {
+func (s *SearchService) SearchCards(ctx context.Context, query string, limit, offset int) ([]SearchHit, error) {
+	if query == "" {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
-	if limit > 100 {
-		limit = 100
-	}
-	if offset < 0 {
-		offset = 0
-	}
 
-	var total int64
-	err := s.db.WithContext(ctx).Raw(`SELECT count(*) FROM cards WHERE search_vector @@ plainto_tsquery('simple', ?)`, query).Scan(&total).Error
+	pattern := "%" + escapeLike(query) + "%"
+
+	var hits []SearchHit
+	err := s.db.WithContext(ctx).
+		Model(&models.Card{}).
+		Select("uuid, title, excerpt").
+		Where("deleted_at IS NULL AND (title ILIKE ? OR excerpt ILIKE ?)", pattern, pattern).
+		Order("updated_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&hits).Error
 	if err != nil {
-		return nil, 0, err
+		return nil, fmt.Errorf("failed to search: %w", err)
 	}
+	return hits, nil
+}
 
-	var results []SearchResult
-	err = s.db.WithContext(ctx).Raw(`
-		SELECT 
-			id, 
-			title, 
-			excerpt, 
-			ts_rank(search_vector, plainto_tsquery('simple', ?)) AS rank
-		FROM cards
-		WHERE search_vector @@ plainto_tsquery('simple', ?)
-		ORDER BY rank DESC
-		LIMIT ? OFFSET ?
-	`, query, query, limit, offset).Scan(&results).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return results, int(total), nil
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }

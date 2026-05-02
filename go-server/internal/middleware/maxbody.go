@@ -1,3 +1,8 @@
+// ────────────────────────────────────────────────────────────────
+// maxbody.go — Middleware for limiting request body size
+// maxbody.go — 限制请求体大小的中间件
+// ────────────────────────────────────────────────────────────────
+
 package middleware
 
 import (
@@ -6,8 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// MaxBodySize returns a middleware that limits request body size.
-// Requests exceeding the limit receive 413 Request Entity Too Large.
 func MaxBodySize(maxBytes int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Body != nil {

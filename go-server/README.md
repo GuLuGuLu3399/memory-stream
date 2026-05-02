@@ -1,6 +1,6 @@
 # 🐹 Go Server — Memory Stream API 后端
 
-> 提供 RESTful API + WebSocket 实时通信，管理知识卡片的 CRUD、图谱边关系、分类、热度等核心业务。
+> 提供 RESTful API + WebSocket 实时通信，管理知识卡片的 CRUD、图谱边关系、分类等核心业务。
 >
 > **路线图**：[CHECKLIST.md](../CHECKLIST.md) · **当前版本**：V3.4
 
@@ -13,7 +13,7 @@ go-server/
 │   ├── handlers/           # HTTP 处理器（Cards, Edges, Categories, Graph, Auth）
 │   ├── services/           # 业务逻辑层（事务管理、图遍历、热度计算）
 │   ├── middleware/         # CORS、Auth、日志中间件
-│   └── models/             # GORM 模型（Card, Edge, Category, CardMetrics）
+│   └── models/             # GORM 模型（Card, Edge, Category 等）
 ├── migration/              # 数据库迁移脚本
 ├── internalerrors/         # 统一错误定义
 └── internalpkg/logger/     # 结构化日志
@@ -92,7 +92,6 @@ go run cmd/api/main.go
 - **cards** — 知识卡片（title, raw_md, excerpt, ast_data）
 - **card_edges** — 有向边（source_id → target_id, relation_type）
 - **categories** — 分类（name, description）
-- **card_metrics** — 浏览量与热度（view_count, hot_score）
 - **card_layouts** — 图谱布局坐标（x, y）
 
 ## WebSocket 协议

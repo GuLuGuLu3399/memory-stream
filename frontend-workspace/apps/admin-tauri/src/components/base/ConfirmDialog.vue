@@ -1,166 +1,168 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from "vue";
-import { useConfirmDialog } from "../composables/useConfirmDialog";
+// 用途：确认对话框，支持确认/取消操作和危险警告样式
+import { onMounted, onUnmounted } from 'vue'
 
-const { dialogState, handleConfirm, handleCancel } = useConfirmDialog();
-const rootEl = ref<HTMLElement | null>(null);
-const previouslyFocused = ref<HTMLElement | null>(null);
+defineProps<{
+  title: string
+  message: string
+  confirmLabel?: string
+  destructive?: boolean
+}>()
 
-// 焦点管理：打开时聚焦，关闭时还原
-watch(() => dialogState.value.visible, async (visible) => {
-    if (visible) {
-        previouslyFocused.value = document.activeElement as HTMLElement;
-        await nextTick();
-        const confirmBtn = rootEl.value?.querySelector<HTMLButtonElement>('[data-action="confirm"]');
-        confirmBtn?.focus();
-    } else {
-        previouslyFocused.value?.focus();
-        previouslyFocused.value = null;
-    }
-});
+const emit = defineEmits<{
+  confirm: []
+  cancel: []
+}>()
 
-function onKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") handleCancel();
-    if (e.key === "Enter") handleConfirm();
-
-    // 焦点陷阱：Tab 循环在 dialog 内
-    if (e.key === "Tab") {
-        const focusable = rootEl.value?.querySelectorAll<HTMLElement>(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (!focusable || focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
-        }
-    }
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') emit('cancel')
 }
+
+onMounted(() => window.addEventListener('keydown', handleKeydown))
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 </script>
 
 <template>
-    <Teleport to="body">
-        <Transition name="ms-scale">
-            <div v-if="dialogState.visible" ref="rootEl" role="dialog" aria-modal="true" aria-labelledby="dialog-title"
-                aria-describedby="dialog-message" class="fixed inset-x-0 bottom-0 top-titlebar z-modal flex items-center justify-center"
-                @keydown="onKeydown" tabindex="-1">
-                <!-- Backdrop -->
-                <div class="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/80 backdrop-blur-md"
-                    aria-hidden="true" @click="handleCancel" />
-
-                <!-- Dialog Card -->
-                <div class="relative z-10 w-[360px] bg-ms-carbon border border-brass/40 rounded-sm dialog-card"
-                    style="box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.04), 4px 4px 0 0 rgba(0,0,0,0.6);">
-                    <!-- Brass Corner Accents -->
-                    <span class="corner-accent corner-tl" />
-                    <span class="corner-accent corner-tr" />
-                    <span class="corner-accent corner-bl" />
-                    <span class="corner-accent corner-br" />
-
-                    <div class="p-6">
-                        <!-- Title -->
-                        <h3 id="dialog-title" class="text-sm font-mono text-neon uppercase tracking-wider mb-3">
-                            {{ dialogState.title }}
-                        </h3>
-
-                        <!-- Message -->
-                        <p id="dialog-message" class="text-slate-300 text-sm leading-relaxed mb-6">
-                            {{ dialogState.message }}
-                        </p>
-
-                        <!-- Actions -->
-                        <div class="flex justify-end gap-2">
-                            <button @click="handleCancel"
-                                class="px-4 py-2 text-xs rounded-sm bg-ms-surface text-slate-500 hover:text-white hover:bg-ms-border transition-all border border-ms-border shadow-[1px_1px_0_0_rgba(0,0,0,0.4)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,0.4)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none">
-                                {{ dialogState.cancelText }}
-                            </button>
-                            <button data-action="confirm" @click="handleConfirm"
-                                class="px-4 py-2 text-xs rounded-sm font-medium transition-all border relative overflow-hidden shadow-[2px_2px_0_0_rgba(0,0,0,0.5)] hover:shadow-[3px_3px_0_0_rgba(0,0,0,0.5)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none" :class="dialogState.danger
-                                    ? 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30 danger-pulse'
-                                    : 'bg-neon/20 text-neon border-neon/30 hover:bg-neon/30'
-                                    ">
-                                {{ dialogState.confirmText }}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Transition>
-    </Teleport>
+  <Teleport to="body">
+    <div class="confirm-overlay" @click.self="emit('cancel')">
+      <div class="confirm-dialog">
+        <div class="confirm-header">
+          <svg v-if="destructive" class="confirm-hazard" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M10 3L18 17H2L10 3Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+            <line x1="10" y1="8.5" x2="10" y2="12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+            <circle cx="10" cy="14.5" r="0.7" fill="currentColor" />
+          </svg>
+          <h3 class="confirm-title">{{ title }}</h3>
+        </div>
+        <p class="confirm-message">{{ message }}</p>
+        <div class="confirm-actions">
+          <button class="confirm-btn cancel" @click="emit('cancel')">取消</button>
+          <button class="confirm-btn ok" :class="{ destructive }" @click="emit('confirm')">
+            {{ confirmLabel || '确认' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
-.dialog-card {
-    position: relative;
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: oklch(0 0 0 / 0.65);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
 }
 
-/* 黄铜角饰 */
-.corner-accent {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    border-color: theme('colors.brass.DEFAULT');
-    border-style: solid;
-    pointer-events: none;
+.confirm-dialog {
+  width: 380px;
+  padding: 28px;
+  background: var(--ms-panel);
+  border: 1px solid var(--ms-border-light);
+  border-radius: 2px;
+  box-shadow: var(--shadow-raised);
+  animation: dialog-lock 200ms var(--ease-snap);
 }
 
-.corner-tl {
-    top: -1px;
-    left: -1px;
-    border-width: 2px 0 0 2px;
-}
-
-.corner-tr {
-    top: -1px;
-    right: -1px;
-    border-width: 2px 2px 0 0;
-}
-
-.corner-bl {
-    bottom: -1px;
-    left: -1px;
-    border-width: 0 0 2px 2px;
-}
-
-.corner-br {
-    bottom: -1px;
-    right: -1px;
-    border-width: 0 2px 2px 0;
-}
-
-/* 危险模式红脉 — hard entity shadow */
-@keyframes dangerPulse {
-    0%, 100% {
-        box-shadow: 2px 2px 0 0 rgba(0,0,0,0.5), inset 0 1px 0 0 rgba(255,255,255,0.04);
-    }
-    50% {
-        box-shadow: 2px 2px 0 0 rgba(0,0,0,0.5), 0 0 8px 2px rgba(239, 68, 68, 0.3);
-    }
-}
-
-.danger-pulse {
-    animation: dangerPulse 2s ease-in-out infinite;
-}
-
-/* 过渡动画 */
-.ms-scale-enter-active,
-.ms-scale-leave-active {
-    transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.ms-scale-enter-from,
-.ms-scale-leave-to {
+@keyframes dialog-lock {
+  from {
     opacity: 0;
     transform: scale(0.95);
-}
-
-.ms-scale-enter-to,
-.ms-scale-leave-from {
+  }
+  to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+.confirm-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.confirm-hazard {
+  flex-shrink: 0;
+  color: var(--brass);
+}
+
+.confirm-title {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.confirm-message {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ms-smoke);
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirm-btn {
+  padding: 7px 18px;
+  border-radius: 2px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-snap);
+}
+
+.confirm-btn.cancel {
+  border: 1px solid var(--ms-border-light);
+  background: transparent;
+  color: var(--ms-smoke);
+}
+
+.confirm-btn.cancel:hover {
+  border-color: var(--ms-smoke);
+  color: var(--text-secondary);
+  background: var(--ms-surface);
+}
+
+.confirm-btn.ok {
+  border: 1px solid var(--neon);
+  background: color-mix(in oklch, var(--neon) 14%, transparent);
+  color: var(--neon);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.08);
+}
+
+.confirm-btn.ok:hover {
+  background: color-mix(in oklch, var(--neon) 22%, transparent);
+}
+
+.confirm-btn.ok.destructive {
+  border: 1px solid var(--brass);
+  background: var(--brass);
+  color: var(--ms-void);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.15),
+    inset 0 -1px 0 oklch(0 0 0 / 0.25),
+    0 2px 0 oklch(0.5 0.12 65);
+}
+
+.confirm-btn.ok.destructive:hover {
+  background: color-mix(in oklch, var(--brass) 85%, oklch(1 0 0));
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.2),
+    inset 0 -1px 0 oklch(0 0 0 / 0.2),
+    0 2px 0 oklch(0.5 0.12 65);
 }
 </style>

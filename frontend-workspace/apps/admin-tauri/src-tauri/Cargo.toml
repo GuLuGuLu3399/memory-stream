@@ -5,7 +5,12 @@ edition = "2021"
 name = "admin-tauri"
 version = "0.1.0"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 crate-type = ["staticlib", "cdylib", "rlib"]
 name = "admin_tauri_lib"
 
@@ -13,57 +18,19 @@ name = "admin_tauri_lib"
 tauri-build = {version = "2", features = [] }
 
 [dependencies]
-log = "0.4"
+gray_matter = {version = "0.3", features = ["yaml"] }
+ms-ast = {path = "../../../../rust-workspace/ms-ast", features = ["parser", "toc"] }
+ms-graph = {path = "../../../../rust-workspace/ms-graph"}
+ms-io = {path = "../../../../rust-workspace/ms-io", features = ["storage", "media"] }
+ms-meta = {path = "../../../../rust-workspace/ms-meta"}
+notify = "7"
+reqwest = {version = "0.12", features = ["json"] }
 serde = {version = "1", features = ["derive"] }
 serde_json = "1"
-urlencoding = "2"
-tauri = {version = "2", features = ["tray-icon"] }
-tauri-plugin-deep-link = "2"
+serde_yaml = "0.9"
+sha2 = "0.10"
+keyring = "2"
+tauri = {version = "2", features = [] }
 tauri-plugin-dialog = "2"
-tauri-plugin-global-shortcut = "2"
 tauri-plugin-opener = "2"
-tauri-plugin-process = "2"
-tauri-plugin-updater = "2"
-tauri-plugin-window-state = "2"
-tauri-plugin-store = "2"
-
-ast-renderer = {path = "../../../../rust-workspace/ast-renderer"}
-md-parser = {path = "../../../../rust-workspace/md-parser"}
-ms-kb-exporter = {path = "../../../../rust-workspace/ms-kb-exporter"}
-ms-local-draft = {path = "../../../../rust-workspace/ms-local-draft"}
-ms-storage = {path = "../../../../rust-workspace/ms-storage"}
-ms-toc-extractor = {path = "../../../../rust-workspace/ms-toc-extractor"}
-temple-core = {path = "../../../../rust-workspace/temple_core"}
-temple-cache = {path = "../../../../rust-workspace/temple_cache"}
-temple-graph = {path = "../../../../rust-workspace/temple_graph"}
-temple-search = {path = "../../../../rust-workspace/temple_search"}
-
-base64 = "0.22"
-dotenv = "0.15"
-ts-rs = "10"
-image = {version = "0.25", default-features = false, features = ["webp", "jpeg", "png"] }
-
-rusqlite = {version = "0.32", features = ["bundled"] }
-
-notify = "7"
-
-pulldown-cmark = "0.12"
-reqwest = {version = "0.12", features = ["json"] }
-tempfile = "3"
-
-futures-util = "0.3"
-tokio = {version = "1", features = ["sync", "rt-multi-thread", "macros"] }
-tokio-tungstenite = {version = "0.26", features = ["native-tls"] }
-keyring = "3"
-
-# Import parsing
-gray_matter = "0.3"
-zip = "8"
-encoding_rs = "0.8"
-
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = "z"
-panic = "abort"
-strip = true
+uuid = {version = "1", features = ["v4"] }

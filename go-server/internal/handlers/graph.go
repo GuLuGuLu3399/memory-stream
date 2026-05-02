@@ -1,7 +1,13 @@
+
+// ────────────────────────────────────────────────────────────────
+// graph.go — Graph management handlers
+// graph.go — 图管理处理器
+// ────────────────────────────────────────────────────────────────
+
+
 package handlers
 
 import (
-	"net/http"
 	"strconv"
 
 	appErr "github.com/GuLuGuLu3399/memory-stream-server/internal/errors"
@@ -9,68 +15,38 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GraphHandler handles graph query HTTP requests.
 type GraphHandler struct {
 	graphSvc *services.GraphService
-	cardSvc  *services.CardService
 }
 
-// NewGraphHandler creates a new GraphHandler instance.
-func NewGraphHandler(graphSvc *services.GraphService, cardSvc *services.CardService) *GraphHandler {
-	return &GraphHandler{graphSvc: graphSvc, cardSvc: cardSvc}
+func NewGraphHandler(graphSvc *services.GraphService) *GraphHandler {
+	return &GraphHandler{graphSvc: graphSvc}
 }
 
-// Outline returns the graph outline, optionally filtered by category.
-// GET /graph/outline
-func (h *GraphHandler) Outline(c *gin.Context) {
-	categoryIDStr := c.Query("category_id")
-
-	outline, err := h.graphSvc.GetOutline(c.Request.Context(), categoryIDStr)
-	if err != nil {
-		appErr.Respond(c, appErr.NewInternal(err))
-		return
-	}
-
-	c.JSON(http.StatusOK, outline)
-}
-
-// All returns the complete graph with all nodes and edges.
-// GET /graph
 func (h *GraphHandler) All(c *gin.Context) {
-	graph, err := h.graphSvc.GetAllGraph(c.Request.Context())
+	graph, err := h.graphSvc.GetFullGraph(c.Request.Context())
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}
 
-	c.JSON(http.StatusOK, graph)
+	appErr.RespondSuccess(c, graph)
 }
 
-// Detail returns the N-degree neighborhood graph around a specific card.
-// GET /graph/:id
-func (h *GraphHandler) Detail(c *gin.Context) {
-	cardID := c.Param("id")
-	depth, err := strconv.Atoi(c.DefaultQuery("depth", "2"))
-	if err != nil {
-		appErr.Respond(c, appErr.NewBadRequest("depth 必须是整数"))
+func (h *GraphHandler) Neighborhood(c *gin.Context) {
+	uuid := c.Param("uuid")
+	if uuid == "" {
+		appErr.Respond(c, appErr.NewBadRequest("uuid is required"))
 		return
 	}
 
-	if depth < 1 || depth > 5 {
-		depth = 2
-	}
+	depth, _ := strconv.Atoi(c.DefaultQuery("depth", "2"))
 
-	graph, err := h.graphSvc.GetGraph(c.Request.Context(), cardID, depth)
+	graph, err := h.graphSvc.GetNeighborhood(c.Request.Context(), uuid, depth)
 	if err != nil {
 		appErr.Respond(c, appErr.NewInternal(err))
 		return
 	}
 
-	err = h.cardSvc.IncrementView(c.Request.Context(), cardID)
-	if err != nil {
-		appErr.Respond(c, appErr.NewInternal(err))
-		return
-	}
-
-	c.JSON(http.StatusOK, graph)
+	appErr.RespondSuccess(c, graph)
 }

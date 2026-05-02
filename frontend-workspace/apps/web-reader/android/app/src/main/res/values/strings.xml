@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Memory Stream</string>
-    <string name="title_activity_main">Memory Stream</string>
-    <string name="package_name">com.memorystream.webreader</string>
-    <string name="custom_url_scheme">com.memorystream.webreader</string>
-</resources>

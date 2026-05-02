@@ -1,3 +1,4 @@
+// Package errors provides error types, response formatting, and recovery middleware for the API.
 package errors
 
 import (
@@ -39,4 +40,13 @@ func Respond(c *gin.Context, err error) {
 			"message": "服务器开小差了",
 		})
 	}
+}
+
+// RespondSuccess wraps data in the standard API envelope.
+func RespondSuccess(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
+		"message": "success",
+		"data":    data,
+	})
 }

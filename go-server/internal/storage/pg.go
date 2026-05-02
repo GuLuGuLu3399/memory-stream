@@ -31,6 +31,15 @@ func InitDB() (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(50)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
+	// Fast-fail when core tables are missing
+	var cardsTable string
+	if err := db.Raw("SELECT to_regclass('public.cards')").Scan(&cardsTable).Error; err != nil {
+		return nil, fmt.Errorf("failed to verify schema: %w", err)
+	}
+	if cardsTable == "" {
+		return nil, fmt.Errorf("database schema is missing (table public.cards not found). Run migrations: 000_reset.sql -> 001_schema.sql")
+	}
+
 	logger.Log.Info("database connected")
 	return db, nil
 }

@@ -4,13 +4,12 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    "composite": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "outDir": "dist",
-    "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["index.ts"]
+  "include": ["src/**/*.ts"]
 }

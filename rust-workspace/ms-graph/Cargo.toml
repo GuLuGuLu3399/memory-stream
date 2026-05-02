@@ -1,0 +1,17 @@
+[package]
+name = "ms-graph"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["native"]
+native = ["graph", "io-conversions", "ms-io/native"]
+graph = ["dep:petgraph"]
+io-conversions = ["dep:ms-io"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ms-io = { path = "../ms-io", default-features = false, optional = true }
+petgraph = { version = "0.7", optional = true }

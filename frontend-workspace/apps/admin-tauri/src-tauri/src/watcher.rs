@@ -1,171 +1,138 @@
-/**
- * 🌟 文件系统监听器 — Markdown 变更自动同步
- *
- * 监听本地 Markdown 文件目录，一旦文件变动：
- * 1. 解析元数据（frontmatter）
- * 2. 通过 HTTP 推送至 Go 服务端
- * 3. 触发 LayoutManager 的增量位置计算
- */
-use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use serde::Serialize;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::mpsc::{channel, Receiver};
-use std::time::Duration;
-use ts_rs::TS;
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use tauri::{Emitter, Manager};
 
-/// 文件变更事件（传递给前端）
-#[derive(Debug, Serialize, Clone, TS)]
-#[ts(export_to = ".")]
-pub struct FileChangeEvent {
-    pub path: String,
-    pub kind: String,
-    pub timestamp: String,
-}
+use crate::db;
+use crate::events::FileChangeEvent;
+use crate::state::AppState;
 
-/// Markdown 文件监听器
-pub struct MarkdownWatcher {
-    watcher: RecommendedWatcher,
-    rx: Receiver<Result<Event, notify::Error>>,
-    watch_dir: PathBuf,
-}
+const DEBOUNCE_MS: u64 = 200;
+const STALE_THRESHOLD_SECS: u64 = 10;
+const SWEEP_INTERVAL: u32 = 100;
 
-impl MarkdownWatcher {
-    /// 创建新的监听器
-    pub fn new(watch_dir: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let (tx, rx) = channel();
-
-        let watcher = RecommendedWatcher::new(
-            move |res: Result<Event, notify::Error>| {
-                let _ = tx.send(res);
-            },
-            Config::default().with_poll_interval(Duration::from_secs(2)),
-        )?;
-
-        let dir = PathBuf::from(watch_dir);
-        if !dir.exists() {
-            std::fs::create_dir_all(&dir)?;
+pub fn start_vault_watcher(app: &tauri::AppHandle) -> Option<RecommendedWatcher> {
+    let state = app.state::<AppState>();
+    let vault_path = {
+        let cfg = state.config.lock().map_err(|e| {
+            eprintln!("[watcher] config lock failed: {e}");
+            e
+        }).ok()?;
+        if cfg.vault_path.is_empty() {
+            return None;
         }
+        std::path::PathBuf::from(&cfg.vault_path)
+    };
 
-        Ok(Self {
-            watcher,
-            rx,
-            watch_dir: dir,
-        })
-    }
+    let app_handle = app.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
 
-    /// 启动监听
-    pub fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.watcher
-            .watch(&self.watch_dir, RecursiveMode::Recursive)?;
-        Ok(())
-    }
+    let mut watcher = RecommendedWatcher::new(
+        move |res: Result<Event, notify::Error>| {
+            if let Ok(event) = res {
+                if tx.send(event).is_err() {
+                    eprintln!("[watcher] channel send failed — receiver dropped");
+                }
+            }
+        },
+        notify::Config::default(),
+    )
+    .map_err(|e| { eprintln!("[watcher] watcher creation failed: {e}"); e }).ok()?;
 
-    /// 停止监听
-    #[allow(dead_code)]
-    pub fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.watcher.unwatch(&self.watch_dir)?;
-        Ok(())
-    }
+    watcher.watch(&vault_path, RecursiveMode::Recursive).map_err(|e| { eprintln!("[watcher] watch registration failed for {}: {e}", vault_path.display()); e }).ok()?;
 
-    /// 非阻塞轮询变更事件（同路径去重：同一次 poll 中相同路径只保留最后一个事件）
-    pub fn poll_changes(&self) -> Vec<FileChangeEvent> {
-        let mut dedup: HashMap<String, FileChangeEvent> = HashMap::new();
+    std::thread::spawn(move || {
+        let mut debounce_map: std::collections::HashMap<String, std::time::Instant> =
+            std::collections::HashMap::new();
+        let mut total_received: u32 = 0;
+        let mut total_emitted: u32 = 0;
+        let mut total_debounced: u32 = 0;
 
-        while let Ok(result) = self.rx.try_recv() {
-            match result {
-                Ok(event) => {
-                    // 只处理 Markdown 文件的创建/修改/删除
-                    if !Self::is_markdown_event(&event) {
+        while let Ok(event) = rx.recv() {
+            total_received += 1;
+
+            let kind = match event.kind {
+                EventKind::Create(_) => "create",
+                EventKind::Modify(_) => "modify",
+                EventKind::Remove(_) => "delete",
+                _ => continue,
+            };
+
+            for path in event.paths {
+                // Only emit for .md files
+                if path.extension().is_none_or(|ext| ext != "md") {
+                    continue;
+                }
+
+                let path_str = path.to_string_lossy().to_string();
+                let now = std::time::Instant::now();
+
+                // Debounce: skip if same path fired within threshold
+                if let Some(last) = debounce_map.get(&path_str) {
+                    if now.duration_since(*last).as_millis() < DEBOUNCE_MS as u128 {
+                        total_debounced += 1;
                         continue;
                     }
+                }
+                debounce_map.insert(path_str.clone(), now);
+                total_emitted += 1;
 
-                    let kind = match event.kind {
-                        EventKind::Create(_) => "created",
-                        EventKind::Modify(_) => "modified",
-                        EventKind::Remove(_) => "removed",
-                        _ => continue,
-                    };
+                // On file removal, immediately clean DB records — only emit on success
+                if kind == "delete" {
+                    let state = app_handle.state::<AppState>();
+                    if let Err(e) = db::with_db(&state, |db| db.delete_card_by_path(&path_str)) {
+                        eprintln!("[watcher] delete_card_by_path failed for {}: {e}", path_str);
+                        continue; // skip emit on DB failure
+                    }
+                }
 
-                    for path in &event.paths {
-                        if Self::is_markdown_file(path) {
-                            let key = path.to_string_lossy().to_string();
-                            dedup.insert(
-                                key,
-                                FileChangeEvent {
-                                    path: path.to_string_lossy().to_string(),
-                                    kind: kind.to_string(),
-                                    timestamp: chrono_now(),
-                                },
-                            );
+                // On file modification, recompute hash and mark dirty for sync
+                if kind == "modify" && path.exists() {
+                    let state = app_handle.state::<AppState>();
+                    if let Ok(Some(card)) = db::with_db(&state, |db| db.get_by_path(&path_str)) {
+                        let file_ok = std::fs::metadata(&path)
+                            .map(|m| m.len() <= 10 * 1024 * 1024)
+                            .unwrap_or(false);
+                        if file_ok {
+                            if let Ok(content) = std::fs::read_to_string(&path) {
+                                let hash = db::compute_hash(&content);
+                                if let Err(e) = db::with_db(&state, |db| db.mark_dirty(&card.uuid, &hash)) {
+                                    eprintln!("[watcher] mark_dirty failed for {}: {e}", card.uuid);
+                                }
+                            }
                         }
                     }
                 }
-                Err(e) => {
-                    eprintln!("⚠️ 文件监听错误: {:?}", e);
+
+                if let Err(e) = app_handle.emit(
+                    "fs:change",
+                    FileChangeEvent {
+                        path: path_str,
+                        kind: kind.to_string(),
+                    },
+                ) {
+                    eprintln!("[watcher] emit failed: {e}");
+                }
+            }
+
+            // Periodic sweep: remove stale entries to bound memory
+            if total_received.is_multiple_of(SWEEP_INTERVAL) && debounce_map.len() > 200 {
+                let cutoff = now_ref() - std::time::Duration::from_secs(STALE_THRESHOLD_SECS);
+                debounce_map.retain(|_, instant| *instant > cutoff);
+
+                if total_received.is_multiple_of(1000) {
+                    eprintln!(
+                        "[watcher] stats — received: {total_received}, emitted: {total_emitted}, debounced: {total_debounced}, cache: {}",
+                        debounce_map.len()
+                    );
                 }
             }
         }
+    });
 
-        dedup.into_values().collect()
-    }
-
-    /// 检查事件是否涉及 Markdown 文件
-    fn is_markdown_event(event: &Event) -> bool {
-        event.paths.iter().any(Self::is_markdown_file)
-    }
-
-    /// 检查路径是否为 Markdown 文件
-    #[allow(clippy::ptr_arg)]
-    fn is_markdown_file(path: &PathBuf) -> bool {
-        path.extension()
-            .map(|ext| ext == "md" || ext == "markdown")
-            .unwrap_or(false)
-    }
-
-    /// 获取监听目录
-    #[allow(dead_code)]
-    pub fn watch_dir(&self) -> &PathBuf {
-        &self.watch_dir
-    }
+    Some(watcher)
 }
 
-/// 简易时间戳（避免引入 chrono 依赖）
-fn chrono_now() -> String {
-    let now = std::time::SystemTime::now();
-    let duration = now
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    format!("{}.{:03}", duration.as_secs(), duration.subsec_millis())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-
-    #[test]
-    fn test_is_markdown_file() {
-        assert!(MarkdownWatcher::is_markdown_file(&PathBuf::from("test.md")));
-        assert!(MarkdownWatcher::is_markdown_file(&PathBuf::from(
-            "notes/readme.markdown"
-        )));
-        assert!(!MarkdownWatcher::is_markdown_file(&PathBuf::from(
-            "test.txt"
-        )));
-        assert!(!MarkdownWatcher::is_markdown_file(&PathBuf::from(
-            "image.png"
-        )));
-    }
-
-    #[test]
-    fn test_watcher_creation() {
-        let tmp_dir = std::env::temp_dir().join("memory-stream-test-watcher");
-        let _ = fs::create_dir_all(&tmp_dir);
-
-        let result = MarkdownWatcher::new(tmp_dir.to_str().unwrap());
-        assert!(result.is_ok());
-
-        let _ = fs::remove_dir_all(&tmp_dir);
-    }
+/// Helper to get a reference `Instant` for comparison in retain.
+/// `Instant` has no `now() -> &Self`, so we use a subtraction trick.
+fn now_ref() -> std::time::Instant {
+    std::time::Instant::now()
 }
